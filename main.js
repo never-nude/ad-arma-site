@@ -645,6 +645,8 @@
 
   // --- DOM
   const elCanvas = document.getElementById('c');
+  const elBoardStage = document.getElementById('boardStage');
+  const elCanvasWrap = document.getElementById('canvasWrap');
   const ctx = elCanvas.getContext('2d');
 
   const elHudTitle = document.getElementById('hudTitle');
@@ -3754,8 +3756,11 @@ SCENARIOS['History A — Thermopylae Hot Gates (480 BCE)'] = {
   function resize() {
     syncLayoutChromeHeights();
     // Canvas must size to board stage only (not the wrap that also contains dice dock).
-    const stage = elBoardStage || document.getElementById('boardStage') || document.getElementById('canvasWrap');
+    const stage = elBoardStage || elCanvasWrap || document.getElementById('canvasWrap');
+    if (!stage) return;
     const rect = stage.getBoundingClientRect();
+    if (!rect || !Number.isFinite(rect.width) || !Number.isFinite(rect.height)) return;
+    if (rect.width <= 0 || rect.height <= 0) return;
     elCanvas.width = Math.floor(rect.width * devicePixelRatio);
     elCanvas.height = Math.floor(rect.height * devicePixelRatio);
     elCanvas.style.width = `${Math.floor(rect.width)}px`;
