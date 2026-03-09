@@ -10981,20 +10981,66 @@ function unitColors(side) {
     return out;
   }
 
+  const REQUESTED_CLASSICAL_FORMATIONS = [
+    { id: 'phalanx', label: 'Phalanx', weight: 1.0 },
+    { id: 'triplex_acies', label: 'Roman Triple Acies', weight: 1.0 },
+    { id: 'wedge', label: 'Wedge', weight: 0.9 },
+    { id: 'hollow_square', label: 'Hollow Square', weight: 0.75 },
+    { id: 'crescent', label: 'Crescent', weight: 0.95 },
+    { id: 'convex_refused', label: 'Convex Line (Refused Center)', weight: 0.85 },
+    { id: 'oblique_order', label: 'Oblique Order', weight: 1.0 },
+    { id: 'checkerboard', label: 'Checkerboard', weight: 0.8 },
+    { id: 'testudo', label: 'Testudo', weight: 0.75 },
+    { id: 'encirclement_ring', label: 'Encirclement Ring', weight: 0.9 },
+    // Requested "11th formation":
+    { id: 'classical_arms', label: 'Classical Arms Line', weight: 1.2 },
+  ];
+
+  function weightedChoice(pool) {
+    const list = Array.isArray(pool) ? pool.filter(Boolean) : [];
+    if (!list.length) return null;
+    let total = 0;
+    for (const item of list) total += Math.max(0, Number(item.weight || 0));
+    if (total <= 0) return list[randInt(0, list.length - 1)];
+    let roll = Math.random() * total;
+    for (const item of list) {
+      roll -= Math.max(0, Number(item.weight || 0));
+      if (roll <= 0) return item;
+    }
+    return list[list.length - 1];
+  }
+
   function formationArchetypeForSide(side, totalNeeded, advantageSide) {
-    const roll = Math.random();
     const push = Math.random() < 0.5 ? 'left' : 'right';
 
-    if (advantageSide === side) {
-      if (roll < 0.34) return { id: 'envelopment', label: 'envelopment', push };
-      if (roll < 0.66) return { id: 'oblique', label: 'oblique order', push };
-      return { id: 'triplex', label: 'triplex line', push };
+    // Enforce requested usage rate: these formations drive at least ~70% of random starts.
+    // We use them as the primary pool and allow small weighted bias by side advantage.
+    const pool = REQUESTED_CLASSICAL_FORMATIONS.map((f) => ({ ...f }));
+
+    // Size-based soft penalties for formations that need more frontage/depth.
+    if (totalNeeded < 24) {
+      for (const f of pool) {
+        if (f.id === 'hollow_square' || f.id === 'encirclement_ring') f.weight *= 0.72;
+      }
     }
 
-    if (roll < 0.42) return { id: 'line', label: 'line battle', push };
-    if (roll < 0.74) return { id: 'triplex', label: 'triplex line', push };
-    if (roll < 0.90 && totalNeeded >= 25) return { id: 'hollow', label: 'hollow center', push };
-    return { id: 'oblique', label: 'oblique order', push };
+    // Advantage side leans to aggressive patterns; the pressured side leans to conservative layouts.
+    if (advantageSide === side) {
+      for (const f of pool) {
+        if (f.id === 'wedge' || f.id === 'oblique_order' || f.id === 'encirclement_ring' || f.id === 'crescent') {
+          f.weight *= 1.25;
+        }
+      }
+    } else if (advantageSide !== 'none') {
+      for (const f of pool) {
+        if (f.id === 'phalanx' || f.id === 'testudo' || f.id === 'hollow_square' || f.id === 'classical_arms') {
+          f.weight *= 1.18;
+        }
+      }
+    }
+
+    const pick = weightedChoice(pool) || { id: 'classical_arms', label: 'Classical Arms Line' };
+    return { id: pick.id, label: pick.label, push };
   }
 
   function forceTypeMix(totalNeeded, archetype) {
@@ -11007,8 +11053,12 @@ function unitColors(side) {
       skr: totalNeeded >= 27 ? 4 : 3,
     };
 
-    if (archetype.id === 'envelopment' && totalNeeded >= 27) mix.cav += 1;
-    if (archetype.id === 'hollow' && totalNeeded >= 26) mix.skr += 1;
+    if ((archetype.id === 'encirclement_ring' || archetype.id === 'wedge') && totalNeeded >= 27) mix.cav += 1;
+    if ((archetype.id === 'hollow_square' || archetype.id === 'checkerboard') && totalNeeded >= 26) mix.skr += 1;
+    if (archetype.id === 'testudo' && totalNeeded >= 24) {
+      mix.cav = Math.max(4, mix.cav - 1);
+      mix.inf += 1;
+    }
 
     let support = mix.gen + mix.run + mix.iat + mix.cav + mix.arc + mix.skr;
     mix.inf = totalNeeded - support;
@@ -11040,7 +11090,7 @@ function unitColors(side) {
       return { depth: dFront, center: cavCenter, span: 0.44, preferFlank: true };
     }
     if (type === 'skr') return { depth: Math.min(depthNorm - 0.004, dFront + 0.03), center: 0.5, span: 0.72 };
-    if (type === 'arc') return { depth: Math.max(0.03, dSecond - 0.04), center: 0.5, span: 0.46, preferCenter: true };
+    if (type === 'arc') return { depth: Math.max(0.03, dReserve - 0.08), center: 0.5, span: 0.48, preferCenter: true };
     if (type === 'gen') return { depth: dRear, center: 0.5, span: 0.24, preferCenter: true };
     if (type === 'run') return { depth: Math.max(dRear, dReserve - 0.03), center: 0.5, span: 0.20, preferCenter: true };
     if (type === 'iat') return { depth: Math.max(dRear, dReserve - 0.02), center: 0.5, span: 0.20, preferCenter: true };
@@ -11080,40 +11130,79 @@ function unitColors(side) {
       return placed;
     }
 
-    if (archetype.id === 'hollow') {
-      const [leftWing, rightWing, thinCenter, secondRank, reserve] = splitByRatios(
-        mix.inf,
-        [0.24, 0.24, 0.08, 0.28, 0.16]
-      );
-      placeType('inf', leftWing, { depth: dFront + 0.008, center: 0.32, span: 0.22, depthWindow: 0.06, lateralWindow: 0.18 });
-      placeType('inf', rightWing, { depth: dFront + 0.008, center: 0.68, span: 0.22, depthWindow: 0.06, lateralWindow: 0.18 });
-      placeType('inf', thinCenter, { depth: dFront - 0.014, center: 0.5, span: 0.10, depthWindow: 0.06, lateralWindow: 0.10, preferCenter: true });
-      placeType('inf', secondRank, { depth: dSecond, center: 0.5, span: 0.50, depthWindow: 0.08, lateralWindow: 0.30, preferCenter: true });
+    if (archetype.id === 'phalanx') {
+      const [frontRank, secondRank, reserve] = splitByRatios(mix.inf, [0.62, 0.26, 0.12]);
+      placeType('inf', frontRank, { depth: dFront + 0.008, center: 0.5, span: 0.58, depthWindow: 0.07, lateralWindow: 0.34, preferCenter: true });
+      placeType('inf', secondRank, { depth: dSecond + 0.004, center: 0.5, span: 0.50, depthWindow: 0.08, lateralWindow: 0.30, preferCenter: true });
+      placeType('inf', reserve, { depth: dReserve, center: 0.5, span: 0.34, depthWindow: 0.08, lateralWindow: 0.22, preferCenter: true });
+    } else if (archetype.id === 'triplex_acies') {
+      const [frontRank, secondRank, reserve] = splitByRatios(mix.inf, [0.49, 0.33, 0.18]);
+      placeType('inf', frontRank, { depth: dFront, center: 0.5, span: 0.60, depthWindow: 0.08, lateralWindow: 0.34, preferCenter: true });
+      placeType('inf', secondRank, { depth: dSecond, center: 0.5, span: 0.52, depthWindow: 0.08, lateralWindow: 0.30, preferCenter: true });
+      placeType('inf', reserve, { depth: dReserve, center: 0.5, span: 0.38, depthWindow: 0.08, lateralWindow: 0.24, preferCenter: true });
+    } else if (archetype.id === 'wedge') {
+      const wedgeCenter = (archetype.push === 'left') ? 0.44 : 0.56;
+      const [tip, leftBody, rightBody, secondRank, reserve] = splitByRatios(mix.inf, [0.10, 0.24, 0.24, 0.24, 0.18]);
+      placeType('inf', tip, { depth: dFront + 0.018, center: wedgeCenter, span: 0.08, depthWindow: 0.06, lateralWindow: 0.08, preferCenter: true });
+      placeType('inf', leftBody, { depth: dFront + 0.008, center: wedgeCenter - 0.14, span: 0.22, depthWindow: 0.08, lateralWindow: 0.22 });
+      placeType('inf', rightBody, { depth: dFront + 0.008, center: wedgeCenter + 0.14, span: 0.22, depthWindow: 0.08, lateralWindow: 0.22 });
+      placeType('inf', secondRank, { depth: dSecond, center: wedgeCenter, span: 0.40, depthWindow: 0.08, lateralWindow: 0.26, preferCenter: true });
+      placeType('inf', reserve, { depth: dReserve, center: 0.5, span: 0.32, depthWindow: 0.08, lateralWindow: 0.22, preferCenter: true });
+    } else if (archetype.id === 'hollow_square') {
+      const [leftWall, rightWall, rearWall, frontThin, reserve] = splitByRatios(mix.inf, [0.22, 0.22, 0.22, 0.12, 0.22]);
+      placeType('inf', leftWall, { depth: dSecond, center: 0.35, span: 0.14, depthWindow: 0.10, lateralWindow: 0.14 });
+      placeType('inf', rightWall, { depth: dSecond, center: 0.65, span: 0.14, depthWindow: 0.10, lateralWindow: 0.14 });
+      placeType('inf', rearWall, { depth: dReserve, center: 0.5, span: 0.48, depthWindow: 0.08, lateralWindow: 0.28, preferCenter: true });
+      placeType('inf', frontThin, { depth: dFront - 0.01, center: 0.5, span: 0.18, depthWindow: 0.06, lateralWindow: 0.12, preferCenter: true });
+      placeType('inf', reserve, { depth: dSecond - 0.01, center: 0.5, span: 0.22, depthWindow: 0.08, lateralWindow: 0.14, preferCenter: true });
+    } else if (archetype.id === 'crescent') {
+      const [wingLeft, wingRight, centerHold, reserve] = splitByRatios(mix.inf, [0.30, 0.30, 0.22, 0.18]);
+      placeType('inf', wingLeft, { depth: dFront + 0.014, center: 0.30, span: 0.24, depthWindow: 0.08, lateralWindow: 0.22 });
+      placeType('inf', wingRight, { depth: dFront + 0.014, center: 0.70, span: 0.24, depthWindow: 0.08, lateralWindow: 0.22 });
+      placeType('inf', centerHold, { depth: dSecond + 0.01, center: 0.5, span: 0.22, depthWindow: 0.08, lateralWindow: 0.18, preferCenter: true });
       placeType('inf', reserve, { depth: dReserve, center: 0.5, span: 0.34, depthWindow: 0.08, lateralWindow: 0.24, preferCenter: true });
-    } else if (archetype.id === 'oblique') {
+    } else if (archetype.id === 'convex_refused') {
+      const [centerSpear, leftSupport, rightSupport, reserve] = splitByRatios(mix.inf, [0.40, 0.20, 0.20, 0.20]);
+      placeType('inf', centerSpear, { depth: dFront + 0.014, center: 0.5, span: 0.32, depthWindow: 0.08, lateralWindow: 0.24, preferCenter: true });
+      placeType('inf', leftSupport, { depth: dSecond + 0.006, center: 0.34, span: 0.20, depthWindow: 0.08, lateralWindow: 0.18 });
+      placeType('inf', rightSupport, { depth: dSecond + 0.006, center: 0.66, span: 0.20, depthWindow: 0.08, lateralWindow: 0.18 });
+      placeType('inf', reserve, { depth: dReserve, center: 0.5, span: 0.30, depthWindow: 0.08, lateralWindow: 0.22, preferCenter: true });
+    } else if (archetype.id === 'oblique_order') {
       const pushCenter = (archetype.push === 'left') ? 0.40 : 0.60;
       const refusedCenter = (archetype.push === 'left') ? 0.68 : 0.32;
       const [frontRank, secondRank, reserve] = splitByRatios(mix.inf, [0.54, 0.30, 0.16]);
       placeType('inf', frontRank, { depth: dFront + 0.014, center: pushCenter, span: 0.56, depthWindow: 0.08, lateralWindow: 0.32, preferCenter: true });
       placeType('inf', secondRank, { depth: dSecond, center: 0.5, span: 0.46, depthWindow: 0.08, lateralWindow: 0.30, preferCenter: true });
       placeType('inf', reserve, { depth: dReserve, center: refusedCenter, span: 0.28, depthWindow: 0.08, lateralWindow: 0.22 });
-    } else if (archetype.id === 'envelopment') {
-      const [wingLeft, wingRight, centerHold, reserve] = splitByRatios(mix.inf, [0.28, 0.28, 0.24, 0.20]);
-      placeType('inf', wingLeft, { depth: dFront + 0.015, center: 0.32, span: 0.26, depthWindow: 0.08, lateralWindow: 0.24 });
-      placeType('inf', wingRight, { depth: dFront + 0.015, center: 0.68, span: 0.26, depthWindow: 0.08, lateralWindow: 0.24 });
-      placeType('inf', centerHold, { depth: dFront - 0.018, center: 0.5, span: 0.24, depthWindow: 0.08, lateralWindow: 0.18, preferCenter: true });
-      placeType('inf', reserve, { depth: dReserve, center: 0.5, span: 0.38, depthWindow: 0.08, lateralWindow: 0.24, preferCenter: true });
+    } else if (archetype.id === 'checkerboard') {
+      const frontCenter = (archetype.push === 'left') ? 0.46 : 0.54;
+      const secondCenter = (archetype.push === 'left') ? 0.54 : 0.46;
+      const [frontBlocks, secondBlocks, reserve] = splitByRatios(mix.inf, [0.42, 0.38, 0.20]);
+      placeType('inf', frontBlocks, { depth: dFront, center: frontCenter, span: 0.48, depthWindow: 0.10, lateralWindow: 0.30, preferCenter: true });
+      placeType('inf', secondBlocks, { depth: dSecond + 0.004, center: secondCenter, span: 0.54, depthWindow: 0.10, lateralWindow: 0.32, preferCenter: true });
+      placeType('inf', reserve, { depth: dReserve, center: 0.5, span: 0.34, depthWindow: 0.08, lateralWindow: 0.22, preferCenter: true });
+    } else if (archetype.id === 'testudo') {
+      const [frontCore, midCore, rearCore] = splitByRatios(mix.inf, [0.46, 0.34, 0.20]);
+      placeType('inf', frontCore, { depth: dFront - 0.006, center: 0.5, span: 0.34, depthWindow: 0.06, lateralWindow: 0.22, preferCenter: true });
+      placeType('inf', midCore, { depth: dSecond, center: 0.5, span: 0.28, depthWindow: 0.06, lateralWindow: 0.18, preferCenter: true });
+      placeType('inf', rearCore, { depth: dReserve, center: 0.5, span: 0.24, depthWindow: 0.06, lateralWindow: 0.16, preferCenter: true });
+    } else if (archetype.id === 'encirclement_ring') {
+      const [wingLeft, wingRight, centerFix, reserve] = splitByRatios(mix.inf, [0.30, 0.30, 0.16, 0.24]);
+      placeType('inf', wingLeft, { depth: dFront + 0.016, center: 0.30, span: 0.26, depthWindow: 0.08, lateralWindow: 0.24 });
+      placeType('inf', wingRight, { depth: dFront + 0.016, center: 0.70, span: 0.26, depthWindow: 0.08, lateralWindow: 0.24 });
+      placeType('inf', centerFix, { depth: dSecond + 0.014, center: 0.5, span: 0.20, depthWindow: 0.08, lateralWindow: 0.16, preferCenter: true });
+      placeType('inf', reserve, { depth: dReserve, center: 0.5, span: 0.34, depthWindow: 0.08, lateralWindow: 0.24, preferCenter: true });
     } else {
-      const ratios = (archetype.id === 'triplex') ? [0.49, 0.33, 0.18] : [0.58, 0.30, 0.12];
-      const [frontRank, secondRank, reserve] = splitByRatios(mix.inf, ratios);
-      placeType('inf', frontRank, { depth: dFront, center: 0.5, span: 0.62, depthWindow: 0.08, lateralWindow: 0.34, preferCenter: true });
-      placeType('inf', secondRank, { depth: dSecond, center: 0.5, span: 0.52, depthWindow: 0.08, lateralWindow: 0.30, preferCenter: true });
+      // 11th requested formation: classical arms line.
+      const [frontRank, secondRank, reserve] = splitByRatios(mix.inf, [0.52, 0.32, 0.16]);
+      placeType('inf', frontRank, { depth: dFront, center: 0.5, span: 0.60, depthWindow: 0.08, lateralWindow: 0.34, preferCenter: true });
+      placeType('inf', secondRank, { depth: dSecond, center: 0.5, span: 0.50, depthWindow: 0.08, lateralWindow: 0.30, preferCenter: true });
       placeType('inf', reserve, { depth: dReserve, center: 0.5, span: 0.36, depthWindow: 0.08, lateralWindow: 0.24, preferCenter: true });
     }
 
     let cavLeft = Math.floor(mix.cav / 2);
     let cavRight = mix.cav - cavLeft;
-    if ((archetype.id === 'oblique' || archetype.id === 'envelopment') && mix.cav >= 5) {
+    if ((archetype.id === 'oblique_order' || archetype.id === 'encirclement_ring' || archetype.id === 'wedge') && mix.cav >= 5) {
       if (archetype.push === 'left') {
         cavLeft += 1;
         cavRight = Math.max(0, cavRight - 1);
@@ -11125,8 +11214,13 @@ function unitColors(side) {
     placeType('cav', cavLeft, { depth: dFront + 0.01, center: 0.17, span: 0.16, depthWindow: 0.09, lateralWindow: 0.16, preferFlank: true });
     placeType('cav', cavRight, { depth: dFront + 0.01, center: 0.83, span: 0.16, depthWindow: 0.09, lateralWindow: 0.16, preferFlank: true });
 
-    placeType('skr', mix.skr, { depth: dScreen, center: 0.5, span: 0.72, depthWindow: 0.08, lateralWindow: 0.42 });
-    placeType('arc', mix.arc, { depth: Math.max(0.03, dSecond - 0.04), center: 0.5, span: 0.46, depthWindow: 0.08, lateralWindow: 0.28, preferCenter: true });
+    const skirmDepth = (archetype.id === 'testudo') ? dFront : dScreen;
+    let archerDepth = Math.max(dRear + 0.01, dReserve - 0.01);
+    if (archetype.id === 'crescent' || archetype.id === 'encirclement_ring') {
+      archerDepth = Math.max(dRear + 0.01, dReserve - 0.02);
+    }
+    placeType('skr', mix.skr, { depth: skirmDepth, center: 0.5, span: 0.72, depthWindow: 0.08, lateralWindow: 0.42 });
+    placeType('arc', mix.arc, { depth: archerDepth, center: 0.5, span: 0.46, depthWindow: 0.08, lateralWindow: 0.28, preferCenter: true });
 
     const generalCenters = (mix.gen >= 3) ? [0.32, 0.50, 0.68] : [0.44, 0.56];
     for (let i = 0; i < mix.gen; i++) {
