@@ -3753,9 +3753,9 @@ SCENARIOS['History A — Thermopylae Hot Gates (480 BCE)'] = {
 
   function resize() {
     syncLayoutChromeHeights();
-    // Canvas fills left pane.
-    const wrap = document.getElementById('canvasWrap');
-    const rect = wrap.getBoundingClientRect();
+    // Canvas must size to board stage only (not the wrap that also contains dice dock).
+    const stage = elBoardStage || document.getElementById('boardStage') || document.getElementById('canvasWrap');
+    const rect = stage.getBoundingClientRect();
     elCanvas.width = Math.floor(rect.width * devicePixelRatio);
     elCanvas.height = Math.floor(rect.height * devicePixelRatio);
     elCanvas.style.width = `${Math.floor(rect.width)}px`;
@@ -3768,7 +3768,7 @@ SCENARIOS['History A — Thermopylae Hot Gates (480 BCE)'] = {
     const availW = rect.width;
     const availH = rect.height;
     const smallViewport = window.matchMedia('(max-width: 980px)').matches;
-    const boardPad = smallViewport ? 10 : 12;
+    const boardPad = smallViewport ? 8 : 10;
     const fitW = Math.max(1, availW - (boardPad * 2));
     const fitH = Math.max(1, availH - (boardPad * 2));
 
@@ -3778,7 +3778,7 @@ SCENARIOS['History A — Thermopylae Hot Gates (480 BCE)'] = {
     const rByW = fitW / (Math.sqrt(3) * (cols + 0.5));
     const rByH = fitH / (((rows - 1) * 1.5) + 2);
     const minRadius = smallViewport ? 6 : 18;
-    const maxRadius = smallViewport ? 34 : 42;
+    const maxRadius = smallViewport ? 36 : 52;
     R = Math.max(minRadius, Math.min(maxRadius, Math.floor(Math.min(rByW, rByH))));
 
     HEX_W = Math.sqrt(3) * R;
@@ -3789,7 +3789,8 @@ SCENARIOS['History A — Thermopylae Hot Gates (480 BCE)'] = {
     const boardH = R * (((rows - 1) * 1.5) + 2);
 
     ORIGIN_X = boardPad + ((fitW - boardW) / 2) + HEX_W / 2;
-    ORIGIN_Y = boardPad + ((fitH - boardH) / 2) + R;
+    // Slight downward bias so the board sits more naturally under the title line.
+    ORIGIN_Y = boardPad + ((fitH - boardH) / 2) + R + (smallViewport ? 2 : 4);
 
     for (const h of board.active) {
       const x = ORIGIN_X + (h.q - board.minQ) * HEX_W + ((h.r & 1) ? (HEX_W / 2) : 0);
