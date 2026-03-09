@@ -5181,6 +5181,12 @@ function unitColors(side) {
         parts.push(`${typeLabel} movement: impassable.`);
       } else {
         parts.push(`${typeLabel} movement: cost ${moveCost}/${mp} MP.`);
+        if (selectedUnit.type === 'inf' && terrainId === 'woods') {
+          parts.push('INF woods rule: entering this hex applies a movement pause on next own activation.');
+        }
+        if (selectedUnit.type === 'cav' && terrainId === 'woods') {
+          parts.push('CAV woods rule: cavalry may enter and move through woods (slower pace).');
+        }
       }
 
       if (state._moveTargets && state._moveTargets.has(hexKey)) {
@@ -7903,9 +7909,37 @@ function unitColors(side) {
   function terrainMoveCost(unitType, terrainId) {
     if (terrainId === 'water' || terrainId === 'mountains') return Infinity;
     if (terrainId === 'clear') return 1;
+    if (terrainId === 'woods') {
+      // Requested rule updates:
+      // - INF can enter woods (but is slowed by a next-turn pause).
+      // - CAV can enter and move through woods.
+      if (unitType === 'inf') return 1;
+      if (unitType === 'cav') return 2;
+      return 2;
+    }
 
-    // hills/woods/rough
+    // hills/rough
     return (unitType === 'cav') ? 3 : 2;
+  }
+
+  function applyPostMoveTerrainEffects(unit, toKey) {
+    if (!unit || !toKey) return;
+    const toHex = board.byKey.get(toKey);
+    if (!toHex) return;
+
+    // Infantry moving into woods must pause their next own activation.
+    // This is modeled as a temporary cannotMove effect that expires after that turn.
+    if (unit.type === 'inf' && toHex.terrain === 'woods') {
+      addDoctrineLongEffect({
+        map: 'cannotMove',
+        unitId: unit.id,
+        value: 1,
+        side: unit.side,
+        expiresOnSide: unit.side,
+        expiresAfterSerial: state.turnSerial + 2,
+      });
+      log('Infantry entered woods: next activation is movement-paused.');
+    }
   }
 
   function isEngaged(hexKey, side) {
@@ -10484,9 +10518,10 @@ function unitColors(side) {
 
   function chooseRandomForwardAxis() {
     const roll = Math.random();
-    if (roll < 0.30) return 'vertical';
-    if (roll < 0.60) return 'horizontal';
-    if (roll < 0.80) return 'diag_tl_br';
+    // Requested bias: 60% top-vs-bottom deployments.
+    if (roll < 0.60) return 'vertical';
+    if (roll < 0.80) return 'horizontal';
+    if (roll < 0.90) return 'diag_tl_br';
     return 'diag_tr_bl';
   }
 
@@ -10674,14 +10709,38 @@ function unitColors(side) {
     const roughBand = () => filteredCandidates(e => {
       return !isDeployment(e) && (!isCenterLane(e) || !isClashBand(e));
     });
+    const sideHighGround = () => filteredCandidates(e => {
+      const onSideBand = (
+        (e.approachN >= 0.14 && e.approachN <= 0.34) ||
+        (e.approachN >= 0.66 && e.approachN <= 0.86)
+      );
+      return onSideBand && Math.abs(e.lateralN - 0.5) >= 0.20 && !isDeployment(e);
+    });
+    const centerHillScramble = () => filteredCandidates(e => {
+      return (
+        e.approachN >= 0.36 &&
+        e.approachN <= 0.64 &&
+        Math.abs(e.lateralN - 0.5) <= 0.30 &&
+        !isDeployment(e)
+      );
+    });
 
     const biasMatch = (meta) => {
       if (advantageSide === 'none') return false;
       return sideDepthNorm(meta, advantageSide) <= 0.45;
     };
 
+    // Terrain style:
+    // - 75% open-middle battlefields (historical plain preference)
+    // - 13% side high-ground starts
+    // - 12% central hill scramble maps
+    const styleRoll = Math.random();
+    const layoutStyle = (styleRoll < 0.75)
+      ? 'open_middle'
+      : (styleRoll < 0.88 ? 'side_high_ground' : 'center_hill_scramble');
+
     // Water is intentionally sparse and pushed to flank/edge pockets.
-    const waterClusters = (Math.random() < 0.45) ? 1 : 0;
+    const waterClusters = (Math.random() < (layoutStyle === 'open_middle' ? 0.25 : 0.38)) ? 1 : 0;
     for (let i = 0; i < waterClusters; i++) {
       const seed = pickSeed(edgeFlank());
       paintCluster('water', seed, randInt(2, 4), (meta) => {
@@ -10689,8 +10748,10 @@ function unitColors(side) {
       });
     }
 
-    // Woods: ambush-friendly flank cover.
-    const woodsClusters = randInt(2, 3);
+    // Woods: mostly flank cover, keeping central clashes readable.
+    const woodsClusters = (layoutStyle === 'open_middle')
+      ? randInt(1, 2)
+      : randInt(1, 3);
     for (let i = 0; i < woodsClusters; i++) {
       let seeds = midFlank();
       if (advantageSide !== 'none' && Math.random() < 0.55) {
@@ -10698,39 +10759,87 @@ function unitColors(side) {
         if (biased.length) seeds = biased;
       }
       const seed = pickSeed(seeds);
-      paintCluster('woods', seed, randInt(3, 6), (meta) => isFlank(meta) && !isDeployment(meta));
+      paintCluster('woods', seed, randInt(2, 5), (meta) => isFlank(meta) && !isDeployment(meta));
     }
 
-    // Hills: flank high ground and approach shoulders.
-    const hillsClusters = randInt(2, 3);
-    for (let i = 0; i < hillsClusters; i++) {
-      let seeds = midFlank();
-      if (advantageSide !== 'none' && Math.random() < 0.60) {
-        const biased = seeds.filter(h => biasMatch(metaAtHex(h)));
-        if (biased.length) seeds = biased;
+    // Hills: either flank-held high ground or central scramble objectives.
+    if (layoutStyle === 'side_high_ground') {
+      const hillsClusters = randInt(3, 4);
+      for (let i = 0; i < hillsClusters; i++) {
+        let seeds = sideHighGround();
+        if (advantageSide !== 'none' && Math.random() < 0.45) {
+          const biased = seeds.filter(h => biasMatch(metaAtHex(h)));
+          if (biased.length) seeds = biased;
+        }
+        const seed = pickSeed(seeds);
+        paintCluster('hills', seed, randInt(3, 5), (meta) => {
+          const onSideBand = (
+            (meta.approachN >= 0.12 && meta.approachN <= 0.36) ||
+            (meta.approachN >= 0.64 && meta.approachN <= 0.88)
+          );
+          return onSideBand && Math.abs(meta.lateralN - 0.5) >= 0.16 && !isDeployment(meta);
+        });
       }
-      const seed = pickSeed(seeds);
-      paintCluster('hills', seed, randInt(3, 5), (meta) => isFlank(meta) && meta.approachN >= 0.12 && meta.approachN <= 0.88);
+    } else if (layoutStyle === 'center_hill_scramble') {
+      const hillsClusters = randInt(2, 3);
+      for (let i = 0; i < hillsClusters; i++) {
+        const seed = pickSeed(centerHillScramble());
+        paintCluster('hills', seed, randInt(3, 5), (meta) => {
+          return (
+            meta.approachN >= 0.34 &&
+            meta.approachN <= 0.66 &&
+            Math.abs(meta.lateralN - 0.5) <= 0.32 &&
+            !isDeployment(meta)
+          );
+        });
+      }
+    } else {
+      const hillsClusters = randInt(1, 2);
+      for (let i = 0; i < hillsClusters; i++) {
+        const seed = pickSeed(midFlank());
+        paintCluster('hills', seed, randInt(2, 4), (meta) => isFlank(meta) && meta.approachN >= 0.14 && meta.approachN <= 0.86);
+      }
     }
 
-    // Rough: friction near the side corridors, avoiding the core clash lane.
-    const roughClusters = randInt(2, 4);
+    // Rough: limited friction lanes, mostly away from the central clash zone.
+    const roughClusters = (layoutStyle === 'open_middle')
+      ? randInt(1, 2)
+      : randInt(1, 3);
     for (let i = 0; i < roughClusters; i++) {
       const seed = pickSeed(roughBand());
-      paintCluster('rough', seed, randInt(2, 5), (meta) => !isDeployment(meta) && (!isCenterLane(meta) || !isClashBand(meta)));
+      paintCluster('rough', seed, randInt(2, 4), (meta) => !isDeployment(meta) && (!isCenterLane(meta) || !isClashBand(meta)));
     }
 
-    // Final sweep: keep the center clash lane open.
+    // Final sweep: keep the center clash lane open (except when we explicitly
+    // generate a central hill scramble map).
     for (const [hk] of terrainByHex) {
       const meta = geometry.byKey.get(hk);
       if (!meta) continue;
-      if (isCenterLane(meta) && isClashBand(meta)) {
+      if (layoutStyle === 'center_hill_scramble') {
+        const t = terrainByHex.get(hk);
+        if (t !== 'hills' && isCenterLane(meta) && isClashBand(meta)) {
+          terrainByHex.delete(hk);
+        }
+      } else if (isCenterLane(meta) && isClashBand(meta)) {
         terrainByHex.delete(hk);
       }
     }
 
+    if (layoutStyle === 'open_middle') {
+      // Keep plains open in most random starts: clear a broad middle box.
+      for (const [hk] of terrainByHex) {
+        const meta = geometry.byKey.get(hk);
+        if (!meta) continue;
+        if (Math.abs(meta.approachN - 0.5) <= 0.24 && Math.abs(meta.lateralN - 0.5) <= 0.34) {
+          terrainByHex.delete(hk);
+        }
+      }
+    }
+
     // Cap density so movement stays fluid.
-    const maxTerrain = randInt(24, 34);
+    const maxTerrain = (layoutStyle === 'open_middle')
+      ? randInt(18, 26)
+      : randInt(22, 32);
     if (terrainByHex.size > maxTerrain) {
       const keys = shuffledCopy([...terrainByHex.keys()]);
       for (const hk of keys) {
@@ -10982,64 +11091,38 @@ function unitColors(side) {
   }
 
   const REQUESTED_CLASSICAL_FORMATIONS = [
-    { id: 'phalanx', label: 'Phalanx', weight: 1.0 },
-    { id: 'triplex_acies', label: 'Roman Triple Acies', weight: 1.0 },
-    { id: 'wedge', label: 'Wedge', weight: 0.9 },
-    { id: 'hollow_square', label: 'Hollow Square', weight: 0.75 },
-    { id: 'crescent', label: 'Crescent', weight: 0.95 },
-    { id: 'convex_refused', label: 'Convex Line (Refused Center)', weight: 0.85 },
-    { id: 'oblique_order', label: 'Oblique Order', weight: 1.0 },
-    { id: 'checkerboard', label: 'Checkerboard', weight: 0.8 },
-    { id: 'testudo', label: 'Testudo', weight: 0.75 },
-    { id: 'encirclement_ring', label: 'Encirclement Ring', weight: 0.9 },
+    { id: 'phalanx', label: 'Phalanx' },
+    { id: 'triplex_acies', label: 'Roman Triple Acies' },
+    { id: 'wedge', label: 'Wedge' },
+    { id: 'hollow_square', label: 'Hollow Square' },
+    { id: 'crescent', label: 'Crescent' },
+    { id: 'convex_refused', label: 'Convex Line (Refused Center)' },
+    { id: 'oblique_order', label: 'Oblique Order' },
+    { id: 'checkerboard', label: 'Checkerboard' },
+    { id: 'testudo', label: 'Testudo' },
+    { id: 'encirclement_ring', label: 'Encirclement Ring' },
     // Requested "11th formation":
-    { id: 'classical_arms', label: 'Classical Arms Line', weight: 1.2 },
+    { id: 'classical_arms', label: 'Classical Arms Line' },
+  ];
+  const NON_CLASSICAL_FORMATIONS = [
+    { id: 'open_plain_line', label: 'Open Plain Line' },
+    { id: 'staggered_wings', label: 'Staggered Wings' },
+    { id: 'deep_center', label: 'Deep Center' },
+    { id: 'forward_screen', label: 'Forward Screen' },
   ];
 
-  function weightedChoice(pool) {
-    const list = Array.isArray(pool) ? pool.filter(Boolean) : [];
-    if (!list.length) return null;
-    let total = 0;
-    for (const item of list) total += Math.max(0, Number(item.weight || 0));
-    if (total <= 0) return list[randInt(0, list.length - 1)];
-    let roll = Math.random() * total;
-    for (const item of list) {
-      roll -= Math.max(0, Number(item.weight || 0));
-      if (roll <= 0) return item;
-    }
-    return list[list.length - 1];
-  }
-
   function formationArchetypeForSide(side, totalNeeded, advantageSide) {
+    void side;
+    void totalNeeded;
+    void advantageSide;
     const push = Math.random() < 0.5 ? 'left' : 'right';
-
-    // Enforce requested usage rate: these formations drive at least ~70% of random starts.
-    // We use them as the primary pool and allow small weighted bias by side advantage.
-    const pool = REQUESTED_CLASSICAL_FORMATIONS.map((f) => ({ ...f }));
-
-    // Size-based soft penalties for formations that need more frontage/depth.
-    if (totalNeeded < 24) {
-      for (const f of pool) {
-        if (f.id === 'hollow_square' || f.id === 'encirclement_ring') f.weight *= 0.72;
-      }
-    }
-
-    // Advantage side leans to aggressive patterns; the pressured side leans to conservative layouts.
-    if (advantageSide === side) {
-      for (const f of pool) {
-        if (f.id === 'wedge' || f.id === 'oblique_order' || f.id === 'encirclement_ring' || f.id === 'crescent') {
-          f.weight *= 1.25;
-        }
-      }
-    } else if (advantageSide !== 'none') {
-      for (const f of pool) {
-        if (f.id === 'phalanx' || f.id === 'testudo' || f.id === 'hollow_square' || f.id === 'classical_arms') {
-          f.weight *= 1.18;
-        }
-      }
-    }
-
-    const pick = weightedChoice(pool) || { id: 'classical_arms', label: 'Classical Arms Line' };
+    // 90% of random starts use the 11 requested classical formations,
+    // split evenly by selecting uniformly from the list.
+    const classicalShare = 0.90;
+    const pool = (Math.random() < classicalShare)
+      ? REQUESTED_CLASSICAL_FORMATIONS
+      : NON_CLASSICAL_FORMATIONS;
+    const pick = pool[randInt(0, pool.length - 1)] || REQUESTED_CLASSICAL_FORMATIONS[REQUESTED_CLASSICAL_FORMATIONS.length - 1];
     return { id: pick.id, label: pick.label, push };
   }
 
@@ -12176,6 +12259,7 @@ function unitColors(side) {
     unitsByHex.set(destKey, u);
     state.selectedKey = destKey;
     state.act.moved = true;
+    applyPostMoveTerrainEffects(u, destKey);
     startMoveAnimation(fromKey, destKey, u);
     pushEventTrace('unit.move', {
       side: u.side,
