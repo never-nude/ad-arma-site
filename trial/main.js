@@ -7894,6 +7894,31 @@ function unitColors(side) {
     document.body.dataset.mode = state.mode;
     document.body.dataset.combat = state.combatBusy ? 'on' : 'off';
 
+    // Deep fallback: enforce tutorial layout on every HUD render.
+    const tutorialOpen = !!(
+      state.tutorial?.active ||
+      (elTutorialGuideOverlay && !elTutorialGuideOverlay.hidden)
+    );
+    document.body.classList.toggle('tutorial-active', tutorialOpen);
+    {
+      const layoutEl = document.getElementById('layout');
+      const sideEl = document.getElementById('side');
+      const canvasWrapEl = document.getElementById('canvasWrap');
+      if (tutorialOpen) {
+        if (layoutEl) layoutEl.style.gridTemplateColumns = '1fr';
+        if (sideEl) sideEl.style.display = 'none';
+        if (canvasWrapEl && window.innerWidth > 980) {
+          canvasWrapEl.style.paddingLeft = 'min(34vw, 500px)';
+        } else if (canvasWrapEl) {
+          canvasWrapEl.style.paddingLeft = '';
+        }
+      } else {
+        if (layoutEl) layoutEl.style.gridTemplateColumns = '';
+        if (sideEl) sideEl.style.display = '';
+        if (canvasWrapEl) canvasWrapEl.style.paddingLeft = '';
+      }
+    }
+
     elHudTitle.textContent = GAME_NAME;
     ensureDoctrineStateInitialized(false);
 
