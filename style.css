@@ -32,6 +32,130 @@ body{
   padding:var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
 }
 
+body.intro-open #hud,
+body.intro-open #layout,
+body.intro-open #combatRail{
+  filter:blur(3px) saturate(0.92);
+  pointer-events:none;
+  user-select:none;
+}
+
+.introOverlay{
+  position:fixed;
+  inset:0;
+  z-index:360;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:clamp(14px, 3vw, 34px);
+  background:radial-gradient(120% 90% at 50% 0%, rgba(25,28,38,0.60), rgba(6,8,12,0.88));
+  backdrop-filter:blur(6px) saturate(106%);
+  -webkit-backdrop-filter:blur(6px) saturate(106%);
+}
+
+.introOverlay.open{
+  display:flex;
+}
+
+.introCard{
+  width:min(900px, 94vw);
+  max-height:min(90dvh, 880px);
+  overflow:auto;
+  border:1px solid rgba(216,189,126,0.42);
+  border-radius:16px;
+  padding:clamp(18px, 2.8vw, 30px);
+  background:linear-gradient(180deg, rgba(16,18,24,0.97), rgba(11,13,18,0.97));
+  box-shadow:0 22px 70px rgba(0,0,0,0.56);
+}
+
+.introTitle{
+  margin:0 0 10px;
+  text-align:center;
+  font-family:'Cinzel','Trajan Pro','Times New Roman',serif;
+  font-weight:700;
+  letter-spacing:0.09em;
+  text-transform:uppercase;
+  color:#efe4c7;
+  font-size:clamp(34px, 2vw + 10px, 56px);
+}
+
+.introLead{
+  margin:0 auto 16px;
+  max-width:70ch;
+  text-align:center;
+  color:#d8dbe3;
+  font-size:clamp(15px, 0.5vw + 13px, 19px);
+  line-height:1.5;
+}
+
+.introActions{
+  display:grid;
+  gap:10px;
+}
+
+.introActionBtn{
+  width:100%;
+  padding:12px 14px;
+  min-height:64px;
+  text-align:left;
+  border-color:rgba(216,189,126,0.24);
+  background:linear-gradient(180deg, rgba(24,27,36,0.94), rgba(16,18,25,0.94));
+}
+
+.introActionTitle{
+  display:block;
+  font-size:19px;
+  font-weight:700;
+  color:#f0e3bf;
+  letter-spacing:0.02em;
+}
+
+.introActionSub{
+  display:block;
+  margin-top:3px;
+  font-size:14px;
+  color:#cbd0db;
+  line-height:1.35;
+}
+
+.introTutorialPanel{
+  margin-top:12px;
+  border:1px solid rgba(216,189,126,0.3);
+  border-radius:12px;
+  padding:12px;
+  background:rgba(8,10,16,0.72);
+}
+
+.introTutorialPanel h2{
+  margin:0 0 8px;
+  font-family:'Cinzel','Trajan Pro','Times New Roman',serif;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  color:#e6d29d;
+  font-size:16px;
+}
+
+.introTutorialPanel p,
+.introTutorialPanel li{
+  color:#d4d9e2;
+  font-size:14px;
+  line-height:1.45;
+}
+
+.introTutorialPanel ul{
+  margin:8px 0 12px;
+  padding-left:18px;
+}
+
+.introEgg{
+  margin:14px 0 0;
+  text-align:center;
+  color:#9098a8;
+  font-style:italic;
+  letter-spacing:0.02em;
+  font-size:12px;
+}
+
 #hud{
   position:relative;
   padding:10px 14px;
@@ -221,6 +345,10 @@ body[data-mode="play"] #side{
   color:#d9dce5;
   font-size:12px;
   line-height:1.3;
+}
+
+.setupStageActions{
+  margin-top:8px;
 }
 
 .panel{
@@ -735,6 +863,17 @@ body[data-mode="play"] #side{
   font-size:16px;
 }
 
+#doctrineOverlay .doctrineIntroNote{
+  margin:8px 14px 0;
+  padding:8px 10px;
+  border:1px solid rgba(216,189,126,0.26);
+  border-radius:10px;
+  background:rgba(22, 25, 34, 0.65);
+  color:#d7dbe3;
+  font-size:13px;
+  line-height:1.4;
+}
+
 #doctrineOverlay .doctrineBuilderGrid{
   gap:12px;
   padding:10px 14px;
@@ -1183,6 +1322,15 @@ body[data-mode="play"] #side{
   height:38px;
 }
 
+.doctrineConfirmBtn{
+  min-height:42px !important;
+  font-size:15px !important;
+  font-weight:700 !important;
+  letter-spacing:0.04em;
+  border-color:rgba(216,189,126,0.56) !important;
+  background:linear-gradient(180deg, rgba(216,189,126,0.20), rgba(216,189,126,0.08)) !important;
+}
+
 .combatColInspector .inspectorMeta{
   margin-bottom:4px;
 }
@@ -1356,6 +1504,17 @@ body[data-mode="play"] #side{
   }
   .rulesSideOverlay{
     padding:6px;
+  }
+  .introCard{
+    width:96vw;
+    max-height:92dvh;
+    padding:14px 12px;
+  }
+  .introActionTitle{
+    font-size:17px;
+  }
+  .introActionSub{
+    font-size:13px;
   }
 }
 

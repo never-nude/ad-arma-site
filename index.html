@@ -8,9 +8,46 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=20260309-deepfix-v2" />
+  <link rel="stylesheet" href="style.css?v=20260309-intro-v1" />
 </head>
 <body>
+  <div id="introOverlay" class="introOverlay open" aria-hidden="false">
+    <div class="introCard" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+      <h1 id="introTitle" class="introTitle">Ad Arma</h1>
+      <p class="introLead">
+        A classical-era tactics game of command, cohesion, and collapse. Choose how you want to begin this battle.
+      </p>
+      <div class="introActions" id="introActions">
+        <button id="introPlayNowBtn" class="btn introActionBtn" type="button">
+          <span class="introActionTitle">Play Now!</span>
+          <span class="introActionSub">Launch a default randomized battle immediately.</span>
+        </button>
+        <button id="introSetupBtn" class="btn introActionBtn" type="button">
+          <span class="introActionTitle">Game Setup</span>
+          <span class="introActionSub">Open in setup mode to edit terrain, forces, and doctrine.</span>
+        </button>
+        <button id="introTutorialBtn" class="btn introActionBtn" type="button">
+          <span class="introActionTitle">Tutorial</span>
+          <span class="introActionSub">Open a tutorial preview panel (full tutorial coming next).</span>
+        </button>
+      </div>
+      <div id="introTutorialPanel" class="introTutorialPanel" hidden>
+        <h2>Tutorial Preview</h2>
+        <p>
+          Tutorial chapters are coming next. This panel will become a guided walkthrough of movement, command range,
+          terrain effects, combat results, and War Council orders.
+        </p>
+        <ul>
+          <li>Chapter 1: Reading the battlefield</li>
+          <li>Chapter 2: Command and cohesion</li>
+          <li>Chapter 3: Combat, retreat, and disarray</li>
+          <li>Chapter 4: War Council doctrine timing</li>
+        </ul>
+        <button id="introTutorialBackBtn" class="btn" type="button">Back</button>
+      </div>
+    </div>
+  </div>
+
   <header id="hud">
     <div id="hudTitle">Ad Arma</div>
     <div id="hudMeta">…</div>
@@ -36,12 +73,15 @@
     <aside id="side">
       <div id="setupStageBanner" class="setupStageBanner">
         <div class="setupStageTitle">Battle Setup</div>
-        <div class="setupStageSub">Scenario • War Council • Start Battle</div>
+        <div class="setupStageSub">Workflow: Choose Scenario • Build War Council • Start Battle</div>
+        <div class="setupStageActions">
+          <button id="doctrineOpenHeroBtn" class="btn wide btnHero">Open War Council</button>
+        </div>
       </div>
       <div id="turnOrdersPanel" class="panel">
         <div class="panelTitle">Turn &amp; Orders</div>
         <div class="row">
-          <div class="label">Mode</div>
+          <div class="label">Battle</div>
           <button id="modeBtn" class="btn">To Play</button>
         </div>
 
@@ -62,7 +102,7 @@
           </select>
         </div>
         <div id="humanSideRow" class="row">
-          <div class="label">Play As</div>
+          <div class="label">Side</div>
           <select id="humanSideSel" class="select">
             <option value="blue">Blue</option>
             <option value="red">Red</option>
@@ -80,12 +120,12 @@
           <button id="lineAdvanceBtn" class="btn wide">Line Advance</button>
         </div>
         <div class="row playOnlyRow">
-          <div class="label">Line Direction</div>
+          <div class="label">Advance Dir</div>
           <select id="lineAdvanceDirSel" class="select">
-            <option value="forward">Forward</option>
-            <option value="backward">Backward</option>
-            <option value="left">Left</option>
-            <option value="right">Right</option>
+            <option value="ur">Up Right</option>
+            <option value="ul">Up Left</option>
+            <option value="dr">Down Right</option>
+            <option value="dl">Down Left</option>
           </select>
         </div>
         <div class="row playOnlyRow">
@@ -116,9 +156,6 @@
         <div class="row">
           <button id="openQuickRulesBtn" class="btn wide">Quick Rules</button>
           <button id="openFullRulesBtn" class="btn wide">Full Reference</button>
-        </div>
-        <div class="row">
-          <button id="doctrineOpenHeroBtn" class="btn wide btnHero">Open War Council</button>
         </div>
       </div>
 
@@ -246,7 +283,7 @@
                 during your turn. After action 3, turn passes automatically.
               </p>
               <p>
-                Dice are d6: 6 = hit + retreat + disarray, 5 = hit, 4 = retreat, 3 = disarray, 1-2 = miss.
+                Dice are d6: 6 = hit + disarray, 5 = hit, 4 = retreat, 3 = disarray, 1-2 = miss.
                 Blocked retreat converts to damage.
               </p>
               <p>
@@ -259,7 +296,7 @@
               </p>
               <h3>Victory Modes</h3>
               <ul>
-                <li><b>Clear Victory:</b> capture at least half of the enemy's starting UP.</li>
+                <li><b>Proportional Victory:</b> capture UP equal to at least half of your own starting UP.</li>
                 <li><b>Annihilation:</b> destroy all enemy units.</li>
                 <li><b>Decapitation:</b> destroy all enemy generals.</li>
               </ul>
@@ -399,6 +436,9 @@
             <h2 id="doctrineTitle">War Council (3/3/3)</h2>
             <button id="closeDoctrineBtn" class="btn" type="button">Minimize</button>
           </div>
+          <div class="doctrineIntroNote">
+            Select exactly 3 orders in each cost column. Reusable orders can be used again; Single-Use orders are consumed when played.
+          </div>
           <div class="row">
             <div class="label">Editing</div>
             <select id="doctrineSideSel" class="select">
@@ -428,7 +468,7 @@
             </section>
           </div>
           <div class="row">
-            <button id="doctrineConfirmBtn" class="btn wide">Confirm Doctrine</button>
+            <button id="doctrineConfirmBtn" class="btn wide doctrineConfirmBtn">Confirm Doctrine</button>
           </div>
         </div>
       </div>
@@ -440,7 +480,7 @@
       <div class="combatColTitle">Action Log</div>
       <div id="combatSummary" class="combatSummary">No combat yet. Select a unit and attack to see exact dice math.</div>
       <div id="combatMath" class="combatMeta">Dice math: -</div>
-      <div id="combatHint" class="combatHint">Rules: 6=hit+retreat+disarray, 5=hit, 4=retreat, 3=disarray, 1-2=miss.</div>
+      <div id="combatHint" class="combatHint">Rules: 6=hit+disarray, 5=hit, 4=retreat, 3=disarray, 1-2=miss.</div>
     </div>
     <div id="selectedUnitPanel" class="combatCol combatColInspector">
       <div class="combatColTitle">Selected Unit</div>
@@ -483,6 +523,20 @@
         <button id="onlineJoinBtn" class="btn">Connect</button>
       </div>
       <div class="onlineRow">
+        <div class="onlineLabel">Guest Side</div>
+        <select id="onlineGuestSideSel" class="select">
+          <option value="red">Red (Guest)</option>
+          <option value="blue">Blue (Guest)</option>
+        </select>
+      </div>
+      <div class="onlineRow">
+        <div class="onlineLabel">Call</div>
+        <select id="onlineInitiativeSel" class="select">
+          <option value="odds">Odds</option>
+          <option value="evens">Evens</option>
+        </select>
+      </div>
+      <div class="onlineRow">
         <div class="onlineLabel">Draft</div>
         <select id="draftModeSel" class="select">
           <option value="off">Off</option>
@@ -502,7 +556,7 @@
   </section>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  <script src="build.js?v=20260309-deepfix-v2"></script>
-  <script src="main.js?v=20260309-deepfix-v2"></script>
+  <script src="build.js?v=20260309-online-initiative-v1"></script>
+  <script src="main.js?v=20260309-online-initiative-v1"></script>
 </body>
 </html>

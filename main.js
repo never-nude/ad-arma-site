@@ -110,6 +110,7 @@
   const MOVE_ANIM_MS_HUMAN = 220;
   const MOVE_ANIM_MS_AI = 520;
   const ATTACK_FLASH_MS = 920;
+  const ENABLE_BATTLE_SFX = true;
   const COMMAND_COSTS = [1, 2, 3];
   const COMMANDS_PER_COST = 3;
   const VICTORY_MODE_IDS = new Set(['clear', 'decapitation', 'annihilation', 'points', 'keyground', 'strategic']);
@@ -221,8 +222,42 @@
     return `${plain} ${second}`.trim();
   }
 
+  // Target selection guidance per directive (for manual multi-pick mode).
+  const COMMAND_TARGET_LIMITS = {
+    quick_dress: { min: 1, max: 3 },
+    runner_burst: { min: 1, max: 1 },
+    javelin_volley: { min: 1, max: 2 },
+    quick_withdraw: { min: 1, max: 1 },
+    close_ranks: { min: 1, max: 1 },
+    spur_horses: { min: 1, max: 1 },
+    signal_call: { min: 1, max: 2 },
+    loose_screen: { min: 1, max: 2 },
+    covering_fire: { min: 0, max: 0 },
+    hold_fast: { min: 1, max: 1 },
+    shield_wall: { min: 3, max: 6 },
+    cavalry_exploit: { min: 1, max: 3 },
+    refuse_flank: { min: 2, max: 5 },
+    forced_march: { min: 1, max: 4 },
+    strengthen_center: { min: 1, max: 4 },
+    wing_screen: { min: 1, max: 4 },
+    countercharge: { min: 1, max: 3 },
+    jaws_inward: { min: 2, max: 5 },
+    local_reserve: { min: 1, max: 3 },
+    drive_them_back: { min: 1, max: 4 },
+    full_line_advance: { min: 3, max: 8 },
+    grand_shield_wall: { min: 5, max: 8 },
+    all_out_cavalry_sweep: { min: 1, max: 4 },
+    commit_reserves: { min: 1, max: 4 },
+    general_assault: { min: 1, max: 4 },
+    collapse_center: { min: 3, max: 9 },
+    last_push: { min: 1, max: 4 },
+    reforge_line: { min: 3, max: 6 },
+    command_surge: { min: 1, max: 1 },
+    stand_or_die: { min: 3, max: 5 },
+  };
+
   // Dice faces:
-  // 6 = Hit + Retreat + Disarray
+  // 6 = Hit + Disarray
   // 5 = Hit
   // 4 = Retreat
   // 3 = Disarray
@@ -231,6 +266,107 @@
   const DIE_RETREAT = 4;
   const DIE_DISARRAY = 3;
   const EVENT_TRACE_MAX = 600;
+  const sfx = {
+    ctx: null,
+    unlocked: false,
+    noiseBuffer: null,
+  };
+
+  function ensureSfxContext() {
+    if (!ENABLE_BATTLE_SFX) return null;
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return null;
+    if (!sfx.ctx) {
+      try {
+        sfx.ctx = new Ctor();
+      } catch (_) {
+        return null;
+      }
+    }
+    return sfx.ctx;
+  }
+
+  function ensureSfxNoiseBuffer(ctx) {
+    if (!ctx) return null;
+    if (sfx.noiseBuffer && sfx.noiseBuffer.sampleRate === ctx.sampleRate) return sfx.noiseBuffer;
+    const dur = 0.35;
+    const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * 0.9;
+    sfx.noiseBuffer = buf;
+    return buf;
+  }
+
+  function unlockBattleSfx() {
+    const ctx = ensureSfxContext();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    sfx.unlocked = true;
+  }
+
+  function playUnitDestroyedSfx() {
+    const ctx = ensureSfxContext();
+    if (!ctx || !sfx.unlocked) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+      return;
+    }
+
+    const t0 = ctx.currentTime + 0.005;
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(0.0001, t0);
+    out.gain.exponentialRampToValueAtTime(0.18, t0 + 0.01);
+    out.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.58);
+    out.connect(ctx.destination);
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = ensureSfxNoiseBuffer(ctx);
+    const noiseBand = ctx.createBiquadFilter();
+    noiseBand.type = 'bandpass';
+    noiseBand.frequency.setValueAtTime(760 + Math.random() * 740, t0);
+    noiseBand.Q.setValueAtTime(0.95, t0);
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.11, t0);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.24);
+    noise.connect(noiseBand);
+    noiseBand.connect(noiseGain);
+    noiseGain.connect(out);
+    noise.start(t0);
+    noise.stop(t0 + 0.25);
+
+    const bass = ctx.createOscillator();
+    bass.type = (Math.random() < 0.5) ? 'triangle' : 'sawtooth';
+    bass.frequency.setValueAtTime(180 + Math.random() * 45, t0);
+    bass.frequency.exponentialRampToValueAtTime(62 + Math.random() * 18, t0 + 0.24);
+    const bassGain = ctx.createGain();
+    bassGain.gain.setValueAtTime(0.085, t0);
+    bassGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.26);
+    bass.connect(bassGain);
+    bassGain.connect(out);
+    bass.start(t0);
+    bass.stop(t0 + 0.27);
+
+    if (Math.random() < 0.45) {
+      const ping = ctx.createOscillator();
+      ping.type = 'square';
+      ping.frequency.setValueAtTime(1180 + Math.random() * 220, t0 + 0.02);
+      ping.frequency.exponentialRampToValueAtTime(520, t0 + 0.14);
+      const pingGain = ctx.createGain();
+      pingGain.gain.setValueAtTime(0.018, t0 + 0.02);
+      pingGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.15);
+      ping.connect(pingGain);
+      pingGain.connect(out);
+      ping.start(t0 + 0.02);
+      ping.stop(t0 + 0.16);
+    }
+
+    setTimeout(() => {
+      try { out.disconnect(); } catch (_) {}
+    }, 900);
+  }
 
   // --- Units (Bannerfall quality-aware stats)
   // HP and UP vary by quality (green / regular / veteran).
@@ -497,6 +633,22 @@
     return 'Vertical (Blue down)';
   }
 
+  function hexDirectionLabel(dir) {
+    switch (dir) {
+      case 'e': return '→ East';
+      case 'w': return '← West';
+      case 'ur': return '↗ Up-Right';
+      case 'ul': return '↖ Up-Left';
+      case 'dr': return '↘ Down-Right';
+      case 'dl': return '↙ Down-Left';
+      case 'forward': return 'Forward';
+      case 'backward': return 'Backward';
+      case 'left': return 'Left';
+      case 'right': return 'Right';
+      default: return String(dir || '').toUpperCase();
+    }
+  }
+
   function sideForwardDirection(side, axis = state.forwardAxis) {
     const a = normalizeForwardAxis(axis);
     if (a === 'horizontal') return (side === 'blue') ? 'e' : 'w';
@@ -636,6 +788,12 @@
 
 
   const QUALITY_ORDER = ['green', 'regular', 'veteran'];
+  const HEX_DIRECTION_IDS = ['e', 'w', 'ur', 'ul', 'dr', 'dl'];
+  const LINE_ADVANCE_AXES = [
+    { id: 'ew', neg: 'w', pos: 'e', advanceDirs: ['ur', 'ul', 'dr', 'dl'] },
+    { id: 'urdl', neg: 'dl', pos: 'ur', advanceDirs: ['e', 'w', 'ul', 'dr'] },
+    { id: 'uldr', neg: 'dr', pos: 'ul', advanceDirs: ['e', 'w', 'ur', 'dl'] },
+  ];
 
   // Odd-r offset neighbors (pointy-top).
   const NEIGH_EVEN = [[+1, 0], [0, -1], [-1, -1], [-1, 0], [-1, +1], [0, +1]];
@@ -772,7 +930,7 @@
   const elRulesCommandsAllBtn = document.getElementById('rulesCommandsAllBtn');
   const elRulesCommandsContext = document.getElementById('rulesCommandsContext');
   const COMBAT_RULE_HINT =
-    'Rules: 6=hit+retreat+disarray, 5=hit, 4=retreat, 3=disarray, 1-2=miss. Woods -1 die (min 1).';
+    'Rules: 6=hit+disarray, 5=hit, 4=retreat, 3=disarray, 1-2=miss. Woods -1 die (min 1).';
   let diceRenderNonce = 0;
   let rulesCommandsViewMode = 'selected'; // 'selected' | 'all'
   let rulesCommandsViewSide = 'blue';
@@ -794,10 +952,22 @@
   const elOnlineLeaveBtn = document.getElementById('onlineLeaveBtn');
   const elOnlineMyCode = document.getElementById('onlineMyCode');
   const elOnlineJoinCode = document.getElementById('onlineJoinCode');
+  const elOnlineGuestSideSel = document.getElementById('onlineGuestSideSel');
+  const elOnlineInitiativeSel = document.getElementById('onlineInitiativeSel');
   const elOnlineStatus = document.getElementById('onlineStatus');
+  const elIntroOverlay = document.getElementById('introOverlay');
+  const elIntroActions = document.getElementById('introActions');
+  const elIntroPlayNowBtn = document.getElementById('introPlayNowBtn');
+  const elIntroSetupBtn = document.getElementById('introSetupBtn');
+  const elIntroTutorialBtn = document.getElementById('introTutorialBtn');
+  const elIntroTutorialPanel = document.getElementById('introTutorialPanel');
+  const elIntroTutorialBackBtn = document.getElementById('introTutorialBackBtn');
 
   // --- State
   const state = {
+    introOpen: true,
+    introTutorialOpen: false,
+
     mode: 'edit', // 'edit' | 'play'
     tool: 'units', // 'units' | 'terrain'
 
@@ -812,7 +982,7 @@
     aiDifficulty: 'standard', // 'easy' | 'standard' | 'hard'
     humanSide: 'blue', // 'blue' | 'red'
     forwardAxis: 'vertical', // 'vertical' | 'horizontal' | 'diag_tl_br' | 'diag_tr_bl'
-    lineAdvanceDirection: 'forward', // 'forward' | 'backward' | 'left' | 'right'
+    lineAdvanceDirection: 'ur', // 'e' | 'w' | 'ur' | 'ul' | 'dr' | 'dl' (legacy: forward/backward/left/right)
     turn: 1,
     turnSerial: 1,
     side: 'blue',
@@ -826,7 +996,10 @@
     selectedKey: null,
 
     // Current activation context (only while a unit is selected in Play)
-    // { unitId, committed, moved, attacked, healed, inCommandStart, moveSpent, postAttackWithdrawOnly, postAttackPursuitOnly }
+    // {
+    //   unitId, committed, moved, attacked, healed, inCommandStart, moveSpent,
+    //   postAttackWithdrawOnly, postAttackPursuitOnly, postAttackSixShiftOnly
+    // }
     act: null,
 
     victoryMode: 'decapitation',
@@ -869,11 +1042,31 @@
       reveal: true,
     },
 
+    online: {
+      seats: { host: 'blue', guest: 'red' },
+      guestPreferredSide: 'red',
+      guestParityPick: 'odds', // 'odds' | 'evens'
+      lastInitiativeRoll: null,
+      lastInitiativeFirstSide: null,
+      lastInitiativeGuestWon: null,
+    },
+
     doctrine: {
       commandPhaseOpen: false,
       commandIssuedThisTurn: false,
       selectedCommandId: '',
       activeCommandThisTurn: null,
+      // Active targeting state for "Use Directive":
+      // lets players select one or more units before confirming.
+      targeting: {
+        active: false,
+        commandId: '',
+        eligibleUnitIds: [],
+        selectedUnitIds: [],
+      },
+      // Temporary resolver context (set only while resolving one command).
+      // Used to honor manual target picks when a command supports multi-target use.
+      resolveCtx: null,
       bySide: {
         blue: null,
         red: null,
@@ -1068,11 +1261,176 @@
     state.doctrine.commandIssuedThisTurn = false;
     state.doctrine.selectedCommandId = '';
     state.doctrine.activeCommandThisTurn = null;
+    clearDoctrineTargeting();
     clearDoctrineTurnEffects();
   }
 
   function closeCommandPhase() {
     state.doctrine.selectedCommandId = '';
+  }
+
+  function clearDoctrineTargeting() {
+    state.doctrine.targeting.active = false;
+    state.doctrine.targeting.commandId = '';
+    state.doctrine.targeting.eligibleUnitIds = [];
+    state.doctrine.targeting.selectedUnitIds = [];
+  }
+
+  function doctrineTargetLimits(commandId) {
+    return COMMAND_TARGET_LIMITS[commandId] || { min: 0, max: Infinity };
+  }
+
+  function currentDoctrineTargetingEntries() {
+    if (!state.doctrine.targeting.active) return [];
+    const side = state.side;
+    const selected = new Set(state.doctrine.targeting.selectedUnitIds || []);
+    if (!selected.size) return [];
+    const out = [];
+    for (const [hk, u] of unitsByHex) {
+      if (!u || u.side !== side) continue;
+      if (!selected.has(u.id)) continue;
+      out.push({ key: hk, unit: u, hex: board.byKey.get(hk) });
+    }
+    return out;
+  }
+
+  function beginDoctrineTargeting(commandId) {
+    if (!commandId) return false;
+    if (!isCommandAvailableForUse(state.side, commandId)) {
+      log('That directive is not currently available.');
+      updateHud();
+      return false;
+    }
+    const legal = legalDoctrineTargets(state.side, commandId);
+    const eligibleIds = [];
+    const seen = new Set();
+    for (const t of legal) {
+      if (!t || !t.unitId || seen.has(t.unitId)) continue;
+      seen.add(t.unitId);
+      eligibleIds.push(t.unitId);
+    }
+    if (!eligibleIds.length) {
+      log('No eligible units for that directive right now.');
+      updateHud();
+      return false;
+    }
+    state.doctrine.targeting.active = true;
+    state.doctrine.targeting.commandId = commandId;
+    state.doctrine.targeting.eligibleUnitIds = eligibleIds;
+    state.doctrine.targeting.selectedUnitIds = [];
+    state.doctrine.selectedCommandId = commandId;
+    clearSelection();
+    const cmd = COMMAND_BY_ID.get(commandId);
+    const limits = doctrineTargetLimits(commandId);
+    const rangeTxt = Number.isFinite(limits.max)
+      ? `${limits.min}-${limits.max}`
+      : `${limits.min}+`;
+    log(
+      `${cmd?.name || 'Directive'} target mode: select eligible unit(s) on the board ` +
+      `(recommended ${rangeTxt}), then press Confirm Directive.`
+    );
+    updateHud();
+    return true;
+  }
+
+  function cancelDoctrineTargeting(reason = '') {
+    if (!state.doctrine.targeting.active) return;
+    clearDoctrineTargeting();
+    if (reason) log(reason);
+    updateHud();
+  }
+
+  function toggleDoctrineTargetUnitAt(hexKey) {
+    if (!state.doctrine.targeting.active) return false;
+    const u = unitsByHex.get(hexKey);
+    if (!u || u.side !== state.side) return false;
+    const eligibleSet = new Set(state.doctrine.targeting.eligibleUnitIds || []);
+    if (!eligibleSet.has(u.id)) return false;
+
+    const current = new Set(state.doctrine.targeting.selectedUnitIds || []);
+    if (current.has(u.id)) {
+      current.delete(u.id);
+    } else {
+      const limits = doctrineTargetLimits(state.doctrine.targeting.commandId);
+      if (Number.isFinite(limits.max) && current.size >= limits.max) {
+        log(`This directive allows at most ${limits.max} selected unit(s).`);
+        updateHud();
+        return true;
+      }
+      current.add(u.id);
+    }
+    state.doctrine.targeting.selectedUnitIds = [...current];
+    updateHud();
+    return true;
+  }
+
+  function doctrineTargetIneligibleReason(hexKey) {
+    if (!state.doctrine.targeting.active) return 'This unit is not eligible for the selected directive.';
+    const commandId = String(state.doctrine.targeting.commandId || '');
+    const cmd = COMMAND_BY_ID.get(commandId);
+    const unit = unitsByHex.get(hexKey);
+    if (!unit) return `No unit at ${hexKey}.`;
+    if (unit.side !== state.side) return 'Select a friendly unit.';
+
+    if (commandId === 'spur_horses') {
+      if (unit.type !== 'cav') return 'Spur the Horses targets cavalry only.';
+      if (!inCommandAt(hexKey, state.side)) return 'That cavalry is out of command for Spur the Horses.';
+    }
+
+    return `This unit is not eligible for ${cmd?.name || 'the selected directive'} right now.`;
+  }
+
+  function confirmDoctrineTargetingOrExecute(commandId, options = {}) {
+    const cmdId = String(commandId || '');
+    if (!cmdId) return false;
+    if (!state.doctrine.targeting.active || state.doctrine.targeting.commandId !== cmdId) {
+      return beginDoctrineTargeting(cmdId);
+    }
+    let selected = Array.isArray(state.doctrine.targeting.selectedUnitIds)
+      ? state.doctrine.targeting.selectedUnitIds.slice()
+      : [];
+    const limits = doctrineTargetLimits(cmdId);
+    if (limits.min > 0 && selected.length === 0) {
+      log(`Select at least ${limits.min} unit(s), then press Confirm Directive.`);
+      updateHud();
+      return false;
+    }
+    if (selected.length > 0 && selected.length < limits.min) {
+      log(
+        `Select at least ${limits.min} unit(s) for this directive ` +
+        `(${selected.length} selected), then press Confirm Directive.`
+      );
+      updateHud();
+      return false;
+    }
+    const issueOpts = { ...options };
+    if (selected.length) issueOpts.selectedUnitIds = selected;
+    else delete issueOpts.selectedUnitIds;
+    const ok = issueDoctrineCommand(cmdId, issueOpts);
+    if (!ok) {
+      const cmd = COMMAND_BY_ID.get(cmdId);
+      log(
+        `Directive not committed: ${cmd?.name || 'selected directive'}. ` +
+        `${selected.length ? 'Adjust targets and confirm again.' : 'Try selecting units manually, then confirm.'}`
+      );
+      updateHud();
+    }
+    return ok;
+  }
+
+  function activeResolverSelectionIds(side) {
+    const ctx = state.doctrine.resolveCtx;
+    if (!ctx || ctx.side !== side) return null;
+    if (!(ctx.selectedIds instanceof Set) || ctx.selectedIds.size === 0) return null;
+    // Normalize for both numeric and string comparisons.
+    const normalized = new Set();
+    for (const raw of ctx.selectedIds) {
+      const n = Number(raw);
+      if (Number.isFinite(n)) normalized.add(n);
+      const s = String(raw ?? '').trim();
+      if (s) normalized.add(s);
+    }
+    return normalized.size ? normalized : null;
   }
 
   function addDoctrineLongEffect(effect) {
@@ -4075,15 +4433,69 @@ function unitColors(side) {
     ensureVisualAnimationLoop();
   }
 
-  function setAttackFlash(hexKey, durationMs = ATTACK_FLASH_MS) {
+  function setAttackFlash(hexKey, durationMs = ATTACK_FLASH_MS, opts = {}) {
     if (!hexKey || !board.activeSet.has(hexKey)) return;
     const now = Date.now();
     state.attackFlash = {
       hexKey,
+      fromKey: (opts && opts.fromKey && board.activeSet.has(opts.fromKey)) ? opts.fromKey : null,
+      strikeType: (opts && opts.strikeType) ? String(opts.strikeType) : 'melee',
+      attackerType: (opts && opts.attackerType) ? String(opts.attackerType) : '',
       startAt: now,
       endAt: now + Math.max(120, durationMs),
     };
     ensureVisualAnimationLoop();
+  }
+
+  function drawAttackTrajectory(anim, phase = 0) {
+    if (!anim || !anim.fromKey || !anim.hexKey) return;
+    const fromHex = board.byKey.get(anim.fromKey);
+    const toHex = board.byKey.get(anim.hexKey);
+    if (!fromHex || !toHex) return;
+
+    const t = Math.max(0, Math.min(1, Number.isFinite(phase) ? phase : 0));
+    const isRanged =
+      anim.strikeType === 'ranged' ||
+      anim.attackerType === 'arc' ||
+      anim.attackerType === 'skr';
+
+    ctx.save();
+    if (isRanged) {
+      const midX = (fromHex.cx + toHex.cx) * 0.5;
+      const arcLift = Math.max(R * 0.8, Math.abs(fromHex.cx - toHex.cx) * 0.12);
+      const midY = Math.min(fromHex.cy, toHex.cy) - arcLift;
+
+      ctx.beginPath();
+      ctx.moveTo(fromHex.cx, fromHex.cy);
+      ctx.quadraticCurveTo(midX, midY, toHex.cx, toHex.cy);
+      ctx.lineWidth = Math.max(2, Math.round(R * 0.08));
+      ctx.strokeStyle = 'rgba(247, 223, 162, 0.82)';
+      ctx.setLineDash(anim.attackerType === 'skr' ? [4, 7] : [9, 6]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const u = 1 - t;
+      const px = (u * u * fromHex.cx) + (2 * u * t * midX) + (t * t * toHex.cx);
+      const py = (u * u * fromHex.cy) + (2 * u * t * midY) + (t * t * toHex.cy);
+      ctx.beginPath();
+      ctx.arc(px, py, Math.max(3, Math.round(R * 0.09)), 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 248, 219, 0.95)';
+      ctx.shadowColor = 'rgba(250, 222, 133, 0.7)';
+      ctx.shadowBlur = Math.max(5, Math.round(R * 0.2));
+      ctx.fill();
+    } else {
+      const x1 = fromHex.cx;
+      const y1 = fromHex.cy;
+      const x2 = toHex.cx;
+      const y2 = toHex.cy;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.lineWidth = Math.max(3, Math.round(R * 0.1));
+      ctx.strokeStyle = 'rgba(255, 84, 84, 0.55)';
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   function drawAnimatedUnitToken(anim, nowMs) {
@@ -4195,6 +4607,8 @@ function unitColors(side) {
       }
       return out;
     })();
+    const lineAdvanceOverlay = (state.mode === 'play') ? buildLineAdvanceOverlay() : null;
+    const doctrineTargetOverlay = (state.mode === 'play') ? buildDoctrineTargetOverlay() : null;
 
     // Hexes
     for (const h of board.active) {
@@ -4249,6 +4663,84 @@ function unitColors(side) {
         ctx.restore();
       }
 
+      const lineMark = lineAdvanceOverlay ? lineAdvanceOverlay.byHex.get(h.k) : null;
+      if (lineMark) {
+        if (lineMark.member) {
+          ctx.save();
+          ctx.fillStyle = lineMark.movingFrom
+            ? 'rgba(90, 185, 255, 0.20)'
+            : 'rgba(90, 185, 255, 0.12)';
+          ctx.fill(p);
+          ctx.restore();
+        }
+        if (lineMark.destination) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(216, 189, 126, 0.20)';
+          ctx.fill(p);
+          ctx.strokeStyle = 'rgba(235, 204, 142, 0.86)';
+          ctx.lineWidth = Math.max(2.2, Math.round(R * 0.10));
+          ctx.setLineDash([6, 5]);
+          ctx.stroke(p);
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+        if (lineMark.blockedFrom) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255, 110, 110, 0.88)';
+          ctx.lineWidth = Math.max(2.2, Math.round(R * 0.10));
+          ctx.setLineDash([3, 5]);
+          ctx.stroke(p);
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      }
+
+      const doctrineMark = doctrineTargetOverlay ? doctrineTargetOverlay.byHex.get(h.k) : null;
+      if (doctrineMark) {
+        if (doctrineMark.eligible && !doctrineMark.selected) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(180, 206, 238, 0.15)';
+          ctx.fill(p);
+          ctx.strokeStyle = 'rgba(155, 201, 255, 0.75)';
+          ctx.lineWidth = Math.max(1.8, Math.round(R * 0.08));
+          ctx.setLineDash([3, 4]);
+          ctx.stroke(p);
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+        if (doctrineMark.selected) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(100, 186, 255, 0.22)';
+          ctx.fill(p);
+          ctx.strokeStyle = 'rgba(126, 209, 255, 0.92)';
+          ctx.lineWidth = Math.max(2.4, Math.round(R * 0.11));
+          ctx.stroke(p);
+          ctx.restore();
+        }
+        if (doctrineMark.hovered && !doctrineMark.selected) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(125, 204, 255, 0.18)';
+          ctx.fill(p);
+          ctx.strokeStyle = 'rgba(188, 232, 255, 0.96)';
+          ctx.lineWidth = Math.max(2.6, Math.round(R * 0.11));
+          ctx.setLineDash([2, 3]);
+          ctx.stroke(p);
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+        if (doctrineMark.destination) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(233, 193, 120, 0.18)';
+          ctx.fill(p);
+          ctx.strokeStyle = 'rgba(241, 207, 145, 0.82)';
+          ctx.lineWidth = Math.max(2.1, Math.round(R * 0.10));
+          ctx.setLineDash([5, 4]);
+          ctx.stroke(p);
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      }
+
       // Outline
       ctx.strokeStyle = gridStroke();
       ctx.lineWidth = 2;
@@ -4287,6 +4779,7 @@ function unitColors(side) {
       if (state.attackFlash && state.attackFlash.hexKey === k) {
         const span = Math.max(1, state.attackFlash.endAt - state.attackFlash.startAt);
         const phase = Math.max(0, Math.min(1, (nowMs - state.attackFlash.startAt) / span));
+        drawAttackTrajectory(state.attackFlash, phase);
         const pulse = 0.55 + (Math.sin((phase * Math.PI * 4)) * 0.25);
         ctx.save();
         ctx.fillStyle = `rgba(255, 60, 60, ${0.15 + (pulse * 0.15)})`;
@@ -4304,6 +4797,47 @@ function unitColors(side) {
         ctx.strokeStyle = '#ffffff55';
         ctx.lineWidth = 3;
         ctx.stroke(p);
+      }
+    }
+
+    if (doctrineTargetOverlay && Array.isArray(doctrineTargetOverlay.paths)) {
+      for (const mv of doctrineTargetOverlay.paths) {
+        const fromHex = board.byKey.get(mv.fromKey);
+        if (!fromHex) continue;
+        const toHex = mv.toKey ? board.byKey.get(mv.toKey) : null;
+        if (!toHex) {
+          if (mv.blocked) {
+            const p = hexPath(fromHex.cx, fromHex.cy);
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 116, 116, 0.92)';
+            ctx.lineWidth = Math.max(2.2, Math.round(R * 0.10));
+            ctx.setLineDash([3, 5]);
+            ctx.stroke(p);
+            ctx.setLineDash([]);
+            ctx.restore();
+          }
+          continue;
+        }
+        ctx.save();
+        const pathStroke = mv.blocked
+          ? 'rgba(255, 116, 116, 0.92)'
+          : (mv.hover ? 'rgba(210, 238, 255, 0.96)' : 'rgba(130, 206, 255, 0.92)');
+        ctx.strokeStyle = pathStroke;
+        ctx.lineWidth = Math.max(2.4, Math.round(R * 0.10));
+        if (mv.blocked) ctx.setLineDash([3, 5]);
+        else if (mv.hover) ctx.setLineDash([2, 4]);
+        ctx.beginPath();
+        ctx.moveTo(fromHex.cx, fromHex.cy);
+        ctx.lineTo(toHex.cx, toHex.cy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(toHex.cx, toHex.cy, Math.max(3, Math.round(R * 0.12)), 0, Math.PI * 2);
+        ctx.fillStyle = mv.blocked
+          ? 'rgba(255, 122, 122, 0.88)'
+          : (mv.hover ? 'rgba(228, 244, 255, 0.93)' : 'rgba(144, 221, 255, 0.88)');
+        ctx.fill();
+        ctx.restore();
       }
     }
 
@@ -5329,8 +5863,8 @@ function unitColors(side) {
         let outcome = 'miss';
         let badge = 'M';
         if (roll === 6) {
-          outcome = 'disarray';
-          badge = 'HRD';
+          outcome = 'hit';
+          badge = 'HD';
         } else if (roll === 5) {
           outcome = 'hit';
           badge = 'H';
@@ -5369,7 +5903,7 @@ function unitColors(side) {
       elDiceSummary.textContent = finalSummary;
       if (elBoardDiceResult) {
         const labels = rolls.map((v) => {
-          if (v === 6) return 'Hit + Retreat + Disarray';
+          if (v === 6) return 'Hit + Disarray';
           if (v === 5) return 'Hit';
           if (v === DIE_RETREAT) return 'Retreat';
           if (v === DIE_DISARRAY) return 'Disarray';
@@ -5850,6 +6384,7 @@ function unitColors(side) {
     state.draft.done.red = true;
     state.editSide = 'blue';
     clearSelection();
+    clearDoctrineTargeting();
     log('Custom army setup complete. Review the board, then click Start Battle.');
   }
 
@@ -6103,6 +6638,93 @@ function unitColors(side) {
     }
   }
 
+  function normalizeBattleSide(side, fallback = 'blue') {
+    if (side === 'red' || side === 'blue') return side;
+    return fallback === 'red' ? 'red' : 'blue';
+  }
+
+  function oppositeBattleSide(side) {
+    return side === 'red' ? 'blue' : 'red';
+  }
+
+  function normalizeParityPick(v) {
+    return String(v || '').toLowerCase() === 'evens' ? 'evens' : 'odds';
+  }
+
+  function applyGuestSidePreference(preferredSide) {
+    const guestSide = normalizeBattleSide(preferredSide, 'red');
+    state.online.seats.guest = guestSide;
+    state.online.seats.host = oppositeBattleSide(guestSide);
+    state.online.guestPreferredSide = guestSide;
+  }
+
+  function localOnlineSide() {
+    if (!onlineModeActive()) return state.side;
+    return net.isHost ? state.online.seats.host : state.online.seats.guest;
+  }
+
+  function sendGuestPregamePrefs() {
+    if (!onlineModeActive() || !net.connected || net.isHost) return;
+    onlineSendPacket({
+      kind: 'pregame_prefs',
+      guestPreferredSide: state.online.guestPreferredSide,
+      guestParityPick: state.online.guestParityPick,
+    });
+  }
+
+  function renderInitiativeRoll(roll, {
+    guestParity = 'odds',
+    guestWon = false,
+    firstSide = 'blue',
+  } = {}) {
+    diceRenderNonce += 1;
+    const dieValue = Math.max(1, Math.min(6, Math.trunc(Number(roll) || 1)));
+    const parityLabel = (dieValue % 2 === 0) ? 'Even' : 'Odd';
+    const guestCall = normalizeParityPick(guestParity);
+    const first = normalizeBattleSide(firstSide, 'blue');
+
+    if (elDiceTray) {
+      elDiceTray.innerHTML = '';
+      const die = document.createElement('div');
+      die.className = 'die hit';
+      const face = makeDieFace(dieValue);
+      die.appendChild(face);
+      const badge = document.createElement('span');
+      badge.className = 'dieBadge';
+      badge.textContent = String(dieValue);
+      die.appendChild(badge);
+      die.title = `Initiative d6: ${dieValue}`;
+      elDiceTray.appendChild(die);
+    }
+
+    if (elPhysicalDiceRow) {
+      elPhysicalDiceRow.innerHTML = '';
+      const shell = makePhysicalDieShell(dieValue, 'hit', `Initiative d6: ${dieValue}`).shell;
+      shell.style.setProperty('--dice-rot', `${(Math.floor(Math.random() * 9) - 4)}deg`);
+      elPhysicalDiceRow.appendChild(shell);
+    }
+    if (elCornerDiceRow) {
+      elCornerDiceRow.innerHTML = '';
+      const shell = makePhysicalDieShell(dieValue, 'hit', `Initiative d6: ${dieValue}`).shell;
+      shell.className = 'physicalDie hit cornerDie';
+      shell.style.setProperty('--dice-rot', `${(Math.floor(Math.random() * 7) - 3)}deg`);
+      elCornerDiceRow.appendChild(shell);
+      if (elCornerDiceHud) elCornerDiceHud.classList.add('has-roll');
+    }
+    if (elCornerDiceHud) elCornerDiceHud.classList.remove('combat-active');
+    state.combatBusy = false;
+    state.combatBusyUntil = 0;
+
+    const guestResult = guestWon ? 'wins call' : 'loses call';
+    if (elDiceSummary) {
+      elDiceSummary.textContent =
+        `Initiative roll d6=${dieValue} (${parityLabel}). Guest called ${guestCall} and ${guestResult}.`;
+    }
+    if (elBoardDiceResult) {
+      elBoardDiceResult.textContent = `${first.toUpperCase()} acts first`;
+    }
+  }
+
   function ensureOnlineMode() {
     if (state.gameMode === 'online') return;
     stopAiLoop();
@@ -6150,12 +6772,17 @@ function unitColors(side) {
 
   function onlineLeaveSession(statusText = 'Online: idle.') {
     onlineDestroyPeer();
+    applyGuestSidePreference('red');
+    state.online.guestParityPick = 'odds';
+    state.online.lastInitiativeRoll = null;
+    state.online.lastInitiativeFirstSide = null;
+    state.online.lastInitiativeGuestWon = null;
     setOnlineStatus(statusText);
     updateHud();
   }
 
   function onlineExpectedLocalSide() {
-    return net.isHost ? 'blue' : 'red';
+    return localOnlineSide();
   }
 
   function executeOnlineActionLocal(action) {
@@ -6169,6 +6796,16 @@ function unitColors(side) {
       }
       case 'pass':
         passSelected();
+        return true;
+      case 'command_use': {
+        const commandId = String(action.commandId || '');
+        if (!commandId) return false;
+        const selectedUnitIds = Array.isArray(action.selectedUnitIds) ? action.selectedUnitIds.slice() : [];
+        issueDoctrineCommand(commandId, { selectedUnitIds });
+        return true;
+      }
+      case 'command_skip':
+        skipDoctrineCommandPhase();
         return true;
       case 'line_advance':
         if (typeof action.direction === 'string') {
@@ -6230,11 +6867,43 @@ function unitColors(side) {
     if (packet.kind === 'action') {
       if (!net.isHost || !onlineModeActive() || !net.connected) return;
       if (state.mode !== 'play' || state.gameOver) return;
-      if (state.side !== 'red') {
+      if (state.side !== state.online.seats.guest) {
         onlineBroadcastSnapshot('turn-mismatch');
         return;
       }
       executeOnlineActionLocal(packet.action);
+      return;
+    }
+
+    if (packet.kind === 'pregame_prefs') {
+      if (!net.isHost || !onlineModeActive()) return;
+      const nextSide = normalizeBattleSide(packet.guestPreferredSide, state.online.guestPreferredSide || 'red');
+      const nextParity = normalizeParityPick(packet.guestParityPick || state.online.guestParityPick);
+      state.online.guestParityPick = nextParity;
+      applyGuestSidePreference(nextSide);
+      log(`Online setup: guest picked ${nextSide.toUpperCase()} and called ${nextParity.toUpperCase()}.`);
+      updateHud();
+      onlineBroadcastSnapshot('pregame-prefs');
+      return;
+    }
+
+    if (packet.kind === 'initiative_result') {
+      if (net.isHost || !onlineModeActive()) return;
+      const guestSide = normalizeBattleSide(packet.guestSide, state.online.guestPreferredSide || 'red');
+      const hostSide = normalizeBattleSide(packet.hostSide, oppositeBattleSide(guestSide));
+      state.online.seats.guest = guestSide;
+      state.online.seats.host = hostSide;
+      state.online.guestPreferredSide = guestSide;
+      state.online.guestParityPick = normalizeParityPick(packet.guestParityPick || state.online.guestParityPick);
+      state.online.lastInitiativeRoll = Math.max(1, Math.min(6, Math.trunc(Number(packet.roll) || 1)));
+      state.online.lastInitiativeGuestWon = !!packet.guestWon;
+      state.online.lastInitiativeFirstSide = normalizeBattleSide(packet.firstSide, 'blue');
+      renderInitiativeRoll(state.online.lastInitiativeRoll, {
+        guestParity: state.online.guestParityPick,
+        guestWon: state.online.lastInitiativeGuestWon,
+        firstSide: state.online.lastInitiativeFirstSide,
+      });
+      updateHud();
       return;
     }
   }
@@ -6254,7 +6923,10 @@ function unitColors(side) {
         setOnlineStatus(`Connected to room ${net.remoteCode || '----'}.`);
       }
       if (net.isHost) onlineBroadcastSnapshot('peer-open');
-      else onlineSendPacket({ kind: 'hello' });
+      else {
+        onlineSendPacket({ kind: 'hello' });
+        sendGuestPregamePrefs();
+      }
       updateHud();
     });
     conn.on('data', onOnlinePacket);
@@ -6294,7 +6966,7 @@ function unitColors(side) {
         if (net.peer !== peer) return;
         opened = true;
         net.myCode = onlineCodeFromPeerId(id) || roomCode;
-        setOnlineStatus(`Room ${net.myCode} ready. Share this code. You are BLUE.`);
+        setOnlineStatus(`Room ${net.myCode} ready. Share this code. Guest chooses side + odds/evens.`);
         updateHud();
       });
       peer.on('connection', (incomingConn) => {
@@ -6523,18 +7195,23 @@ function unitColors(side) {
         return byId(hasMove ? picks : []);
       }
       case 'runner_burst':
-        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'run'), side).slice(0, 1));
+        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'run'), side));
       case 'javelin_volley':
-        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'skr'), side).slice(0, 2));
+        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'skr' || u.type === 'arc'), side));
       case 'quick_withdraw':
         return byId(byFrontlinePriority(
           quickWithdrawCandidates(side),
           side
-        ).slice(0, 1));
+        ));
       case 'close_ranks':
-        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'inf'), side).slice(0, 1));
+        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'inf'), side));
       case 'spur_horses':
-        return byId(byFrontlinePriority(friendlyEntries(side, (u, hk) => u.type === 'cav' && inCommandAt(hk, side)), side).slice(0, 1));
+        // Allow manual selection among ALL eligible cavalry in command.
+        // The directive still resolves to exactly one target via target limits.
+        return byId(byFrontlinePriority(
+          friendlyEntries(side, (u, hk) => u.type === 'cav' && inCommandAt(hk, side)),
+          side
+        ));
       case 'signal_call': {
         const gens = friendlyEntries(side, (u) => u.type === 'gen');
         const targets = [];
@@ -6545,28 +7222,28 @@ function unitColors(side) {
           for (const g of gens) {
             const radius = commandRadiusForUnit(g.unit);
             const d = axialDistance(h.q, h.r, g.hex.q, g.hex.r);
-            if (d === radius + 1) { exactlyOutside = true; break; }
+            if (d > radius && d <= radius + 2) { exactlyOutside = true; break; }
           }
           if (exactlyOutside) targets.push(e);
         }
-        return byId(byFrontlinePriority(targets, side).slice(0, 1));
+        return byId(byFrontlinePriority(targets, side));
       }
       case 'loose_screen':
         return byId(byFrontlinePriority(
           friendlyEntries(side, (u, hk) => (u.type === 'skr' || u.type === 'arc') && hasAdjacentFriendlyInf(hk, side)),
           side
-        ).slice(0, 2));
+        ));
       case 'covering_fire':
-        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'arc' || u.type === 'skr'), side).slice(0, 1));
+        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'arc' || u.type === 'skr'), side));
       case 'hold_fast':
-        return byId(byFrontlinePriority(allFriendly, side).slice(0, 1));
+        return byId(byFrontlinePriority(allFriendly, side));
       case 'shield_wall': {
         const inf = friendlyEntries(side, (u) => u.type === 'inf');
         const picks = findLargestContiguousGroup(inf, 6);
         return byId(picks.length >= 3 ? picks : []);
       }
       case 'cavalry_exploit':
-        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'cav'), side).slice(0, 3));
+        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'cav'), side));
       case 'refuse_flank':
       {
         const picks = chooseWingEntries(friendlyEntries(side, (u) => u.type === 'inf'), side, 5).slice(0, 5);
@@ -6582,22 +7259,22 @@ function unitColors(side) {
         return byId(hasMove ? picks : []);
       }
       case 'forced_march':
-        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'inf' || u.type === 'skr'), side).slice(0, 4));
+        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'inf' || u.type === 'skr'), side));
       case 'strengthen_center': {
         const gen = pickNearestGeneral(side);
         if (!gen) return [];
         return byId(byFrontlinePriority(
           friendlyEntries(side, (u, hk) => u.type === 'inf' && axialDistance(gen.hex.q, gen.hex.r, board.byKey.get(hk).q, board.byKey.get(hk).r) <= 2),
           side
-        ).slice(0, 4));
+        ));
       }
       case 'wing_screen':
-        return byId(chooseWingEntries(friendlyEntries(side, (u) => u.type === 'skr' || u.type === 'arc'), side, 3));
+        return byId(chooseWingEntries(friendlyEntries(side, (u) => u.type === 'skr' || u.type === 'arc'), side, 4));
       case 'countercharge':
         return byId(byFrontlinePriority(
           friendlyEntries(side, (u, hk) => u.type === 'cav' && !isSurrounded(hk, side)),
           side
-        ).slice(0, 2));
+        ));
       case 'jaws_inward':
       {
         const picks = selectJawsInwardVeteranEntries(side, 4);
@@ -6614,10 +7291,10 @@ function unitColors(side) {
         return byId(byFrontlinePriority(
           friendlyEntries(side, (u, hk) => geom.frontDepthForSide(side, hk) >= 0.58),
           side
-        ).slice(0, 2));
+        ));
       }
       case 'drive_them_back':
-        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'inf'), side).slice(0, 3));
+        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'inf'), side));
       case 'full_line_advance':
       {
         const picks = chooseRowEntries(friendlyEntries(side), 8);
@@ -6644,7 +7321,7 @@ function unitColors(side) {
         return byId(fallbackWing);
       }
       case 'commit_reserves': {
-        return byId(selectReserveEntries(side, 3));
+        return byId(selectReserveEntries(side, 4));
       }
       case 'general_assault': {
         const gen = pickNearestGeneral(side);
@@ -6697,7 +7374,7 @@ function unitColors(side) {
         return byId(merged);
       }
       case 'last_push':
-        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'inf' || u.type === 'cav'), side).slice(0, 4));
+        return byId(byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'inf' || u.type === 'cav'), side));
       case 'reforge_line': {
         const inf = friendlyEntries(side, (u) => u.type === 'inf');
         const picks = findLargestContiguousGroup(inf, 6);
@@ -6764,6 +7441,17 @@ function unitColors(side) {
       opt.title = `${commandLaymanText(cmd)} Rules effect: ${commandExplainText(cmd)} Targeting: ${cmd.targeting}. Legal target groups: ${targetCount}.`;
       elCommandSel.appendChild(opt);
     }
+    const targetingCmdId = state.doctrine.targeting.active ? String(state.doctrine.targeting.commandId || '') : '';
+    if (targetingCmdId) {
+      if (legal.some((c) => c.id === targetingCmdId)) {
+        elCommandSel.value = targetingCmdId;
+        state.doctrine.selectedCommandId = targetingCmdId;
+        return;
+      }
+      // Targeting command no longer legal (board changed): close target mode cleanly.
+      clearDoctrineTargeting();
+      log('Directive target mode canceled: selected directive is no longer legal this turn.');
+    }
     if (state.doctrine.selectedCommandId && legal.some(c => c.id === state.doctrine.selectedCommandId)) {
       elCommandSel.value = state.doctrine.selectedCommandId;
     } else {
@@ -6774,6 +7462,12 @@ function unitColors(side) {
 
   function skipDoctrineCommandPhase() {
     if (state.mode !== 'play' || state.gameOver) return;
+    if (state.doctrine.targeting.active) {
+      clearDoctrineTargeting();
+      log('Directive target mode canceled.');
+      updateHud();
+      return;
+    }
     if (state.doctrine.commandIssuedThisTurn) {
       log('Command already committed this turn.');
       updateHud();
@@ -6782,6 +7476,7 @@ function unitColors(side) {
     state.doctrine.commandIssuedThisTurn = true;
     state.doctrine.activeCommandThisTurn = null;
     closeCommandPhase();
+    clearDoctrineTargeting();
     log(`${state.side.toUpperCase()} chose not to issue a command this turn.`);
     pushEventTrace('command.skip', { side: state.side });
     updateHud();
@@ -6938,8 +7633,12 @@ function unitColors(side) {
     if (elDoctrineBlankizeBtn) elDoctrineBlankizeBtn.disabled = readOnly;
     if (elDoctrineScenarioApplyBtn) elDoctrineScenarioApplyBtn.disabled = readOnly;
     if (elDoctrineConfirmBtn) {
-      elDoctrineConfirmBtn.disabled = readOnly || !tierValid;
-      elDoctrineConfirmBtn.textContent = readOnly ? 'Doctrine Locked In Play' : (tierValid ? 'Confirm Doctrine' : 'Pick 3 Per Cost');
+      // Keep this clickable in Setup mode so users always get explicit feedback
+      // about what is missing, instead of a dead-looking button.
+      elDoctrineConfirmBtn.disabled = readOnly;
+      elDoctrineConfirmBtn.textContent = readOnly
+        ? 'Doctrine Locked In Play'
+        : (tierValid ? 'Confirm Doctrine' : 'Confirm Doctrine (Need 3/3/3)');
     }
     renderDoctrineBuilderFocusOnly();
   }
@@ -6967,6 +7666,23 @@ function unitColors(side) {
   function applyDoctrineFromBuilder(side) {
     ensureDoctrineConfirmState();
     const draft = currentDoctrineBuilderDraft(side);
+    const c1 = draft.filter(id => COMMAND_BY_ID.get(id)?.cost === 1).length;
+    const c2 = draft.filter(id => COMMAND_BY_ID.get(id)?.cost === 2).length;
+    const c3 = draft.filter(id => COMMAND_BY_ID.get(id)?.cost === 3).length;
+    const tierValid = (c1 === COMMANDS_PER_COST) && (c2 === COMMANDS_PER_COST) && (c3 === COMMANDS_PER_COST);
+    if (!tierValid) {
+      const msg =
+        `${side.toUpperCase()} doctrine incomplete: ` +
+        `Cost 1 ${c1}/${COMMANDS_PER_COST}, ` +
+        `Cost 2 ${c2}/${COMMANDS_PER_COST}, ` +
+        `Cost 3 ${c3}/${COMMANDS_PER_COST}.`;
+      if (elDoctrineBuilderCounts) {
+        elDoctrineBuilderCounts.textContent = `${msg} Pick exactly 3 per cost tier.`;
+      }
+      log(msg);
+      updateHud();
+      return false;
+    }
     if (!validateDoctrineLoadout(draft)) {
       if (elDoctrineBuilderCounts) {
         elDoctrineBuilderCounts.textContent = `${side.toUpperCase()} doctrine invalid: choose exactly 3 commands at each cost tier.`;
@@ -7050,6 +7766,17 @@ function unitColors(side) {
         statusLines.push(`Alert: ${state.enemyDirectiveNotice.text}`);
       } else {
         state.enemyDirectiveNotice = null;
+      }
+    }
+    if (state.gameMode === 'online') {
+      statusLines.push(
+        `Online seats: Host ${state.online.seats.host.toUpperCase()} • Guest ${state.online.seats.guest.toUpperCase()}`
+      );
+      statusLines.push(`Guest call: ${state.online.guestParityPick.toUpperCase()}`);
+      if (Number.isFinite(state.online.lastInitiativeRoll)) {
+        statusLines.push(
+          `Initiative: d6=${state.online.lastInitiativeRoll} • First side ${String(state.online.lastInitiativeFirstSide || '-').toUpperCase()}`
+        );
       }
     }
     const objState = evaluateObjectiveControl();
@@ -7180,6 +7907,16 @@ function unitColors(side) {
     if (elOnlineHostBtn) elOnlineHostBtn.disabled = hostDisabled;
     if (elOnlineJoinBtn) elOnlineJoinBtn.disabled = joinDisabled;
     if (elOnlineLeaveBtn) elOnlineLeaveBtn.disabled = leaveDisabled;
+    if (elOnlineGuestSideSel) {
+      elOnlineGuestSideSel.value = state.online.guestPreferredSide;
+      const guestCanEdit = onlineMode && (!net.connected || !net.isHost);
+      elOnlineGuestSideSel.disabled = !guestCanEdit;
+    }
+    if (elOnlineInitiativeSel) {
+      elOnlineInitiativeSel.value = state.online.guestParityPick;
+      const guestCanEdit = onlineMode && (!net.connected || !net.isHost);
+      elOnlineInitiativeSel.disabled = !guestCanEdit;
+    }
     if (state.loadedScenarioName) {
       updateScenarioSidesLegend(state.loadedScenarioName);
     } else {
@@ -7270,8 +8007,32 @@ function unitColors(side) {
       elLineAdvanceBtn.disabled = !canIssueLineAdvance();
     }
     if (elLineAdvanceDirSel) {
-      elLineAdvanceDirSel.value = normalizeLineAdvanceDirection(state.lineAdvanceDirection);
-      elLineAdvanceDirSel.disabled = state.mode !== 'play' || state.gameOver || isAiTurnActive();
+      const ctx = getLineAdvanceContext(state.selectedKey);
+      const dirs = ctx?.dirs?.length ? ctx.dirs.slice() : ['ur', 'ul', 'dr', 'dl'];
+      const current = normalizeLineAdvanceDirection(ctx?.activeDir || state.lineAdvanceDirection);
+      const have = new Set([...elLineAdvanceDirSel.options].map((o) => String(o.value || '').toLowerCase()));
+      const needsRebuild = (elLineAdvanceDirSel.options.length !== dirs.length) || dirs.some((d) => !have.has(d));
+      if (needsRebuild) {
+        elLineAdvanceDirSel.innerHTML = '';
+        for (const d of dirs) {
+          const opt = document.createElement('option');
+          opt.value = d;
+          opt.textContent = hexDirectionLabel(d);
+          elLineAdvanceDirSel.appendChild(opt);
+        }
+      }
+      if (!dirs.includes(current)) {
+        state.lineAdvanceDirection = dirs[0];
+      } else {
+        state.lineAdvanceDirection = current;
+      }
+      elLineAdvanceDirSel.value = state.lineAdvanceDirection;
+      elLineAdvanceDirSel.disabled =
+        state.mode !== 'play' ||
+        state.gameOver ||
+        isAiTurnActive() ||
+        !state.selectedKey ||
+        !ctx;
     }
 
     const canIssueCommandNow =
@@ -7283,10 +8044,15 @@ function unitColors(side) {
 
     if (elCommandSel) {
       if (state.mode === 'play') populateTurnCommandSelect();
-      elCommandSel.disabled = !canIssueCommandNow;
+      elCommandSel.disabled = !canIssueCommandNow || state.doctrine.targeting.active;
     }
     if (elCommandUseBtn) {
-      elCommandUseBtn.disabled = !canIssueCommandNow || !elCommandSel?.value;
+      const selectedCommandId = elCommandSel?.value || '';
+      const targetingActiveForCurrent =
+        state.doctrine.targeting.active &&
+        state.doctrine.targeting.commandId === selectedCommandId;
+      elCommandUseBtn.disabled = !canIssueCommandNow || !selectedCommandId;
+      elCommandUseBtn.textContent = targetingActiveForCurrent ? 'Confirm Directive' : 'Use Directive';
     }
     if (elCommandSkipBtn) {
       elCommandSkipBtn.disabled = !canIssueCommandNow;
@@ -7303,13 +8069,27 @@ function unitColors(side) {
       elOpenOrdersKeyBtn.disabled = !hasDoctrine;
     }
     if (elCommandPhaseNote) {
-      elCommandPhaseNote.textContent = state.doctrine.commandIssuedThisTurn
+      if (state.doctrine.targeting.active) {
+        const cmd = COMMAND_BY_ID.get(state.doctrine.targeting.commandId);
+        const picked = (state.doctrine.targeting.selectedUnitIds || []).length;
+        const eligible = (state.doctrine.targeting.eligibleUnitIds || []).length;
+        const limits = doctrineTargetLimits(state.doctrine.targeting.commandId);
+        const rangeTxt = Number.isFinite(limits.max)
+          ? `${limits.min}-${limits.max}`
+          : `${limits.min}+`;
+        elCommandPhaseNote.textContent =
+          `Targeting ${cmd?.name || 'directive'}: ${picked} selected of ${eligible} eligible ` +
+          `(pick ${rangeTxt}). Rule: ${cmd?.targeting || 'see command text'}. ` +
+          'Hover eligible units to preview paths, click to toggle selection, then Confirm Directive.';
+      } else {
+        elCommandPhaseNote.textContent = state.doctrine.commandIssuedThisTurn
         ? (state.doctrine.activeCommandThisTurn
           ? `Directive committed: ${commandLabel(state.doctrine.activeCommandThisTurn)}`
           : 'Directive skipped for this turn.')
         : (state.actsUsed >= ACT_LIMIT
           ? 'No actions left this turn.'
           : 'Optional: issue one directive any time this turn, or continue moving units.');
+      }
     }
 
     if (elDoctrineSummary) {
@@ -7776,7 +8556,13 @@ function unitColors(side) {
           }
 
           if (state.selectedKey === queued.fromKey && state._attackTargets && state._attackTargets.has(queued.targetKey)) {
-            setAttackFlash(queued.targetKey, ATTACK_FLASH_MS + 180);
+            const atkUnit = unitsByHex.get(queued.fromKey);
+            const prof = atkUnit ? attackDiceFor(queued.fromKey, queued.targetKey, atkUnit) : null;
+            setAttackFlash(queued.targetKey, ATTACK_FLASH_MS + 180, {
+              fromKey: queued.fromKey,
+              strikeType: prof?.kind || 'melee',
+              attackerType: atkUnit?.type || '',
+            });
             attackFromSelection(queued.targetKey);
           } else {
             clearSelection();
@@ -8267,16 +9053,19 @@ function unitColors(side) {
   }
 
   function normalizeLineAdvanceDirection(dir) {
-    return (dir === 'forward' || dir === 'backward' || dir === 'left' || dir === 'right')
-      ? dir
-      : 'forward';
+    const d = String(dir || '').toLowerCase();
+    if (HEX_DIRECTION_IDS.includes(d)) return d;
+    if (d === 'forward' || d === 'backward' || d === 'left' || d === 'right') return d;
+    return 'ur';
   }
 
   function lineAdvanceStepDirection(side, axis = state.forwardAxis, mode = state.lineAdvanceDirection) {
+    const normalized = normalizeLineAdvanceDirection(mode);
+    if (HEX_DIRECTION_IDS.includes(normalized)) return normalized;
     const forward = sideForwardDirection(side, axis);
     const back = oppositeDirection(forward);
     const [left, right] = axisLateralDirections(axis);
-    const m = normalizeLineAdvanceDirection(mode);
+    const m = normalized;
     if (m === 'backward' && back) return back;
     if (m === 'left') return left;
     if (m === 'right') return right;
@@ -8298,12 +9087,12 @@ function unitColors(side) {
     return unitCanMoveThisActivation(u, { inCommandStart: inCmd }, hexKey);
   }
 
-  function collectLineAdvanceFormation(anchorKey) {
+  function collectLineAlongAxis(anchorKey, axisDef) {
+    if (!axisDef) return [];
     const anchorUnit = unitsByHex.get(anchorKey);
     if (!anchorUnit) return [];
     if (!canLineAdvanceInfAt(anchorKey, anchorUnit)) return [];
 
-    const [beforeDir, afterDir] = axisLateralDirections(state.forwardAxis);
     const before = [];
     const after = [];
 
@@ -8319,14 +9108,230 @@ function unitColors(side) {
       }
     }
 
-    walk(beforeDir, before);
-    walk(afterDir, after);
-
+    walk(axisDef.neg, before);
+    walk(axisDef.pos, after);
     before.reverse();
     return [...before, anchorKey, ...after];
   }
 
-  function lineAdvanceMovePlan(formation) {
+  function collectLineAdvanceFormationWithAxis(anchorKey) {
+    let best = { formation: [], axis: null };
+    for (const axisDef of LINE_ADVANCE_AXES) {
+      const formation = collectLineAlongAxis(anchorKey, axisDef);
+      if (formation.length > best.formation.length) {
+        best = { formation, axis: axisDef };
+      }
+    }
+    return best;
+  }
+
+  function collectLineAdvanceFormation(anchorKey) {
+    const picked = collectLineAdvanceFormationWithAxis(anchorKey);
+    return picked.formation || [];
+  }
+
+  function getLineAdvanceContext(anchorKey = state.selectedKey) {
+    if (!anchorKey) return null;
+    const picked = collectLineAdvanceFormationWithAxis(anchorKey);
+    const formation = picked.formation || [];
+    const axisDef = picked.axis;
+    if (!axisDef || formation.length === 0) return null;
+
+    const dirs = Array.isArray(axisDef.advanceDirs) ? axisDef.advanceDirs.slice() : [];
+    if (!dirs.length) return null;
+
+    const plansByDir = new Map();
+    for (const d of dirs) {
+      plansByDir.set(d, lineAdvanceMovePlan(formation, d));
+    }
+
+    let activeDir = normalizeLineAdvanceDirection(state.lineAdvanceDirection);
+    if (!dirs.includes(activeDir)) {
+      const firstWithMove = dirs.find((d) => (plansByDir.get(d)?.moves?.length || 0) > 0);
+      activeDir = firstWithMove || dirs[0];
+    }
+    const plan = plansByDir.get(activeDir) || { moves: [], blocked: [] };
+    return { formation, axisDef, dirs, activeDir, plan, plansByDir };
+  }
+
+  function buildLineAdvanceOverlay(anchorKey = state.selectedKey) {
+    const ctx = getLineAdvanceContext(anchorKey);
+    if (!ctx) return null;
+
+    const byHex = new Map();
+    const mark = (hexKey, field) => {
+      if (!hexKey) return;
+      const cur = byHex.get(hexKey) || {
+        member: false,
+        movingFrom: false,
+        blockedFrom: false,
+        destination: false,
+      };
+      cur[field] = true;
+      byHex.set(hexKey, cur);
+    };
+
+    for (const hk of ctx.formation) mark(hk, 'member');
+    for (const mv of ctx.plan.moves || []) {
+      mark(mv.fromKey, 'movingFrom');
+      mark(mv.toKey, 'destination');
+    }
+    for (const bl of ctx.plan.blocked || []) {
+      mark(bl.fromKey, 'blockedFrom');
+    }
+
+    return {
+      byHex,
+      direction: ctx.activeDir,
+      formationCount: ctx.formation.length,
+      canAdvance: (ctx.plan.moves?.length || 0) > 0,
+    };
+  }
+
+  function doctrinePreviewMoveTarget(commandId, entry, side) {
+    if (!entry || !entry.key || !entry.unit) return null;
+    const fromKey = entry.key;
+    const u = entry.unit;
+    switch (commandId) {
+      case 'quick_dress': {
+        const lateral = axisLateralDirections(state.forwardAxis);
+        for (const dir of lateral) {
+          const toKey = stepKeyInDirection(fromKey, dir);
+          if (toKey && canCommandRelocateUnit(fromKey, toKey, { unit: u })) return { fromKey, toKey, blocked: false };
+        }
+        return { fromKey, toKey: null, blocked: true };
+      }
+      case 'quick_withdraw': {
+        const outTargets = [...disengageTargets(fromKey, u)];
+        const toKey = outTargets[0] || null;
+        if (!toKey) return { fromKey, toKey: null, blocked: true };
+        return { fromKey, toKey, blocked: !canCommandRelocateUnit(fromKey, toKey, { unit: u }) };
+      }
+      case 'refuse_flank': {
+        const backDir = oppositeDirection(sideForwardDirection(side, state.forwardAxis));
+        const inwardDir = inwardLateralDirectionForKey(fromKey);
+        const candidates = [];
+        if (backDir) candidates.push(stepKeyInDirection(fromKey, backDir));
+        if (inwardDir) candidates.push(stepKeyInDirection(fromKey, inwardDir));
+        for (const toKey of candidates) {
+          if (toKey && canCommandRelocateUnit(fromKey, toKey, { unit: u })) return { fromKey, toKey, blocked: false };
+        }
+        return { fromKey, toKey: null, blocked: true };
+      }
+      case 'jaws_inward': {
+        const inwardDir = inwardLateralDirectionForKey(fromKey);
+        const toKey = inwardDir ? stepKeyInDirection(fromKey, inwardDir) : null;
+        if (!toKey) return { fromKey, toKey: null, blocked: true };
+        return { fromKey, toKey, blocked: !canCommandRelocateUnit(fromKey, toKey, { unit: u }) };
+      }
+      case 'full_line_advance':
+      case 'all_out_cavalry_sweep':
+      case 'commit_reserves': {
+        const toKey = forwardStepKey(fromKey, side);
+        if (!toKey) return { fromKey, toKey: null, blocked: true };
+        return { fromKey, toKey, blocked: !canCommandRelocateUnit(fromKey, toKey, { unit: u }) };
+      }
+      case 'collapse_center': {
+        const center = collapseCenterCandidates(side, 6).some((e) => e.unit.id === u.id);
+        if (center) {
+          const backDir = oppositeDirection(sideForwardDirection(side, state.forwardAxis));
+          const toKey = backDir ? stepKeyInDirection(fromKey, backDir) : null;
+          if (!toKey) return { fromKey, toKey: null, blocked: true };
+          return { fromKey, toKey, blocked: !canCommandRelocateUnit(fromKey, toKey, { unit: u }) };
+        }
+        const inwardDir = inwardLateralDirectionForKey(fromKey);
+        const toKey = inwardDir ? stepKeyInDirection(fromKey, inwardDir) : null;
+        if (!toKey) return { fromKey, toKey: null, blocked: true };
+        return { fromKey, toKey, blocked: !canCommandRelocateUnit(fromKey, toKey, { unit: u }) };
+      }
+      case 'reforge_line': {
+        const opts = [
+          sideForwardDirection(side, state.forwardAxis),
+          ...axisLateralDirections(state.forwardAxis),
+          oppositeDirection(sideForwardDirection(side, state.forwardAxis)),
+        ];
+        for (const dir of opts) {
+          const toKey = stepKeyInDirection(fromKey, dir);
+          if (toKey && canCommandRelocateUnit(fromKey, toKey, { unit: u })) return { fromKey, toKey, blocked: false };
+        }
+        return { fromKey, toKey: null, blocked: true };
+      }
+      default:
+        return null;
+    }
+  }
+
+  function buildDoctrineTargetOverlay() {
+    const t = state.doctrine.targeting;
+    if (!t || !t.active || !t.commandId) return null;
+    const side = state.side;
+    const byHex = new Map();
+    const paths = [];
+
+    const eligibleIdSet = new Set(t.eligibleUnitIds || []);
+    for (const [hk, u] of unitsByHex) {
+      if (!u || u.side !== side) continue;
+      if (!eligibleIdSet.has(u.id)) continue;
+      byHex.set(hk, {
+        eligible: true,
+        selected: false,
+        destination: false,
+        blockedFrom: false,
+      });
+    }
+
+    const selectedEntries = currentDoctrineTargetingEntries();
+    const selectedFromKeys = new Set(selectedEntries.map((e) => e.key));
+    for (const e of selectedEntries) {
+      const cur = byHex.get(e.key) || { eligible: false, selected: false, destination: false, blockedFrom: false };
+      cur.selected = true;
+      byHex.set(e.key, cur);
+      const preview = doctrinePreviewMoveTarget(t.commandId, e, side);
+      if (preview) {
+        paths.push(preview);
+        if (preview.toKey) {
+          const toCur = byHex.get(preview.toKey) || { eligible: false, selected: false, destination: false, blockedFrom: false };
+          toCur.destination = true;
+          byHex.set(preview.toKey, toCur);
+        } else if (preview.blocked) {
+          cur.blockedFrom = true;
+          byHex.set(e.key, cur);
+        }
+      }
+    }
+
+    const hoverKey = state._hoverKey;
+    if (hoverKey && !selectedFromKeys.has(hoverKey)) {
+      const hoverUnit = unitsByHex.get(hoverKey);
+      if (hoverUnit && hoverUnit.side === side && eligibleIdSet.has(hoverUnit.id)) {
+        const hoverMark = byHex.get(hoverKey) || { eligible: false, selected: false, destination: false, blockedFrom: false };
+        hoverMark.hovered = true;
+        byHex.set(hoverKey, hoverMark);
+        const hoverEntry = { key: hoverKey, unit: hoverUnit, hex: board.byKey.get(hoverKey) };
+        const hoverPreview = doctrinePreviewMoveTarget(t.commandId, hoverEntry, side);
+        if (hoverPreview) {
+          hoverPreview.hover = true;
+          paths.push(hoverPreview);
+          if (hoverPreview.toKey) {
+            const toCur = byHex.get(hoverPreview.toKey) || { eligible: false, selected: false, destination: false, blockedFrom: false };
+            toCur.destination = true;
+            byHex.set(hoverPreview.toKey, toCur);
+          } else if (hoverPreview.blocked) {
+            hoverMark.blockedFrom = true;
+            byHex.set(hoverKey, hoverMark);
+          }
+        }
+      }
+    }
+
+    return { byHex, paths };
+  }
+
+  function lineAdvanceMovePlan(formation, direction = state.lineAdvanceDirection) {
+    if (!Array.isArray(formation) || formation.length === 0) {
+      return { moves: [], blocked: [] };
+    }
+    const dir = lineAdvanceStepDirection(state.side, state.forwardAxis, direction);
     const formationSet = new Set(formation);
     const moves = [];
     const blocked = [];
@@ -8336,7 +9341,7 @@ function unitColors(side) {
       const u = unitsByHex.get(fromKey);
       if (!u) continue;
 
-      const toKey = forwardStepKey(fromKey, u.side, state.lineAdvanceDirection);
+      const toKey = stepKeyInDirection(fromKey, dir);
       if (!toKey) {
         blocked.push({ fromKey, reason: 'off-board' });
         continue;
@@ -8377,9 +9382,9 @@ function unitColors(side) {
 
     const u = unitsByHex.get(state.selectedKey);
     if (!u || u.side !== state.side || u.type !== 'inf') return false;
-    const formation = collectLineAdvanceFormation(state.selectedKey);
-    if (formation.length === 0) return false;
-    return lineAdvanceMovePlan(formation).moves.length > 0;
+    const ctx = getLineAdvanceContext(state.selectedKey);
+    if (!ctx) return false;
+    return (ctx.plan.moves.length > 0);
   }
 
   function lineAdvanceFromSelection() {
@@ -8405,14 +9410,15 @@ function unitColors(side) {
       return;
     }
 
-    const formation = collectLineAdvanceFormation(anchorKey);
-    if (formation.length === 0) {
+    const ctx = getLineAdvanceContext(anchorKey);
+    if (!ctx || ctx.formation.length === 0) {
       log('Line Advance unavailable: selected INF cannot form an eligible line.');
       updateHud();
       return;
     }
-
-    const plan = lineAdvanceMovePlan(formation);
+    state.lineAdvanceDirection = ctx.activeDir;
+    const formation = ctx.formation;
+    const plan = ctx.plan;
     const moves = plan.moves;
     const blocked = plan.blocked;
 
@@ -8447,7 +9453,7 @@ function unitColors(side) {
     if (byReason.terrain) blockParts.push(`terrain ${byReason.terrain}`);
     const blockText = blockParts.length ? ` blocked(${blockParts.join(', ')})` : '';
 
-    const dirLabel = normalizeLineAdvanceDirection(state.lineAdvanceDirection);
+    const dirLabel = hexDirectionLabel(state.lineAdvanceDirection);
     log(`Line Advance (${dirLabel}): ${moves.length}/${formation.length} INF advanced.${blockText}`);
     updateHud();
     maybeAutoEndTurnAtActionLimit();
@@ -8474,7 +9480,9 @@ function unitColors(side) {
   }
 
   function byFrontlinePriority(entries, side) {
-    return cloneArray(entries).sort((a, b) =>
+    const sel = activeResolverSelectionIds(side);
+    const source = sel ? entries.filter((e) => sel.has(e.unit.id)) : entries;
+    return cloneArray(source).sort((a, b) =>
       nearestEnemyDistanceForSide(a.key, side) - nearestEnemyDistanceForSide(b.key, side)
     );
   }
@@ -8537,10 +9545,13 @@ function unitColors(side) {
   }
 
   function findLargestContiguousGroup(entries, maxCount = 6) {
-    const byKey = new Map(entries.map(e => [e.key, e]));
+    const sel = activeResolverSelectionIds(entries[0]?.unit?.side || state.side);
+    const source = sel ? entries.filter((e) => sel.has(e.unit.id)) : entries;
+    if (!source.length) return [];
+    const byKey = new Map(source.map(e => [e.key, e]));
     const seen = new Set();
     let best = [];
-    for (const e of entries) {
+    for (const e of source) {
       if (seen.has(e.key)) continue;
       const stack = [e.key];
       const group = [];
@@ -8560,12 +9571,15 @@ function unitColors(side) {
       }
       if (group.length > best.length) best = group;
     }
-    return byFrontlinePriority(best, entries[0]?.unit?.side || state.side).slice(0, maxCount);
+    return byFrontlinePriority(best, source[0]?.unit?.side || state.side).slice(0, maxCount);
   }
 
   function chooseRowEntries(entries, count = 3) {
+    const sel = activeResolverSelectionIds(entries[0]?.unit?.side || state.side);
+    const source = sel ? entries.filter((e) => sel.has(e.unit.id)) : entries;
+    if (!source.length) return [];
     const byRow = new Map();
-    for (const e of entries) {
+    for (const e of source) {
       const h = e.hex || board.byKey.get(e.key);
       if (!h) continue;
       // Row is depth-relative to current forward axis (not always literal board r).
@@ -8577,7 +9591,7 @@ function unitColors(side) {
     for (const rowEntries of byRow.values()) {
       if (rowEntries.length > best.length) best = rowEntries;
     }
-    return byFrontlinePriority(best, entries[0]?.unit?.side || state.side).slice(0, count);
+    return byFrontlinePriority(best, source[0]?.unit?.side || state.side).slice(0, count);
   }
 
   function entriesAdjacent(a, b) {
@@ -8589,8 +9603,11 @@ function unitColors(side) {
   }
 
   function chooseAdjacentRowEntries(entries, count = 3, minCount = 1) {
+    const sel = activeResolverSelectionIds(entries[0]?.unit?.side || state.side);
+    const source = sel ? entries.filter((e) => sel.has(e.unit.id)) : entries;
+    if (!source.length) return [];
     const byRow = new Map();
-    for (const e of entries) {
+    for (const e of source) {
       const h = e.hex || board.byKey.get(e.key);
       if (!h) continue;
       const rk = String(axisScalarsForHex(h, state.forwardAxis).approachRaw);
@@ -8622,7 +9639,7 @@ function unitColors(side) {
     }
 
     if (bestComponent.length < minCount) return [];
-    return byFrontlinePriority(bestComponent, entries[0]?.unit?.side || state.side).slice(0, count);
+    return byFrontlinePriority(bestComponent, source[0]?.unit?.side || state.side).slice(0, count);
   }
 
   function quickWithdrawCandidates(side) {
@@ -8659,7 +9676,12 @@ function unitColors(side) {
 
   function selectJawsInwardVeteranEntries(side, maxCount = 4) {
     const geom = buildAxisGeometry(state.forwardAxis);
-    const vets = friendlyEntries(side, (u) => u.type === 'inf' && u.quality === 'veteran');
+    const sel = activeResolverSelectionIds(side);
+    const vets = friendlyEntries(side, (u) => {
+      if (u.type !== 'inf' || u.quality !== 'veteran') return false;
+      if (sel && !sel.has(u.id)) return false;
+      return true;
+    });
     const left = [];
     const right = [];
     for (const e of vets) {
@@ -8683,7 +9705,12 @@ function unitColors(side) {
 
   function collapseCenterCandidates(side, maxCenter = 5) {
     const geom = buildAxisGeometry(state.forwardAxis);
-    const allInf = friendlyEntries(side, (u) => u.type === 'inf');
+    const sel = activeResolverSelectionIds(side);
+    const allInf = friendlyEntries(side, (u) => {
+      if (u.type !== 'inf') return false;
+      if (sel && !sel.has(u.id)) return false;
+      return true;
+    });
     return byFrontlinePriority(
       allInf.filter((e) => Math.abs(geom.lateralForSide(side, e.key)) <= 0.22),
       side
@@ -8691,8 +9718,11 @@ function unitColors(side) {
   }
 
   function chooseWingEntries(entries, side, count) {
+    const sel = activeResolverSelectionIds(side);
+    const source = sel ? entries.filter((e) => sel.has(e.unit.id)) : entries;
+    if (!source.length) return [];
     const geom = buildAxisGeometry(state.forwardAxis);
-    const scored = cloneArray(entries).map((e) => {
+    const scored = cloneArray(source).map((e) => {
       const depth = geom.frontDepthForSide(side, e.key);
       const lateral = geom.lateralForSide(side, e.key);
       return { entry: e, score: Math.abs(lateral) + (depth * 0.2) };
@@ -8703,8 +9733,10 @@ function unitColors(side) {
 
   function selectReserveEntries(side, maxCount = 3) {
     const geom = buildAxisGeometry(state.forwardAxis);
+    const sel = activeResolverSelectionIds(side);
     const scoredPrimary = friendlyEntries(side, (u, hk) => {
       if (u.type === 'gen') return false;
+      if (sel && !sel.has(u.id)) return false;
       if (isEngaged(hk, side)) return false;
       return geom.frontDepthForSide(side, hk) >= 0.56;
     }).map((e) => ({ e, depth: geom.frontDepthForSide(side, e.key) }));
@@ -8714,6 +9746,7 @@ function unitColors(side) {
 
     const scoredFallback = friendlyEntries(side, (u, hk) => {
       if (u.type === 'gen') return false;
+      if (sel && !sel.has(u.id)) return false;
       return geom.frontDepthForSide(side, hk) >= 0.42;
     }).map((e) => ({ e, depth: geom.frontDepthForSide(side, e.key) }));
     scoredFallback.sort((a, b) => b.depth - a.depth);
@@ -8812,8 +9845,14 @@ function unitColors(side) {
   }
 
   function resolveDoctrineSpurHorses(side) {
+    const sel = activeResolverSelectionIds(side);
     const cav = byFrontlinePriority(
-      friendlyEntries(side, (u, hk) => u.type === 'cav' && inCommandAt(hk, side)),
+      friendlyEntries(side, (u, hk) => {
+        if (u.type !== 'cav') return false;
+        if (!inCommandAt(hk, side)) return false;
+        if (sel && !sel.has(u.id)) return false;
+        return true;
+      }),
       side
     );
     const pick = cav[0];
@@ -9125,21 +10164,43 @@ function unitColors(side) {
   function resolveDoctrineCollapseCenter(side) {
     const geom = buildAxisGeometry(state.forwardAxis);
     const allInf = friendlyEntries(side, (u) => u.type === 'inf');
-    const centerInf = collapseCenterCandidates(side, 5);
-    if (centerInf.length < 3) return commandResult(false, 'Collapse the Center needs 3 infantry.');
-    const selectedIds = new Set(centerInf.map((e) => e.unit.id));
-    const selectedKeys = new Set(centerInf.map((e) => e.key));
-    const leftWing = [];
-    const rightWing = [];
-    for (const e of allInf) {
-      if (selectedKeys.has(e.key)) continue;
-      const lateral = geom.lateralForSide(side, e.key);
-      if (lateral < -0.18) leftWing.push({ e, score: Math.abs(lateral) });
-      else if (lateral > 0.18) rightWing.push({ e, score: Math.abs(lateral) });
+    const selectedSet = activeResolverSelectionIds(side);
+    let centerInf = [];
+    let wingPicks = [];
+    if (selectedSet && selectedSet.size > 0) {
+      const selectedInf = byFrontlinePriority(
+        allInf.filter((e) => selectedSet.has(e.unit.id)),
+        side
+      );
+      if (selectedInf.length < 3) {
+        return commandResult(false, 'Collapse the Center needs at least 3 selected infantry.');
+      }
+      centerInf = selectedInf
+        .filter((e) => Math.abs(geom.lateralForSide(side, e.key)) <= 0.22)
+        .slice(0, 5);
+      if (centerInf.length < 1) {
+        centerInf = selectedInf.slice(0, Math.min(5, selectedInf.length));
+      }
+      const centerKeysManual = new Set(centerInf.map((e) => e.key));
+      wingPicks = selectedInf.filter((e) => !centerKeysManual.has(e.key)).slice(0, 4);
+    } else {
+      centerInf = collapseCenterCandidates(side, 5);
+      if (centerInf.length < 3) return commandResult(false, 'Collapse the Center needs 3 infantry.');
+      const centerKeys = new Set(centerInf.map((e) => e.key));
+      const leftWing = [];
+      const rightWing = [];
+      for (const e of allInf) {
+        if (centerKeys.has(e.key)) continue;
+        const lateral = geom.lateralForSide(side, e.key);
+        if (lateral < -0.18) leftWing.push({ e, score: Math.abs(lateral) });
+        else if (lateral > 0.18) rightWing.push({ e, score: Math.abs(lateral) });
+      }
+      leftWing.sort((a, b) => b.score - a.score);
+      rightWing.sort((a, b) => b.score - a.score);
+      wingPicks = [...leftWing.slice(0, 2).map((x) => x.e), ...rightWing.slice(0, 2).map((x) => x.e)];
     }
-    leftWing.sort((a, b) => b.score - a.score);
-    rightWing.sort((a, b) => b.score - a.score);
-    const wingPicks = [...leftWing.slice(0, 2).map((x) => x.e), ...rightWing.slice(0, 2).map((x) => x.e)];
+
+    const selectedIds = new Set(centerInf.map((e) => e.unit.id));
     for (const w of wingPicks) selectedIds.add(w.unit.id);
 
     let centerMoved = 0;
@@ -9252,12 +10313,12 @@ function unitColors(side) {
     stand_or_die: resolveDoctrineStandOrDie,
   };
 
-  function resolveDoctrineCommand(side, commandId) {
+  function resolveDoctrineCommand(side, commandId, options = {}) {
     const cmd = COMMAND_BY_ID.get(commandId);
     if (!cmd) return commandResult(false, 'Unknown command.');
     const resolver = COMMAND_RESOLVERS[cmd.resolver];
     if (typeof resolver !== 'function') return commandResult(false, `${cmd.name} has no resolver yet.`);
-    return resolver(side);
+    return resolver(side, options);
   }
 
   function commandLabel(commandId) {
@@ -9266,7 +10327,7 @@ function unitColors(side) {
     return `${cmd.name} [${cmd.cost}]`;
   }
 
-  function issueDoctrineCommand(commandId) {
+  function issueDoctrineCommand(commandId, options = {}) {
     const side = state.side;
     if (state.mode !== 'play' || state.gameOver) {
       log('Commands can only be issued during live play.');
@@ -9286,7 +10347,45 @@ function unitColors(side) {
     }
 
     const cmd = COMMAND_BY_ID.get(commandId);
-    const result = resolveDoctrineCommand(side, commandId);
+    const selectedUnitIds = Array.isArray(options.selectedUnitIds)
+      ? [...new Set(
+        options.selectedUnitIds
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id))
+      )]
+      : [];
+    const targetLimits = doctrineTargetLimits(commandId);
+    if (selectedUnitIds.length > 0) {
+      const legalTargetIds = new Set(
+        legalDoctrineTargets(side, commandId)
+          .map((t) => Number(t?.unitId))
+          .filter((id) => Number.isFinite(id))
+      );
+      const illegal = selectedUnitIds.find((id) => !legalTargetIds.has(id));
+      if (illegal) {
+        log('One or more selected units are not legal targets for this directive.');
+        return false;
+      }
+      if (selectedUnitIds.length < targetLimits.min) {
+        log(`Select at least ${targetLimits.min} unit(s) for this directive, or deselect all for auto-targeting.`);
+        return false;
+      }
+      if (Number.isFinite(targetLimits.max) && selectedUnitIds.length > targetLimits.max) {
+        log(`This directive allows at most ${targetLimits.max} selected unit(s).`);
+        return false;
+      }
+    }
+    if (selectedUnitIds.length) {
+      state.doctrine.resolveCtx = {
+        side,
+        commandId,
+        selectedIds: new Set(selectedUnitIds),
+      };
+    } else {
+      state.doctrine.resolveCtx = null;
+    }
+    const result = resolveDoctrineCommand(side, commandId, { selectedUnitIds });
+    state.doctrine.resolveCtx = null;
     if (!result || !result.ok) {
       log(result?.message || `${cmd?.name || 'Command'} could not be executed.`);
       return false;
@@ -9324,6 +10423,7 @@ function unitColors(side) {
       note: result.message || '',
     });
     closeCommandPhase();
+    clearDoctrineTargeting();
     clearSelection();
     updateHud();
     maybeAutoEndTurnAtActionLimit();
@@ -9352,6 +10452,18 @@ function unitColors(side) {
       if (!Number.isFinite(cost) || cost > remainingMp) continue;
       if (isEngaged(nk, u.side)) continue;
 
+      out.add(nk);
+    }
+    return out;
+  }
+
+  function postAttackSixShiftTargets(fromKey, u) {
+    const out = new Set();
+    if (!fromKey || !u) return out;
+    const h = board.byKey.get(fromKey);
+    if (!h) return out;
+    for (const nk of h.neigh) {
+      if (!canCommandRelocateUnit(fromKey, nk, { unit: u })) continue;
       out.add(nk);
     }
     return out;
@@ -9660,13 +10772,17 @@ function unitColors(side) {
   }
 
   function retreatPick(attackerKey, defenderKey) {
-    // Retreat prefers moving back toward the unit's own side/backline when possible.
+    // Retreat prefers moving toward the nearest friendly general when possible,
+    // then falls back to the side/backline depth heuristic.
     // If no legal retreat hex increases distance from attacker, retreat converts to a hit.
     const aHex = board.byKey.get(attackerKey);
     const dHex = board.byKey.get(defenderKey);
     if (!aHex || !dHex) return null;
     const defenderUnit = unitsByHex.get(defenderKey);
     const defenderSide = defenderUnit?.side || 'blue';
+    const generalCenters = linkedGeneralKeys(defenderSide)
+      .map((gk) => board.byKey.get(gk))
+      .filter(Boolean);
 
     const curDist = axialDistance(aHex.q, aHex.r, dHex.q, dHex.r);
     const deltas = (dHex.r & 1) ? NEIGH_ODD : NEIGH_EVEN;
@@ -9687,12 +10803,20 @@ function unitColors(side) {
 
       const nextScalars = axisScalarsForHex(nh, state.forwardAxis);
       const retreatDepth = sideDepthNorm(nextScalars, defenderSide);
-      candidates.push({ k: nk, dist: nd, retreatDepth });
+      let nearestGeneral = Infinity;
+      if (generalCenters.length > 0) {
+        for (const gh of generalCenters) {
+          const gd = axialDistance(nh.q, nh.r, gh.q, gh.r);
+          if (gd < nearestGeneral) nearestGeneral = gd;
+        }
+      }
+      candidates.push({ k: nk, dist: nd, retreatDepth, nearestGeneral });
     }
 
     if (!candidates.length) return null;
 
     candidates.sort((a, b) =>
+      ((a.nearestGeneral - b.nearestGeneral) || 0) ||
       (a.retreatDepth - b.retreatDepth) ||
       (b.dist - a.dist) ||
       a.k.localeCompare(b.k)
@@ -9720,6 +10844,7 @@ function unitColors(side) {
     unitsByHex.delete(defenderKey);
 
     state.capturedUP[attackerSide] += destroyedUp;
+    playUnitDestroyedSfx();
 
     log(`☠️ ${defenderUnit.side.toUpperCase()} ${defDef.abbrev} destroyed (+${destroyedUp}u).`);
   }
@@ -9727,14 +10852,14 @@ function unitColors(side) {
   function resolveAttack(attackerKey, defenderKey) {
     const atk = unitsByHex.get(attackerKey);
     const defU = unitsByHex.get(defenderKey);
-    if (!atk || !defU) return { ok: false, pursuitTarget: null };
-    if (state.gameOver) return { ok: false, pursuitTarget: null };
+    if (!atk || !defU) return { ok: false, pursuitTarget: null, rolledSix: false };
+    if (state.gameOver) return { ok: false, pursuitTarget: null, rolledSix: false };
     const initialDefenderKey = defenderKey;
 
     const prof = attackDiceFor(attackerKey, defenderKey, atk);
     if (!prof) {
       log('Illegal attack.');
-      return { ok: false, pursuitTarget: null };
+      return { ok: false, pursuitTarget: null, rolledSix: false };
     }
 
     let impactPosition = 'none';
@@ -9795,6 +10920,7 @@ function unitColors(side) {
 
     const rolls = [];
     for (let i = 0; i < dice; i++) rolls.push(rollD6());
+    const rolledSix = rolls.some((v) => v === 6);
 
     const atkDef = UNIT_BY_ID.get(atk.type);
     const defDef = UNIT_BY_ID.get(defU.type);
@@ -9806,7 +10932,6 @@ function unitColors(side) {
     for (const v of rolls) {
       if (v === 6) {
         hits += 1;
-        retreats += 1;
         disarrays += 1;
       } else if (v === 5) {
         hits += 1;
@@ -9836,7 +10961,7 @@ function unitColors(side) {
       log(`${vs} is braced by linked INF support (${braceInfo.supportKeys.join(', ')}): attacker -1 die.`);
     }
     const rollTokens = rolls.map((v) => {
-      if (v === 6) return `${v}HRD`;
+      if (v === 6) return `${v}HD`;
       if (v === 5) return `${v}H`;
       if (v === DIE_RETREAT) return `${v}R`;
       if (v === DIE_DISARRAY) return `${v}D`;
@@ -9916,7 +11041,7 @@ function unitColors(side) {
       });
       checkVictory();
       updateHud();
-      return { ok: true, pursuitTarget: null };
+      return { ok: true, pursuitTarget: null, rolledSix };
     }
 
     if (disarrays > 0) {
@@ -10033,7 +11158,7 @@ function unitColors(side) {
 
     checkVictory();
     updateHud();
-    return { ok: true, pursuitTarget };
+    return { ok: true, pursuitTarget, rolledSix };
   }
 
   // --- Victory
@@ -10086,9 +11211,9 @@ function unitColors(side) {
         if (redScore >= 2 && redScore > blueScore) redWins = true;
       }
     } else {
-      // Clear victory: capture at least half of opponent starting UP, rounded up.
-      const needBlue = Math.ceil(state.initialUP.red / 2);
-      const needRed = Math.ceil(state.initialUP.blue / 2);
+      // Proportional victory: capture at least half of your own starting UP, rounded up.
+      const needBlue = Math.ceil(state.initialUP.blue / 2);
+      const needRed = Math.ceil(state.initialUP.red / 2);
 
       blueWins = state.capturedUP.blue >= needBlue;
       redWins = state.capturedUP.red >= needRed;
@@ -10128,6 +11253,59 @@ function unitColors(side) {
         },
       });
     }
+  }
+
+  function setIntroTutorialOpen(open) {
+    const show = !!open;
+    state.introTutorialOpen = show;
+    if (elIntroTutorialPanel) elIntroTutorialPanel.hidden = !show;
+    if (elIntroActions) elIntroActions.style.display = show ? 'none' : 'grid';
+  }
+
+  function setIntroOverlayOpen(open) {
+    const show = !!open;
+    state.introOpen = show;
+    if (elIntroOverlay) {
+      elIntroOverlay.classList.toggle('open', show);
+      elIntroOverlay.setAttribute('aria-hidden', show ? 'false' : 'true');
+    }
+    if (!show) setIntroTutorialOpen(false);
+    document.body.classList.toggle('intro-open', show);
+  }
+
+  function prepareQuickStartDoctrine() {
+    const blueRandom = makeRandomDoctrineLoadout();
+    const redRandom = makeRandomDoctrineLoadout();
+    setDoctrineLoadoutForSide('blue', blueRandom, 'random');
+    setDoctrineLoadoutForSide('red', redRandom, 'random');
+    state.doctrine.builder.confirmed = { blue: true, red: true };
+    state.doctrine.builder.preBattleReady = true;
+  }
+
+  function startPlayNowFromIntro() {
+    const randomScenario = installRandomStartupScenario();
+    populateScenarioSelect();
+    if (elScenarioSel && [...elScenarioSel.options].some((o) => o.value === RANDOM_START_SCENARIO_NAME)) {
+      elScenarioSel.value = RANDOM_START_SCENARIO_NAME;
+    }
+    loadScenario(RANDOM_START_SCENARIO_NAME);
+    prepareQuickStartDoctrine();
+    setIntroOverlayOpen(false);
+    enterPlay();
+    log(
+      `Play Now launched: randomized battlefield loaded ` +
+      `(B:${randomScenario.blueArchetype || 'line'} / R:${randomScenario.redArchetype || 'line'}).`
+    );
+    updateHud();
+  }
+
+  function startSetupFromIntro() {
+    state.doctrine.builder.preBattleReady = false;
+    state.doctrine.builder.confirmed = { blue: false, red: false };
+    setIntroOverlayOpen(false);
+    enterEdit();
+    log('Game Setup opened: edit the field and confirm War Council when ready.');
+    updateHud();
   }
 
   // --- Mode transitions
@@ -10178,13 +11356,25 @@ function unitColors(side) {
       return;
     }
 
+    if (state.gameMode === 'online') {
+      if (!net.connected) {
+        log('Online: both players must connect before starting battle.');
+        updateHud();
+        return;
+      }
+      if (!net.isHost) {
+        log('Online: host starts battle after initiative roll.');
+        updateHud();
+        return;
+      }
+    }
+
     stopAiLoop();
     state.mode = 'play';
     const sideEl = document.getElementById('side');
     if (sideEl) sideEl.scrollTop = 0;
     state.turn = 1;
     state.turnSerial = 1;
-    state.side = 'blue';
     state.actsUsed = 0;
     state.actedUnitIds = new Set();
 
@@ -10201,9 +11391,49 @@ function unitColors(side) {
 
     clearSelection();
     clearDiceDisplay();
+
+    let openingSide = 'blue';
+    if (state.gameMode === 'online') {
+      applyGuestSidePreference(state.online.guestPreferredSide);
+      const guestParity = normalizeParityPick(state.online.guestParityPick);
+      const roll = rollD6();
+      const isOdd = (roll % 2) === 1;
+      const guestWins = (guestParity === 'odds') ? isOdd : !isOdd;
+      openingSide = guestWins ? state.online.seats.guest : state.online.seats.host;
+      state.online.lastInitiativeRoll = roll;
+      state.online.lastInitiativeGuestWon = guestWins;
+      state.online.lastInitiativeFirstSide = openingSide;
+      renderInitiativeRoll(roll, {
+        guestParity,
+        guestWon: guestWins,
+        firstSide: openingSide,
+      });
+      const parityWord = isOdd ? 'odd' : 'even';
+      log(
+        `Initiative roll d6=${roll} (${parityWord}). Guest called ${guestParity.toUpperCase()} ` +
+        `and ${guestWins ? 'wins' : 'loses'} initiative. ${openingSide.toUpperCase()} goes first.`
+      );
+      onlineSendPacket({
+        kind: 'initiative_result',
+        roll,
+        guestParityPick: guestParity,
+        guestWon,
+        firstSide: openingSide,
+        hostSide: state.online.seats.host,
+        guestSide: state.online.seats.guest,
+      });
+    } else {
+      state.online.lastInitiativeRoll = null;
+      state.online.lastInitiativeGuestWon = null;
+      state.online.lastInitiativeFirstSide = null;
+    }
+
+    state.side = openingSide;
     openCommandPhaseForCurrentTurn();
 
-    log('Play: click a friendly unit. Blue goes first.');
+    if (state.gameMode !== 'online') {
+      log('Play: click a friendly unit. Blue goes first.');
+    }
     updateHud();
     maybeStartAiTurn();
   }
@@ -11671,6 +12901,23 @@ function unitColors(side) {
       state: {
         mode: state.mode,
         gameMode: state.gameMode,
+        online: {
+          seats: {
+            host: normalizeBattleSide(state.online?.seats?.host, 'blue'),
+            guest: normalizeBattleSide(state.online?.seats?.guest, 'red'),
+          },
+          guestPreferredSide: normalizeBattleSide(state.online?.guestPreferredSide, 'red'),
+          guestParityPick: normalizeParityPick(state.online?.guestParityPick),
+          lastInitiativeRoll: Number.isFinite(Number(state.online?.lastInitiativeRoll))
+            ? Math.max(1, Math.min(6, Math.trunc(Number(state.online.lastInitiativeRoll))))
+            : null,
+          lastInitiativeFirstSide: state.online?.lastInitiativeFirstSide
+            ? normalizeBattleSide(state.online.lastInitiativeFirstSide, 'blue')
+            : null,
+          lastInitiativeGuestWon: (typeof state.online?.lastInitiativeGuestWon === 'boolean')
+            ? state.online.lastInitiativeGuestWon
+            : null,
+        },
         aiDifficulty: state.aiDifficulty,
         humanSide: state.humanSide,
         turnSerial: state.turnSerial,
@@ -11913,6 +13160,27 @@ function unitColors(side) {
         ? 'online'
         : 'hvai';
     state.gameMode = restoredGameMode;
+    const importedOnline = (payload.online && typeof payload.online === 'object') ? payload.online : {};
+    const importedSeats = (importedOnline.seats && typeof importedOnline.seats === 'object') ? importedOnline.seats : {};
+    state.online.seats.host = normalizeBattleSide(importedSeats.host, 'blue');
+    state.online.seats.guest = normalizeBattleSide(importedSeats.guest, 'red');
+    if (state.online.seats.host === state.online.seats.guest) {
+      state.online.seats.guest = oppositeBattleSide(state.online.seats.host);
+    }
+    state.online.guestPreferredSide = normalizeBattleSide(
+      importedOnline.guestPreferredSide,
+      state.online.seats.guest
+    );
+    state.online.guestParityPick = normalizeParityPick(importedOnline.guestParityPick || state.online.guestParityPick);
+    state.online.lastInitiativeRoll = Number.isFinite(Number(importedOnline.lastInitiativeRoll))
+      ? Math.max(1, Math.min(6, Math.trunc(Number(importedOnline.lastInitiativeRoll))))
+      : null;
+    state.online.lastInitiativeFirstSide = importedOnline.lastInitiativeFirstSide
+      ? normalizeBattleSide(importedOnline.lastInitiativeFirstSide, 'blue')
+      : null;
+    state.online.lastInitiativeGuestWon = (typeof importedOnline.lastInitiativeGuestWon === 'boolean')
+      ? importedOnline.lastInitiativeGuestWon
+      : null;
     state.aiDifficulty = normalizeAiDifficulty(payload.aiDifficulty);
     state.humanSide = (payload.humanSide === 'red') ? 'red' : 'blue';
     state.forwardAxis = normalizeForwardAxis(payload.forwardAxis);
@@ -12189,6 +13457,7 @@ function unitColors(side) {
       moveSpent: 0,
       postAttackWithdrawOnly: false,
       postAttackPursuitOnly: false,
+      postAttackSixShiftOnly: false,
     };
 
     // Precompute targets
@@ -12232,7 +13501,8 @@ function unitColors(side) {
 
     const isPostAttackWithdraw = !!state.act.postAttackWithdrawOnly;
     const isPostAttackPursuit = !!state.act.postAttackPursuitOnly;
-    const isPostAttackFollowup = isPostAttackWithdraw || isPostAttackPursuit;
+    const isPostAttackSixShift = !!state.act.postAttackSixShiftOnly;
+    const isPostAttackFollowup = isPostAttackWithdraw || isPostAttackPursuit || isPostAttackSixShift;
 
     if (!isPostAttackFollowup && (state.act.moved || state.act.attacked)) {
       log('Illegal move (already acted).');
@@ -12280,9 +13550,18 @@ function unitColors(side) {
           toKey: destKey,
           auto: false,
         });
+      } else if (isPostAttackSixShift) {
+        log(`Follow-through: shifted to ${destKey} after rolling a 6.`);
+        pushEventTrace('combat.follow_through', {
+          side: u.side,
+          attackerId: u.id,
+          toKey: destKey,
+          trigger: 'roll_6',
+        });
       } else {
         log(`Veteran CAV disengaged to ${destKey}.`);
       }
+      state.act.postAttackSixShiftOnly = false;
       state.act.postAttackWithdrawOnly = false;
       state.act.postAttackPursuitOnly = false;
       clearSelection();
@@ -12405,12 +13684,40 @@ function unitColors(side) {
       defenderType: enemy.type,
       defenderKey: targetKey,
     });
-    setAttackFlash(targetKey);
-    const attackResult = resolveAttack(attackerKey, targetKey) || { ok: false, pursuitTarget: null };
+    const prof = attackDiceFor(attackerKey, targetKey, atk);
+    setAttackFlash(targetKey, ATTACK_FLASH_MS, {
+      fromKey: attackerKey,
+      strikeType: prof?.kind || 'melee',
+      attackerType: atk.type,
+    });
+    const attackResult = resolveAttack(attackerKey, targetKey) || { ok: false, pursuitTarget: null, rolledSix: false };
 
     state.act.attacked = true;
 
+    const afterAtk = unitsByHex.get(attackerKey);
+    if (
+      attackResult.ok &&
+      attackResult.rolledSix &&
+      afterAtk &&
+      !state.gameOver &&
+      !isAiTurnActive()
+    ) {
+      const sixShiftTargets = postAttackSixShiftTargets(attackerKey, afterAtk);
+      if (sixShiftTargets.size > 0) {
+        state.act.postAttackSixShiftOnly = true;
+        state.act.postAttackWithdrawOnly = false;
+        state.act.postAttackPursuitOnly = false;
+        state._moveTargets = sixShiftTargets;
+        state._attackTargets = new Set();
+        state._healTargets = new Set();
+        log('Roll of 6: optional follow-through move to any open adjacent hex. Choose a hex or click the unit to hold.');
+        updateHud();
+        return;
+      }
+    }
+
     if (attackResult.ok && attackResult.pursuitTarget) {
+      state.act.postAttackSixShiftOnly = false;
       state.act.postAttackWithdrawOnly = false;
       state.act.postAttackPursuitOnly = true;
       state._moveTargets = new Set([attackResult.pursuitTarget]);
@@ -12421,10 +13728,10 @@ function unitColors(side) {
       return;
     }
 
-    const afterAtk = unitsByHex.get(attackerKey);
     if (afterAtk) {
       const withdrawTargets = veteranCavPostAttackWithdrawTargets(attackerKey, afterAtk, state.act);
       if (withdrawTargets.size > 0) {
+        state.act.postAttackSixShiftOnly = false;
         state.act.postAttackWithdrawOnly = true;
         state.act.postAttackPursuitOnly = false;
         state._moveTargets = withdrawTargets;
@@ -12481,6 +13788,18 @@ function unitColors(side) {
   }
 
   function clickPlay(hexKey) {
+    if (state.doctrine.targeting.active) {
+      const toggled = toggleDoctrineTargetUnitAt(hexKey);
+      if (!toggled) {
+        const u = unitsByHex.get(hexKey);
+        if (u && u.side === state.side) {
+          log(doctrineTargetIneligibleReason(hexKey));
+          updateHud();
+        }
+      }
+      return;
+    }
+
     const clickedUnit = unitsByHex.get(hexKey);
 
     // If nothing selected: try to select.
@@ -12509,6 +13828,13 @@ function unitColors(side) {
 
     // Clicking the selected hex toggles deselect.
     if (hexKey === selKey) {
+      if (state.act && (state.act.postAttackPursuitOnly || state.act.postAttackWithdrawOnly || state.act.postAttackSixShiftOnly)) {
+        clearSelection();
+        log('Held position after attack.');
+        updateHud();
+        maybeAutoEndTurnAtActionLimit();
+        return;
+      }
       clearSelection();
       log('Deselected.');
       updateHud();
@@ -12612,8 +13938,36 @@ function unitColors(side) {
     handleCanvasPointerAction(e.clientX, e.clientY);
   });
 
+  if (elIntroPlayNowBtn) {
+    elIntroPlayNowBtn.addEventListener('click', () => {
+      startPlayNowFromIntro();
+    });
+  }
+  if (elIntroSetupBtn) {
+    elIntroSetupBtn.addEventListener('click', () => {
+      startSetupFromIntro();
+    });
+  }
+  if (elIntroTutorialBtn) {
+    elIntroTutorialBtn.addEventListener('click', () => {
+      setIntroTutorialOpen(true);
+    });
+  }
+  if (elIntroTutorialBackBtn) {
+    elIntroTutorialBackBtn.addEventListener('click', () => {
+      setIntroTutorialOpen(false);
+    });
+  }
+
   // Keyboard: P = pass, L = line advance (with selected INF)
   window.addEventListener('keydown', (e) => {
+    if (state.introOpen) {
+      if (e.key === 'Escape' && state.introTutorialOpen) {
+        e.preventDefault();
+        setIntroTutorialOpen(false);
+      }
+      return;
+    }
     if (e.key === 'Escape' && state.doctrine.builder.open) {
       e.preventDefault();
       closeDoctrineBuilder();
@@ -12788,6 +14142,32 @@ function unitColors(side) {
       }
     });
   }
+  if (elOnlineGuestSideSel) {
+    elOnlineGuestSideSel.addEventListener('change', () => {
+      const chosen = normalizeBattleSide(elOnlineGuestSideSel.value, 'red');
+      if (net.isHost && net.connected) {
+        // Host cannot override guest seat selection once connected.
+        elOnlineGuestSideSel.value = state.online.guestPreferredSide;
+        updateHud();
+        return;
+      }
+      applyGuestSidePreference(chosen);
+      if (state.gameMode === 'online' && net.connected && !net.isHost) {
+        sendGuestPregamePrefs();
+      }
+      updateHud();
+    });
+  }
+  if (elOnlineInitiativeSel) {
+    elOnlineInitiativeSel.addEventListener('change', () => {
+      const pick = normalizeParityPick(elOnlineInitiativeSel.value);
+      state.online.guestParityPick = pick;
+      if (state.gameMode === 'online' && net.connected && !net.isHost) {
+        sendGuestPregamePrefs();
+      }
+      updateHud();
+    });
+  }
   if (elGameModeSel) {
     elGameModeSel.addEventListener('change', () => {
       const rawMode = elGameModeSel.value;
@@ -12808,7 +14188,7 @@ function unitColors(side) {
         );
       } else if (nextMode === 'online') {
         stopAiLoop();
-        log('Game mode: Online (Host = Blue, Guest = Red). Use Online panel to connect.');
+        log('Game mode: Online. Guest chooses side and calls odds/evens for initiative.');
       }
       updateHud();
       maybeStartAiTurn();
@@ -12919,14 +14299,68 @@ function unitColors(side) {
   if (elCommandSel) {
     elCommandSel.addEventListener('change', () => {
       state.doctrine.selectedCommandId = elCommandSel.value || '';
+      if (state.doctrine.targeting.active && state.doctrine.targeting.commandId !== state.doctrine.selectedCommandId) {
+        clearDoctrineTargeting();
+      }
       updateHud();
     });
   }
   if (elCommandUseBtn) {
     elCommandUseBtn.addEventListener('click', () => {
-      if (onlineModeActive() && forwardOnlineAction({ type: 'command_use', commandId: elCommandSel?.value || '' })) return;
-      if (!elCommandSel?.value) return;
-      issueDoctrineCommand(elCommandSel.value);
+      try {
+        const commandId = elCommandSel?.value || '';
+        if (!commandId) {
+          log('Select a directive first.');
+          updateHud();
+          return;
+        }
+        if (
+          state.doctrine.targeting.active &&
+          state.doctrine.targeting.commandId === commandId
+        ) {
+          let selectedIds = Array.isArray(state.doctrine.targeting.selectedUnitIds)
+            ? state.doctrine.targeting.selectedUnitIds.slice()
+            : [];
+          const limits = doctrineTargetLimits(commandId);
+          if (limits.min > 0 && selectedIds.length === 0) {
+            log(`Select at least ${limits.min} unit(s), then press Confirm Directive.`);
+            updateHud();
+            return;
+          }
+          if (selectedIds.length > 0 && selectedIds.length < limits.min) {
+            log(
+              `Select at least ${limits.min} unit(s) for this directive ` +
+              `(${selectedIds.length} selected), then press Confirm Directive.`
+            );
+            updateHud();
+            return;
+          }
+          if (onlineModeActive() && forwardOnlineAction({ type: 'command_use', commandId, selectedUnitIds: selectedIds })) return;
+          confirmDoctrineTargetingOrExecute(commandId, { selectedUnitIds: selectedIds });
+          return;
+        }
+        const limits = doctrineTargetLimits(commandId);
+        const noManualTargeting = limits.min === 0 && limits.max === 0;
+        if (noManualTargeting) {
+          if (onlineModeActive() && forwardOnlineAction({ type: 'command_use', commandId, selectedUnitIds: [] })) return;
+          const ok = issueDoctrineCommand(commandId, { selectedUnitIds: [] });
+          if (!ok) {
+            const cmd = COMMAND_BY_ID.get(commandId);
+            log(`Directive not committed: ${cmd?.name || 'selected directive'}.`);
+            updateHud();
+          }
+          return;
+        }
+        if (onlineModeActive()) {
+          // Target selection is local-only until confirmation.
+          beginDoctrineTargeting(commandId);
+          return;
+        }
+        beginDoctrineTargeting(commandId);
+      } catch (err) {
+        log(`Directive UI error: ${err && err.message ? err.message : String(err)}`);
+        updateHud();
+      }
     });
   }
   if (elCommandSkipBtn) {
@@ -13356,10 +14790,8 @@ function unitColors(side) {
   function populateVictorySelect() {
     elVictorySel.innerHTML = '';
     const modes = [
-      { id: 'clear', label: 'Clear Victory (halve UP)' },
+      { id: 'clear', label: 'Proportional Victory (halve own UP target)' },
       { id: 'points', label: 'Point Victory (captured UP target)' },
-      { id: 'keyground', label: 'Key Ground (objective control)' },
-      { id: 'strategic', label: 'Strategic Mix (command + force + ground)' },
       { id: 'decapitation', label: 'Decapitation (kill all generals)' },
       { id: 'annihilation', label: 'Annihilation (kill all units)' },
     ];
@@ -13372,6 +14804,10 @@ function unitColors(side) {
     elVictorySel.value = 'decapitation';
     state.victoryMode = 'decapitation';
   }
+
+  // Browsers gate WebAudio until a user gesture. Unlock once and keep it active.
+  window.addEventListener('pointerdown', unlockBattleSfx, { capture: true, once: true });
+  window.addEventListener('keydown', unlockBattleSfx, { capture: true, once: true });
 
   function boot() {
     initPanelCollapseControls();
@@ -13390,14 +14826,14 @@ function unitColors(side) {
     }
 
     loadScenario(RANDOM_START_SCENARIO_NAME);
-    enterPlay();
+    enterEdit();
+    setIntroTutorialOpen(false);
+    setIntroOverlayOpen(true);
 
     const biasLabel = (randomScenario.advantageSide === 'none')
       ? 'balanced'
       : `${randomScenario.advantageSide} flank bias`;
-    const bootModeLabel = state.mode === 'play'
-      ? 'Started in Play mode.'
-      : 'Started in Setup mode (review doctrine, then start battle).';
+    const bootModeLabel = 'Intro menu ready: choose Play Now, Game Setup, or Tutorial.';
 
     log(
       `Booted ${GAME_NAME}. Randomized startup loaded ` +
