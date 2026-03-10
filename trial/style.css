@@ -150,11 +150,11 @@ body.intro-open #combatRail{
 .tutorialGuideOverlay{
   position:fixed;
   z-index:320;
-  right:calc(var(--safe-right) + 8px);
-  left:auto;
+  left:calc(var(--safe-left) + 10px);
+  right:auto;
   top:calc(var(--safe-top) + 98px);
-  width:calc(var(--side-w) - 12px);
-  max-width:calc(var(--side-w) - 12px);
+  width:min(500px, calc(100vw - var(--side-w) - 28px));
+  max-width:min(500px, calc(100vw - var(--side-w) - 28px));
   pointer-events:none;
 }
 
