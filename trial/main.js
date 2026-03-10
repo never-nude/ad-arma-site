@@ -127,6 +127,8 @@
   const MOVE_ANIM_MS_HUMAN = 220;
   const MOVE_ANIM_MS_AI = 520;
   const ATTACK_FLASH_MS = 920;
+  const TUTORIAL_AUTOPLAY_STEP_MS = 16800;
+  const TUTORIAL_AUTOPLAY_AFTER_TASK_MS = 5200;
   const ENABLE_BATTLE_SFX = true;
   const COMMAND_COSTS = [1, 2, 3];
   const COMMANDS_PER_COST = 3;
@@ -4968,6 +4970,7 @@ function unitColors(side) {
         if (!fromHex || !toHex) continue;
         const isRanged = mv.kind === 'ranged';
         const isSupport = mv.kind === 'support' || mv.kind === 'command';
+        const isRetreat = mv.kind === 'retreat';
 
         ctx.save();
         ctx.lineWidth = Math.max(2.4, Math.round(R * 0.10));
@@ -4982,10 +4985,16 @@ function unitColors(side) {
           ctx.quadraticCurveTo(midX, midY, toHex.cx, toHex.cy);
           ctx.stroke();
         } else {
-          ctx.strokeStyle = isSupport
-            ? 'rgba(158, 220, 255, 0.92)'
-            : 'rgba(246, 212, 146, 0.94)';
-          ctx.setLineDash(isSupport ? [2, 4] : [6, 5]);
+          ctx.strokeStyle = isRetreat
+            ? 'rgba(255, 156, 156, 0.96)'
+            : (isSupport
+              ? 'rgba(158, 220, 255, 0.92)'
+              : 'rgba(246, 212, 146, 0.94)');
+          ctx.setLineDash(
+            isRetreat
+              ? [3, 4]
+              : (isSupport ? [2, 4] : [6, 5])
+          );
           ctx.beginPath();
           ctx.moveTo(fromHex.cx, fromHex.cy);
           ctx.lineTo(toHex.cx, toHex.cy);
@@ -4994,7 +5003,9 @@ function unitColors(side) {
         ctx.setLineDash([]);
         ctx.beginPath();
         ctx.arc(toHex.cx, toHex.cy, Math.max(3, Math.round(R * 0.12)), 0, Math.PI * 2);
-        ctx.fillStyle = isSupport ? 'rgba(194, 234, 255, 0.93)' : 'rgba(249, 230, 182, 0.96)';
+        ctx.fillStyle = isRetreat
+          ? 'rgba(255, 178, 178, 0.96)'
+          : (isSupport ? 'rgba(194, 234, 255, 0.93)' : 'rgba(249, 230, 182, 0.96)');
         ctx.fill();
 
         // Moving marker to make the tutorial path feel animated and readable.
@@ -5011,7 +5022,9 @@ function unitColors(side) {
         }
         ctx.beginPath();
         ctx.arc(markerX, markerY, Math.max(2.4, Math.round(R * 0.10)), 0, Math.PI * 2);
-        ctx.fillStyle = isSupport ? 'rgba(166, 227, 255, 0.95)' : 'rgba(255, 233, 178, 0.96)';
+        ctx.fillStyle = isRetreat
+          ? 'rgba(255, 162, 162, 0.97)'
+          : (isSupport ? 'rgba(166, 227, 255, 0.95)' : 'rgba(255, 233, 178, 0.96)');
         ctx.fill();
         ctx.restore();
       }
@@ -5672,7 +5685,7 @@ function unitColors(side) {
     state.lastCombat = null;
     if (elCombatSummary) elCombatSummary.textContent = 'No combat yet. Select a unit and attack to see exact dice math.';
     if (elCombatMath) elCombatMath.textContent = 'Dice math: -';
-    if (elCombatTerrain) elCombatTerrain.textContent = 'Position modifiers: -';
+    if (elCombatTerrain) elCombatTerrain.textContent = '-';
     if (elCombatOutcome) elCombatOutcome.textContent = 'Outcome: -';
     if (elCombatHint) elCombatHint.textContent = COMBAT_RULE_HINT;
   }
@@ -5707,7 +5720,7 @@ function unitColors(side) {
     elCombatMath.textContent =
       `Dice math: base ${info.baseDice}${flankText}${rearText}${braceText}${terrainText} = ${info.dice}.`;
     elCombatTerrain.textContent =
-      `Position modifiers: ${terrainMath}. ${braceRuleText}`;
+      `${terrainMath}. ${braceRuleText}`;
 
     const retreatResolved =
       (typeof info.retreatMoved === 'number' || typeof info.retreatBlocked === 'number')
@@ -5782,7 +5795,7 @@ function unitColors(side) {
     const posText = (impactPosition && impactPosition !== 'none') ? `, ${impactPosition}` : '';
     const pivotText = pivoted ? ', defender pivoted' : '';
     return (
-      `Position modifiers (preview): ${atk.side.toUpperCase()} ${UNIT_BY_ID.get(atk.type)?.abbrev || atk.type} ` +
+      `${atk.side.toUpperCase()} ${UNIT_BY_ID.get(atk.type)?.abbrev || atk.type} ` +
       `${prof.kind} vs ${defU.side.toUpperCase()} ${UNIT_BY_ID.get(defU.type)?.abbrev || defU.type}` +
       `${posText}${pivotText} · ` +
       `terrain ${terrainLabel(defenderTerrain)} ${formatSigned(terrainDiceMod)}, ` +
@@ -5815,7 +5828,7 @@ function unitColors(side) {
       ? 'Woods (attacker -1 die)'
       : `${terrainLabel(terrainId)} (no direct defense dice change)`;
 
-    const parts = [`Position modifiers: terrain ${terrainTxt}.`];
+    const parts = [`Terrain ${terrainTxt}.`];
 
     if (u.type === 'inf') {
       const brace = infantryBraceInfoForHover(unitKey);
@@ -5875,10 +5888,10 @@ function unitColors(side) {
 
   function buildTerrainHoverModifierSummary(hexKey, selectedKey = null, selectedUnit = null) {
     const h = board.byKey.get(hexKey);
-    if (!h) return 'Position modifiers: -';
+    if (!h) return '-';
     const terrainId = h.terrain || 'clear';
     const parts = [
-      `Position modifiers: hovering ${terrainLabel(terrainId)} at ${hexKey}.`,
+      `${terrainLabel(terrainId)} terrain.`,
       `Terrain effect: ${terrainHoverCombatText(terrainId)}`
     ];
 
@@ -5925,7 +5938,7 @@ function unitColors(side) {
           : buildTerrainHoverModifierSummary(hoverKey, null, null);
         return;
       }
-      if (!state.lastCombat) elCombatTerrain.textContent = 'Position modifiers: -';
+      if (!state.lastCombat) elCombatTerrain.textContent = '-';
       return;
     }
 
@@ -5961,7 +5974,7 @@ function unitColors(side) {
 
     // If there is a previous combat breakdown on screen, keep it visible.
     if (state.lastCombat?.info) return;
-    elCombatTerrain.textContent = 'Position modifiers: -';
+    elCombatTerrain.textContent = '-';
   }
 
   function renderDiceDisplay(rolls, info) {
@@ -11650,7 +11663,7 @@ function unitColors(side) {
         queueTutorialTimer(() => {
           if (!state.tutorial.active) return;
           applyTutorialStep(idx + 1);
-        }, 900);
+        }, TUTORIAL_AUTOPLAY_AFTER_TASK_MS);
       }
     }
   }
@@ -11720,6 +11733,8 @@ function unitColors(side) {
     const rSkrTo = tutorialForwardDestination(k.redSkr, 'red');
     const bArcLane = k.redInf;
     const rArcLane = k.blueInf;
+    const redRetreatKey = retreatPick(k.blueInf, k.redInf);
+    const blueRetreatKey = retreatPick(k.redInf, k.blueInf);
 
     return [
       {
@@ -11979,6 +11994,45 @@ function unitColors(side) {
         },
       },
       {
+        id: 'retreat',
+        title: 'Retreat Resolution',
+        text:
+          'A retreat result pushes the defender away from the attacker by one hex. ' +
+          'If no legal retreat hex exists (blocked by units, board edge, or impassable terrain), retreat converts into damage.',
+        focusKeys: [k.blueInf, k.redInf, redRetreatKey, blueRetreatKey].filter(Boolean),
+        destinationKeys: [redRetreatKey, blueRetreatKey].filter(Boolean),
+        paths: [
+          { fromKey: k.redInf, toKey: redRetreatKey, kind: 'retreat' },
+          { fromKey: k.blueInf, toKey: blueRetreatKey, kind: 'retreat' },
+        ].filter((p) => p.toKey),
+        learn: [
+          'Retreat is positional pressure, not free escape.',
+          'Pinning retreat lanes is often stronger than chasing raw hits.',
+        ],
+        task: {
+          type: 'inspect',
+          text: 'Click one highlighted retreat destination hex.',
+          targetKeys: [redRetreatKey, blueRetreatKey].filter(Boolean),
+        },
+      },
+      {
+        id: 'disarray',
+        title: 'Disarray & Recovery',
+        text:
+          'Disarray means the formation is rattled. A disarrayed unit cannot move or attack on its next activation; ' +
+          'it effectively loses clean tempo, then recovers after that activation.',
+        focusKeys: [k.blueInf, k.redInf],
+        learn: [
+          'Disarray is often the opening for a follow-up directive or line shove.',
+          'Medics cannot heal disarrayed units under current rules.',
+        ],
+        task: {
+          type: 'select',
+          text: 'Select either highlighted infantry unit to review status flow.',
+          targetKeys: [k.blueInf, k.redInf],
+        },
+      },
+      {
         id: 'victory',
         title: 'Victory Conditions',
         text:
@@ -12079,7 +12133,7 @@ function unitColors(side) {
       queueTutorialTimer(() => {
         if (!state.tutorial.active) return;
         applyTutorialStep(clamped + 1);
-      }, 5600);
+      }, TUTORIAL_AUTOPLAY_STEP_MS);
     }
 
     if (options.log !== false) {

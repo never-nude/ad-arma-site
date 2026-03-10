@@ -150,9 +150,11 @@ body.intro-open #combatRail{
 .tutorialGuideOverlay{
   position:fixed;
   z-index:320;
-  left:clamp(12px, 2vw, 24px);
-  top:calc(var(--safe-top) + 96px);
-  width:min(520px, calc(100vw - var(--side-w) - 36px));
+  right:calc(var(--safe-right) + 8px);
+  left:auto;
+  top:calc(var(--safe-top) + 98px);
+  width:calc(var(--side-w) - 12px);
+  max-width:calc(var(--side-w) - 12px);
   pointer-events:none;
 }
 
@@ -163,6 +165,8 @@ body.intro-open #combatRail{
   background:linear-gradient(180deg, rgba(14,16,23,0.96), rgba(10,12,18,0.94));
   box-shadow:0 20px 54px rgba(0,0,0,0.45);
   padding:12px 14px;
+  max-height:min(76dvh, 680px);
+  overflow:auto;
 }
 
 .tutorialGuideHead{
