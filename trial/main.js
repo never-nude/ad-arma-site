@@ -11800,7 +11800,7 @@ function unitColors(side) {
         text:
           'This mirrored tutorial battle keeps both armies symmetrical so each mechanic is easy to compare. ' +
           'Blue starts at the top, Red starts at the bottom.',
-        focusKeys: [k.blueGen, k.redGen, k.blueInf, k.redInf, k.blueCav, k.redCav],
+        focusKeys: [k.blueGen, k.redGen],
         learn: [
           'Blue controls the northern deployment, Red controls the southern deployment.',
           'The center is left open so line geometry is easy to read.',
@@ -12024,11 +12024,6 @@ function unitColors(side) {
           'Reusable directives are repeatable; single-use directives are one-turn power spikes.',
           'Directives spend actions from the same 3-action turn budget.',
         ],
-        task: {
-          type: 'open_builder',
-          text: 'Open War Council once to see doctrine loadout controls.',
-          targetKeys: [],
-        },
       },
       {
         id: 'combat',
