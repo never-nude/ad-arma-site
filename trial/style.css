@@ -351,6 +351,23 @@ body.intro-open #combatRail{
   min-height:0;
 }
 
+/* Tutorial mode: remove sidebar and give the board lane room for the left guide card. */
+body.tutorial-active{
+  --side-w:0px;
+}
+
+body.tutorial-active #layout{
+  grid-template-columns:1fr;
+}
+
+body.tutorial-active #side{
+  display:none !important;
+}
+
+body.tutorial-active #canvasWrap{
+  padding-left:min(34vw, 500px);
+}
+
 #canvasWrap{
   position:relative;
   display:flex;
@@ -1610,6 +1627,9 @@ body[data-mode="play"] #side{
     max-height:min(38dvh, 340px);
     grid-template-columns:1fr;
     gap:8px;
+  }
+  body.tutorial-active #canvasWrap{
+    padding-left:0;
   }
 }
 
