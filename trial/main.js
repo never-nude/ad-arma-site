@@ -101,17 +101,27 @@
     blueGen: '7,2',
     blueRun: '6,2',
     blueMed: '8,2',
-    blueInf: '7,3',
-    blueCav: '5,3',
-    blueSkr: '6,3',
-    blueArc: '8,3',
+    blueInf: '7,4',
+    blueInfFrontL: '7,4',
+    blueInfFrontR: '8,4',
+    blueInfBackL: '6,3',
+    blueInfBackC: '7,3',
+    blueInfBackR: '8,3',
+    blueCav: '4,3',
+    blueSkr: '5,4',
+    blueArc: '9,3',
     redGen: '7,8',
     redRun: '8,8',
     redMed: '6,8',
-    redInf: '7,7',
-    redCav: '9,7',
-    redSkr: '8,7',
-    redArc: '6,7',
+    redInf: '7,6',
+    redInfFrontL: '6,6',
+    redInfFrontR: '7,6',
+    redInfBackL: '6,7',
+    redInfBackC: '7,7',
+    redInfBackR: '8,7',
+    redCav: '10,7',
+    redSkr: '9,6',
+    redArc: '5,7',
   };
   const RANDOM_START_UNITS_PER_SIDE_MIN = 22;
   const RANDOM_START_UNITS_PER_SIDE_MAX = 30;
@@ -1643,20 +1653,28 @@
       ],
       units: [
         { q: 7, r: 2, side: 'blue', type: 'gen', quality: 'regular' },
-        { q: 6, r: 2, side: 'blue', type: 'run', quality: 'regular' },
+        { q: 6, r: 2, side: 'blue', type: 'run', quality: 'green' },
         { q: 8, r: 2, side: 'blue', type: 'iat', quality: 'regular' },
+        { q: 6, r: 3, side: 'blue', type: 'inf', quality: 'green' },
         { q: 7, r: 3, side: 'blue', type: 'inf', quality: 'regular' },
-        { q: 5, r: 3, side: 'blue', type: 'cav', quality: 'veteran' },
-        { q: 6, r: 3, side: 'blue', type: 'skr', quality: 'regular' },
-        { q: 8, r: 3, side: 'blue', type: 'arc', quality: 'regular' },
+        { q: 8, r: 3, side: 'blue', type: 'inf', quality: 'veteran' },
+        { q: 7, r: 4, side: 'blue', type: 'inf', quality: 'regular' },
+        { q: 8, r: 4, side: 'blue', type: 'inf', quality: 'veteran' },
+        { q: 4, r: 3, side: 'blue', type: 'cav', quality: 'veteran' },
+        { q: 5, r: 4, side: 'blue', type: 'skr', quality: 'regular' },
+        { q: 9, r: 3, side: 'blue', type: 'arc', quality: 'regular' },
 
         { q: 7, r: 8, side: 'red', type: 'gen', quality: 'regular' },
-        { q: 8, r: 8, side: 'red', type: 'run', quality: 'regular' },
+        { q: 8, r: 8, side: 'red', type: 'run', quality: 'green' },
         { q: 6, r: 8, side: 'red', type: 'iat', quality: 'regular' },
+        { q: 6, r: 7, side: 'red', type: 'inf', quality: 'green' },
         { q: 7, r: 7, side: 'red', type: 'inf', quality: 'regular' },
-        { q: 9, r: 7, side: 'red', type: 'cav', quality: 'veteran' },
-        { q: 8, r: 7, side: 'red', type: 'skr', quality: 'regular' },
-        { q: 6, r: 7, side: 'red', type: 'arc', quality: 'regular' },
+        { q: 8, r: 7, side: 'red', type: 'inf', quality: 'veteran' },
+        { q: 6, r: 6, side: 'red', type: 'inf', quality: 'veteran' },
+        { q: 7, r: 6, side: 'red', type: 'inf', quality: 'regular' },
+        { q: 10, r: 7, side: 'red', type: 'cav', quality: 'veteran' },
+        { q: 9, r: 6, side: 'red', type: 'skr', quality: 'regular' },
+        { q: 5, r: 7, side: 'red', type: 'arc', quality: 'regular' },
       ],
       meta: {
         group: 'tutorial',
@@ -5767,9 +5785,12 @@ function unitColors(side) {
       }
     }
 
+    const atkHex = board.byKey.get(attackerKey);
     const defHex = board.byKey.get(defenderKey);
+    const attackerTerrain = atkHex?.terrain || 'clear';
     const defenderTerrain = defHex?.terrain || 'clear';
     let terrainDiceMod = (defenderTerrain === 'woods') ? -1 : 0;
+    if (attackerTerrain === 'rough') terrainDiceMod -= 1;
     const impact = cavalryAngleBonuses(atk, defU, prof.kind, impactPosition);
     const braceInfo = (prof.kind === 'melee')
       ? infantryBraceInfoForAttack(attackerKey, defenderKey, atk, defU)
@@ -5806,7 +5827,7 @@ function unitColors(side) {
       `${atk.side.toUpperCase()} ${UNIT_BY_ID.get(atk.type)?.abbrev || atk.type} ` +
       `${prof.kind} vs ${defU.side.toUpperCase()} ${UNIT_BY_ID.get(defU.type)?.abbrev || defU.type}` +
       `${posText}${pivotText} · ` +
-      `terrain ${terrainLabel(defenderTerrain)} ${formatSigned(terrainDiceMod)}, ` +
+      `terrain ${terrainLabel(defenderTerrain)} ${formatSigned(terrainDiceMod)}${attackerTerrain === 'rough' ? ', launch-from-rough -1' : ''}, ` +
       `reinforcement ${formatSigned(braceDiceMod)}${braceInfo.active ? ` (${braceSupportCount} linked INF)` : ''}, ` +
       `attack order ${formatSigned(commandAttackBonus + commandRangedBonus)}, ` +
       `defense order ${formatSigned(-commandDefenseBonus)}, ` +
@@ -5833,8 +5854,12 @@ function unitColors(side) {
     const h = board.byKey.get(unitKey);
     const terrainId = h?.terrain || 'clear';
     const terrainTxt = (terrainId === 'woods')
-      ? 'Woods (attacker -1 die)'
-      : `${terrainLabel(terrainId)} (no direct defense dice change)`;
+      ? 'Woods (attacker -1 die vs defender here)'
+      : terrainId === 'rough'
+        ? 'Rough (attacks launched from this hex are -1 die)'
+        : terrainId === 'hills'
+          ? 'Hills (no direct dice change; movement/position terrain)'
+          : `${terrainLabel(terrainId)} (no direct defense dice change)`;
 
     const parts = [`Terrain ${terrainTxt}.`];
 
@@ -5889,6 +5914,8 @@ function unitColors(side) {
 
   function terrainHoverCombatText(terrainId = 'clear') {
     if (terrainId === 'woods') return 'Defender here imposes attacker -1 die.';
+    if (terrainId === 'rough') return 'Any attack launched from this rough hex is -1 die.';
+    if (terrainId === 'hills') return 'No direct dice modifier on hills in this ruleset.';
     if (terrainId === 'water') return 'Impassable: units cannot enter or retreat through this hex.';
     if (terrainId === 'mountains') return 'Impassable: units cannot enter or retreat through this hex.';
     return `No direct combat dice modifier in ${terrainLabel(terrainId)}.`;
@@ -5917,6 +5944,9 @@ function unitColors(side) {
         }
         if (selectedUnit.type === 'cav' && terrainId === 'woods') {
           parts.push('CAV woods rule: cavalry may enter and move through woods (slower pace).');
+        }
+        if (terrainId === 'rough') {
+          parts.push('Rough combat rule: attacks launched from rough are -1 die.');
         }
       }
 
@@ -11192,13 +11222,21 @@ function unitColors(side) {
       }
     }
 
-    // Terrain defensive modifier: defender in woods => -1 die (min 1)
+    // Terrain modifiers:
+    // - Defender in woods => attacker -1 die (min 1)
+    // - Attacker standing in rough => attacker -1 die (min 1)
+    const atkHex = board.byKey.get(attackerKey);
     const defHex = board.byKey.get(defenderKey);
+    const attackerTerrain = atkHex?.terrain || 'clear';
     const defenderTerrain = defHex?.terrain || 'clear';
     let terrainDiceMod = (defenderTerrain === 'woods') ? -1 : 0;
-    const terrainRuleText = (defenderTerrain === 'woods')
-      ? 'Defender in Woods: attacker rolls -1 die (minimum 1).'
-      : `Defender in ${terrainLabel(defenderTerrain)}: no terrain dice modifier in this ruleset.`;
+    if (attackerTerrain === 'rough') terrainDiceMod -= 1;
+    const terrainRuleBits = [];
+    if (defenderTerrain === 'woods') terrainRuleBits.push('Defender in Woods: attacker rolls -1 die.');
+    if (attackerTerrain === 'rough') terrainRuleBits.push('Attack launched from Rough: attacker rolls -1 die.');
+    const terrainRuleText = terrainRuleBits.length
+      ? `${terrainRuleBits.join(' ')} (minimum 1 die).`
+      : `No direct terrain dice modifier in ${terrainLabel(defenderTerrain)}.`;
     const impact = cavalryAngleBonuses(atk, defU, prof.kind, impactPosition);
     const braceInfo = (prof.kind === 'melee')
       ? infantryBraceInfoForAttack(attackerKey, defenderKey, atk, defU)
@@ -11290,7 +11328,8 @@ function unitColors(side) {
     if (commandAttackBonus) modParts.push(`command +${commandAttackBonus}`);
     if (commandRangedBonus) modParts.push(`volley +${commandRangedBonus}`);
     if (commandDefenseBonus) modParts.push(`shield -${commandDefenseBonus}`);
-    if (terrainDiceMod) modParts.push(`${terrainLabel(defenderTerrain).toLowerCase()} ${terrainDiceMod}`);
+    if (defenderTerrain === 'woods') modParts.push('woods -1');
+    if (attackerTerrain === 'rough') modParts.push('launch rough -1');
     if (coveringFireIgnored) modParts.push('covering-fire terrain ignore');
     const modText = ` (${modParts.join(', ')})`;
     const combatInfo = {
@@ -11751,18 +11790,114 @@ function unitColors(side) {
     return true;
   }
 
+  function summarizeTutorialRolls(rolls = []) {
+    let hits = 0;
+    let retreats = 0;
+    let disarrays = 0;
+    let misses = 0;
+    for (const v of rolls) {
+      if (v === 6) {
+        hits += 1;
+        disarrays += 1;
+      } else if (v === 5) {
+        hits += 1;
+      } else if (v === DIE_RETREAT) {
+        retreats += 1;
+      } else if (v === DIE_DISARRAY) {
+        disarrays += 1;
+      } else {
+        misses += 1;
+      }
+    }
+    return { hits, retreats, disarrays, misses };
+  }
+
+  function playTutorialCombatSample({
+    attackerKey,
+    defenderKey,
+    kind = 'melee',
+    dist = 1,
+    baseDice = 1,
+    rolls = [5],
+    terrainOverride = null,
+    impactPosition = 'front',
+  } = {}) {
+    const atk = unitsByHex.get(attackerKey);
+    const def = unitsByHex.get(defenderKey);
+    if (!atk || !def || !Array.isArray(rolls) || rolls.length === 0) return;
+
+    const atkDef = UNIT_BY_ID.get(atk.type);
+    const defDef = UNIT_BY_ID.get(def.type);
+    const counts = summarizeTutorialRolls(rolls);
+    const defenderTerrain = terrainOverride || board.byKey.get(defenderKey)?.terrain || 'clear';
+    const terrainDiceMod = defenderTerrain === 'woods' ? -1 : 0;
+    const hpNow = Number(def.hp || unitMaxHp(def.type, def.quality));
+
+    const info = {
+      attacker: `${atk.side.toUpperCase()} ${atkDef?.abbrev || atk.type.toUpperCase()}`,
+      defender: `${def.side.toUpperCase()} ${defDef?.abbrev || def.type.toUpperCase()}`,
+      kind,
+      dist,
+      dice: rolls.length,
+      baseDice,
+      flankBonus: 0,
+      rearBonus: 0,
+      impactPosition,
+      pivoted: false,
+      pivotFrom: 'none',
+      woodsPenalty: terrainDiceMod < 0 ? Math.abs(terrainDiceMod) : 0,
+      braced: false,
+      braceDiceMod: 0,
+      braceSupportKeys: [],
+      terrainDiceMod,
+      defenderTerrain,
+      terrainRuleText: terrainHoverCombatText(defenderTerrain),
+      braceRuleText: 'Defender is not braced.',
+      hits: counts.hits,
+      retreats: counts.retreats,
+      disarrays: counts.disarrays,
+      misses: counts.misses,
+      retreatMoved: counts.retreats > 0 ? 1 : 0,
+      retreatBlocked: 0,
+      destroyed: counts.hits >= hpNow,
+      defenderHpAfter: Math.max(0, hpNow - counts.hits),
+    };
+
+    setAttackFlash(defenderKey, ATTACK_FLASH_MS + 220, {
+      fromKey: attackerKey,
+      strikeType: kind,
+      attackerType: atk.type,
+    });
+    renderDiceDisplay(rolls, info);
+    renderCombatBreakdown(rolls, info);
+  }
+
   function tutorialStepList() {
     const k = TUTORIAL_KEYS;
+    const blueInfFront = [k.blueInfFrontL, k.blueInfFrontR];
+    const blueInfBack = [k.blueInfBackL, k.blueInfBackC, k.blueInfBackR];
+    const redInfFront = [k.redInfFrontL, k.redInfFrontR];
+    const redInfBack = [k.redInfBackL, k.redInfBackC, k.redInfBackR];
+    const blueInfBlock = [...blueInfFront, ...blueInfBack];
+    const redInfBlock = [...redInfFront, ...redInfBack];
+    const qualityKeys = [k.blueInfBackL, k.blueInfBackC, k.blueInfBackR, k.redInfBackL, k.redInfBackC, k.redInfBackR];
+
     const bInfTo = tutorialForwardDestination(k.blueInf, 'blue');
     const rInfTo = tutorialForwardDestination(k.redInf, 'red');
     const bCavTo = tutorialForwardDestination(k.blueCav, 'blue');
     const rCavTo = tutorialForwardDestination(k.redCav, 'red');
     const bSkrTo = tutorialForwardDestination(k.blueSkr, 'blue');
     const rSkrTo = tutorialForwardDestination(k.redSkr, 'red');
-    const bArcLane = k.redInf;
-    const rArcLane = k.blueInf;
-    const redRetreatKey = retreatPick(k.blueInf, k.redInf);
-    const blueRetreatKey = retreatPick(k.redInf, k.blueInf);
+    const bLineToL = tutorialForwardDestination(k.blueInfFrontL, 'blue');
+    const bLineToR = tutorialForwardDestination(k.blueInfFrontR, 'blue');
+    const rLineToL = tutorialForwardDestination(k.redInfFrontL, 'red');
+    const rLineToR = tutorialForwardDestination(k.redInfFrontR, 'red');
+    const bArcR2Key = stepKeyInDirection(stepKeyInDirection(k.blueArc, 'downLeft') || '', 'downLeft');
+    const bArcR3Key = stepKeyInDirection(bArcR2Key || '', 'downLeft');
+    const rArcR2Key = stepKeyInDirection(stepKeyInDirection(k.redArc, 'upRight') || '', 'upRight');
+    const rArcR3Key = stepKeyInDirection(rArcR2Key || '', 'upRight');
+    const redRetreatKey = retreatPick(k.blueInfFrontL, k.redInfFrontR);
+    const blueRetreatKey = retreatPick(k.redInfFrontR, k.blueInfFrontL);
 
     return [
       {
@@ -11772,79 +11907,158 @@ function unitColors(side) {
           'This mirrored tutorial battle keeps both armies symmetrical so each mechanic is easy to compare. ' +
           'Blue starts at the top, Red starts at the bottom.',
         focusKeys: [k.blueGen, k.redGen],
+        noAutoHover: true,
         learn: [
           'Blue controls the northern deployment, Red controls the southern deployment.',
           'The center is left open so line geometry is easy to read.',
-          'You can hover any hex during tutorial to preview terrain modifiers below.',
+          'Use the step controls to pause, autoplay, or jump manually.',
         ],
         task: {
-          type: 'inspect',
-          text: 'Click either highlighted General to inspect command anchors.',
+          type: 'select',
+          text: 'Click either highlighted General to begin.',
           targetKeys: [k.blueGen, k.redGen],
+        },
+      },
+      {
+        id: 'quality_colors',
+        title: 'Quality Colors (Green / Regular / Veteran)',
+        text:
+          'Ring color marks experience quality. Green units are less reliable, Regular are balanced, and Veteran units are steadier.',
+        focusKeys: qualityKeys,
+        learn: [
+          'Green ring: inexperienced (more command-sensitive, lower staying power).',
+          'Silver ring: regular line quality.',
+          'Gold ring: veteran quality (better staying power and flexibility).',
+        ],
+        task: {
+          type: 'select',
+          text: 'Click one Green, one Regular, then one Veteran unit.',
+          targetKeys: qualityKeys,
         },
       },
       {
         id: 'turn_flow',
         title: 'Turn Rhythm & Actions',
         text:
-          'Each turn gives 3 actions. Most units activate once per turn. Good sequencing matters: move, attack, support, ' +
-          'line advance, and directives compete for the same action economy.',
-        focusKeys: [k.blueInf, k.blueSkr, k.blueArc],
+          'Each turn gives 3 actions. Most units activate once per turn. Movement, attacks, line advance, and directives all spend from the same action pool.',
+        focusKeys: [k.blueInfFrontL, k.blueSkr, k.blueArc],
         learn: [
-          'Action economy is the core tempo system: every action spent should improve position or pressure.',
-          'Directives share the same action pool as movement and attacks.',
+          'Action economy is your tempo system: every action should improve position or pressure.',
+          'The best turn order is often move first, then attack or issue a directive.',
         ],
       },
       {
-        id: 'inf',
-        title: 'Infantry (INF)',
+        id: 'inf_move',
+        title: 'Infantry Movement & Formation',
         text:
-          'Infantry are your line anchor. They hold the center, absorb pressure, and advance methodically by one hex at a time.',
-        focusKeys: [k.blueInf, k.redInf],
+          'Infantry move one hex and work best in connected ranks. Here you can see a two-unit front row with a three-unit support row behind it.',
+        focusKeys: [...blueInfBlock, ...redInfBlock],
         destinationKeys: [bInfTo, rInfTo].filter(Boolean),
         paths: [
-          { fromKey: k.blueInf, toKey: bInfTo, kind: 'move' },
-          { fromKey: k.redInf, toKey: rInfTo, kind: 'move' },
+          { fromKey: k.blueInfFrontL, toKey: bInfTo, kind: 'move' },
+          { fromKey: k.redInfFrontR, toKey: rInfTo, kind: 'move' },
         ].filter((p) => p.toKey),
-        learn: [
-          'INF are strongest as connected lines, not isolated duelists.',
-          'Use line advance to keep infantry shoulder-to-shoulder under pressure.',
-        ],
         unitProfile: {
-          move: 'Move: 1 hex per activation. Entering woods, hills, or rough can slow or stall momentum.',
-          role: 'Role: front-line anchor. Hold space, absorb contact, and push in formation.',
+          move: 'Move: 1 hex per activation. Entering woods, hills, or rough can slow momentum.',
+          role: 'Role: main battle line. Hold space, absorb contact, and push as a formation.',
           notes: [
-            'Best used in connected ranks with adjacent infantry support.',
-            'Line advance is strongest when your command chain is intact.',
+            'Infantry should rarely fight as isolated single units.',
+            'Rear supports matter because they help brace the front line.',
           ],
         },
         task: {
           type: 'select',
-          text: 'Select the highlighted Blue Infantry unit.',
-          targetKeys: [k.blueInf],
+          text: 'Select either highlighted front-line Blue infantry unit.',
+          targetKeys: blueInfFront,
         },
       },
       {
-        id: 'cav',
-        title: 'Cavalry (CAV)',
+        id: 'inf_reinforce',
+        title: 'Reinforced Infantry (Brace)',
         text:
-          'Cavalry are your flank decision arm. They reposition quickly and punish exposed formations, especially in open ground.',
+          'When linked infantry support a front unit from the proper rear arcs, the defender is reinforced and melee attackers lose a die.',
+        focusKeys: [...blueInfBlock, ...redInfBlock],
+        selectedKey: k.blueInfFrontL,
+        learn: [
+          'During this step, the cyan overlay marks front infantry and their linked support units.',
+          'Brace is infantry-only and depends on adjacent geometry.',
+        ],
+        unitProfile: {
+          move: 'Brace is positional, not a separate move action.',
+          role: 'Role: reduce incoming melee pressure through linked support.',
+          notes: [
+            'Hover or select infantry to read reinforcement details in Modifiers.',
+            'If linked support breaks, brace coverage disappears.',
+          ],
+        },
+        task: {
+          type: 'select',
+          text: 'Click the selected Blue front infantry again to inspect reinforcement in Modifiers.',
+          targetKeys: [k.blueInfFrontL],
+        },
+      },
+      {
+        id: 'line_advance',
+        title: 'Trial Line Advance',
+        text:
+          'Line Advance moves a selected infantry row together. The highlighted trial shows both front infantry stepping in formation while support remains aligned behind.',
+        focusKeys: [...blueInfFront, ...redInfFront, ...blueInfBack, ...redInfBack],
+        destinationKeys: [bLineToL, bLineToR, rLineToL, rLineToR].filter(Boolean),
+        paths: [
+          { fromKey: k.blueInfFrontL, toKey: bLineToL, kind: 'move' },
+          { fromKey: k.blueInfFrontR, toKey: bLineToR, kind: 'move' },
+          { fromKey: k.redInfFrontL, toKey: rLineToL, kind: 'move' },
+          { fromKey: k.redInfFrontR, toKey: rLineToR, kind: 'move' },
+        ].filter((p) => p.toKey),
+        learn: [
+          'Line Advance uses diagonal vectors tied to your current row orientation.',
+          'If one unit is blocked, the rest can still advance (partial line move).',
+        ],
+        task: {
+          type: 'select',
+          text: 'Select either highlighted Blue front infantry to prepare a line advance.',
+          targetKeys: blueInfFront,
+        },
+      },
+      {
+        id: 'inf_combat',
+        title: 'Infantry Combat Demo',
+        text:
+          'Infantry melee uses close-range dice pressure. In this sample, infantry contact produces a hit, retreat pressure, and potential disarray.',
+        focusKeys: [k.blueInfFrontL, k.redInfFrontR],
+        paths: [{ fromKey: k.blueInfFrontL, toKey: k.redInfFrontR, kind: 'melee' }],
+        learn: [
+          'Infantry melee base dice: 2.',
+          '6 = hit + disarray, 5 = hit, 4 = retreat, 3 = disarray, 1-2 = miss.',
+        ],
+        onEnter: () => {
+          playTutorialCombatSample({
+            attackerKey: k.blueInfFrontL,
+            defenderKey: k.redInfFrontR,
+            kind: 'melee',
+            dist: 1,
+            baseDice: 2,
+            rolls: [6, 4],
+          });
+        },
+      },
+      {
+        id: 'cav_move',
+        title: 'Cavalry Movement',
+        text:
+          'Cavalry are your mobile flank arm. They move farther in open lanes and are strongest when attacking exposed formations.',
         focusKeys: [k.blueCav, k.redCav],
         destinationKeys: [bCavTo, rCavTo].filter(Boolean),
         paths: [
           { fromKey: k.blueCav, toKey: bCavTo, kind: 'move' },
           { fromKey: k.redCav, toKey: rCavTo, kind: 'move' },
         ].filter((p) => p.toKey),
-        learn: [
-          'CAV should threaten angles and weak flanks, not grind frontally into dense infantry.',
-          'Open ground preserves cavalry tempo and shock value.',
-        ],
         unitProfile: {
-          move: 'Move: 2 hexes on open ground. Difficult terrain lowers tempo and can break attack rhythm.',
-          role: 'Role: flank shock and exploitation. Create local superiority through angles.',
+          move: 'Move: 2 in open terrain; difficult terrain can reduce effective tempo.',
+          role: 'Role: flank shock and exploitation.',
           notes: [
-            'Cavalry are strongest against exposed infantry in clear terrain.',
-            'Avoid prolonged frontal fights into dense support lines.',
+            'Use cavalry to attack angles and force line fractures.',
+            'Avoid long frontal grinds into braced infantry.',
           ],
         },
         task: {
@@ -11854,26 +12068,44 @@ function unitColors(side) {
         },
       },
       {
-        id: 'skr',
-        title: 'Skirmishers (SKR)',
+        id: 'cav_combat',
+        title: 'Cavalry Combat Demo',
         text:
-          'Skirmishers are flexible disruptors. They screen, harass, and slip around the main line where heavier troops would bog down.',
+          'Cavalry melee can deliver larger impact than infantry when lanes are open and timing is right.',
+        focusKeys: [k.blueCav, k.redInfFrontL],
+        paths: [{ fromKey: k.blueCav, toKey: k.redInfFrontL, kind: 'melee' }],
+        learn: [
+          'Cavalry melee base dice: 3.',
+          'Cavalry shine when they can hit before the enemy line stabilizes.',
+        ],
+        onEnter: () => {
+          playTutorialCombatSample({
+            attackerKey: k.blueCav,
+            defenderKey: k.redInfFrontL,
+            kind: 'melee',
+            dist: 1,
+            baseDice: 3,
+            rolls: [5, 5, 3],
+          });
+        },
+      },
+      {
+        id: 'skr_move',
+        title: 'Skirmisher Movement',
+        text:
+          'Skirmishers are flexible disruptors. They screen, probe, and reposition faster than heavy line units in many lanes.',
         focusKeys: [k.blueSkr, k.redSkr],
         destinationKeys: [bSkrTo, rSkrTo].filter(Boolean),
         paths: [
           { fromKey: k.blueSkr, toKey: bSkrTo, kind: 'move' },
           { fromKey: k.redSkr, toKey: rSkrTo, kind: 'move' },
         ].filter((p) => p.toKey),
-        learn: [
-          'SKR are ideal for contesting hills and probing before main-line engagement.',
-          'Use them to force awkward enemy responses and expose gaps.',
-        ],
         unitProfile: {
-          move: 'Move: 2 hexes in open lanes; difficult terrain can reduce movement to short repositioning steps.',
-          role: 'Role: screen and disrupt. Pull enemy tempo out of shape before infantry clash.',
+          move: 'Move: 2. Ranged: 1 die at range 2. Melee: 1 die.',
+          role: 'Role: screen and disrupt before main-line contact.',
           notes: [
-            'Skirmishers are for pressure, not prolonged melee.',
-            'Use them to block lanes, scout threats, and setup stronger attacks.',
+            'Skirmishers are best at tempo disruption, not static brawls.',
+            'Use hill lines and lane control to force bad enemy paths.',
           ],
         },
         task: {
@@ -11883,99 +12115,95 @@ function unitColors(side) {
         },
       },
       {
-        id: 'terrain',
-        title: 'Terrain Friction & Positioning',
+        id: 'skr_combat',
+        title: 'Skirmisher Combat Demo',
         text:
-          'Terrain is geometry, not decoration. Woods, hills, and rough change movement tempo and combat pressure. ' +
-          'Position before contact whenever possible.',
-        focusKeys: ['4,4', '10,6', '5,5', '9,5', '6,6', '8,4'],
+          'Skirmishers can sting at range 2 and can still fight in melee, but at lower raw dice than line infantry.',
+        focusKeys: [k.blueSkr, k.redInfFrontL],
+        paths: [{ fromKey: k.blueSkr, toKey: k.redInfFrontL, kind: 'ranged' }],
         learn: [
-          'Woods and rough slow or constrain many units; mountains and water are fully impassable.',
-          'High ground and lanes matter as much as raw unit count.',
+          'Skirmisher ranged profile: 1 die at range 2.',
+          'Skirmisher melee profile: 1 die.',
         ],
-        task: {
-          type: 'inspect',
-          text: 'Click any highlighted terrain hex to inspect positional friction.',
-          targetKeys: ['4,4', '10,6', '5,5', '9,5', '6,6', '8,4'],
+        onEnter: () => {
+          playTutorialCombatSample({
+            attackerKey: k.blueSkr,
+            defenderKey: k.redInfFrontL,
+            kind: 'ranged',
+            dist: 2,
+            baseDice: 1,
+            rolls: [4],
+          });
         },
       },
       {
-        id: 'line_advance',
-        title: 'Line Advance Concept',
+        id: 'arc_range2',
+        title: 'Archer Range 2 Demo',
         text:
-          'Line Advance is a coordinated infantry shove. When a valid shoulder-to-shoulder segment is selected, ' +
-          'the line can shift together along legal diagonal vectors rather than drifting out of formation.',
-        focusKeys: [k.blueInf, k.redInf],
-        destinationKeys: [bInfTo, rInfTo].filter(Boolean),
+          'Archers fire stronger at range 2. This sample shows a two-die ranged strike and its outcomes.',
+        focusKeys: [k.blueArc, k.redArc, bArcR2Key, rArcR2Key].filter(Boolean),
         paths: [
-          { fromKey: k.blueInf, toKey: bInfTo, kind: 'move' },
-          { fromKey: k.redInf, toKey: rInfTo, kind: 'move' },
+          { fromKey: k.blueArc, toKey: bArcR2Key, kind: 'ranged' },
+          { fromKey: k.redArc, toKey: rArcR2Key, kind: 'ranged' },
         ].filter((p) => p.toKey),
-        learn: [
-          'Line advance is formation movement: partial moves are allowed when some units are blocked.',
-          'Use direction choice to preserve command range and flank integrity.',
-        ],
-      },
-      {
-        id: 'arc',
-        title: 'Archers (ARC)',
-        text:
-          'Archers apply ranged pressure. Use them to soften targets, force retreats, and set up better melee exchanges.',
-        focusKeys: [k.blueArc, k.redArc, k.blueInf, k.redInf],
-        paths: [
-          { fromKey: k.blueArc, toKey: bArcLane, kind: 'ranged' },
-          { fromKey: k.redArc, toKey: rArcLane, kind: 'ranged' },
-        ],
-        learn: [
-          'ARC damage is about tempo: forcing retreat/disarray opens lanes for infantry and cavalry.',
-          'Protect archers behind your line; they are fragile in melee.',
-        ],
         unitProfile: {
-          move: 'Move: 1 hex. Ranged profile: 2 dice at range 2, 1 die at range 3.',
-          role: 'Role: ranged attrition and disruption before contact.',
+          move: 'Move: 1. Ranged: 2 dice at range 2, 1 die at range 3. Melee: 1 die.',
+          role: 'Role: ranged pressure and pre-contact disruption.',
           notes: [
-            'Best behind infantry, with clear lanes toward enemy front ranks.',
-            'Use archer pressure to force retreats and disarray before your line commits.',
+            'Use range-2 volleys to force retreat/disarray before committing infantry.',
           ],
         },
-        task: {
-          type: 'select',
-          text: 'Select the highlighted Blue Archer.',
-          targetKeys: [k.blueArc],
-        },
         onEnter: () => {
-          setAttackFlash(k.redInf, ATTACK_FLASH_MS + 180, {
-            fromKey: k.blueArc,
-            strikeType: 'ranged',
-            attackerType: 'arc',
+          playTutorialCombatSample({
+            attackerKey: k.blueArc,
+            defenderKey: k.redInfFrontL,
+            kind: 'ranged',
+            dist: 2,
+            baseDice: 2,
+            rolls: [6, 3],
           });
-          queueTutorialTimer(() => {
-            if (!state.tutorial.active) return;
-            setAttackFlash(k.blueInf, ATTACK_FLASH_MS + 180, {
-              fromKey: k.redArc,
-              strikeType: 'ranged',
-              attackerType: 'arc',
-            });
-          }, 420);
         },
       },
       {
-        id: 'gen',
-        title: 'General (GEN)',
+        id: 'arc_range3',
+        title: 'Archer Range 3 Demo',
         text:
-          'Generals project command radius. Troops inside command operate normally; broken command chains create friction and lost tempo.',
+          'At range 3, archers fire one die. Range still matters, but pressure becomes more selective.',
+        focusKeys: [k.blueArc, k.redArc, bArcR3Key, rArcR3Key].filter(Boolean),
+        paths: [
+          { fromKey: k.blueArc, toKey: bArcR3Key, kind: 'ranged' },
+          { fromKey: k.redArc, toKey: rArcR3Key, kind: 'ranged' },
+        ].filter((p) => p.toKey),
+        learn: [
+          'Range 3 is lower volume fire, useful for finishing pressure or forcing difficult choices.',
+        ],
+        onEnter: () => {
+          playTutorialCombatSample({
+            attackerKey: k.blueArc,
+            defenderKey: k.redInfBackC,
+            kind: 'ranged',
+            dist: 3,
+            baseDice: 1,
+            rolls: [5],
+          });
+        },
+      },
+      {
+        id: 'gen_command',
+        title: 'General Command Radius',
+        text:
+          'Generals project command radius. Units inside command are responsive; broken links create friction and lost tempo.',
         focusKeys: [k.blueGen, k.redGen],
         selectedKey: k.blueGen,
         learn: [
-          'General quality sets command radius: Green 3, Regular 4, Veteran 5.',
-          'Losing command links can freeze lower-quality formations.',
+          'General quality sets radius: Green 3, Regular 4, Veteran 5.',
+          'Command coverage is often worth more than a risky attack.',
         ],
         unitProfile: {
-          move: 'Move: 2 hexes. Command radius depends on quality (Green 3, Regular 4, Veteran 5).',
-          role: 'Role: command anchor. Keeps formations responsive and coordinated.',
+          move: 'Move: 2. Command radius depends on quality.',
+          role: 'Role: command anchor for line coherence.',
           notes: [
-            'Protect generals from direct exposure in front-line combat.',
-            'Command coverage is often more valuable than one extra attack.',
+            'Keep generals alive and centrally relevant to your formation.',
           ],
         },
         task: {
@@ -11985,25 +12213,42 @@ function unitColors(side) {
         },
       },
       {
+        id: 'gen_combat',
+        title: 'General Combat Demo',
+        text:
+          'Generals can fight in melee, but they are not frontline brawlers. Use combat with them only when position demands it.',
+        focusKeys: [k.blueGen, k.redInfBackC],
+        paths: [{ fromKey: k.blueGen, toKey: k.redInfBackC, kind: 'melee' }],
+        learn: [
+          'General melee profile: 1 die.',
+          'Losing a general can collapse command and end games in Decapitation mode.',
+        ],
+        onEnter: () => {
+          playTutorialCombatSample({
+            attackerKey: k.blueGen,
+            defenderKey: k.redInfBackC,
+            kind: 'melee',
+            dist: 1,
+            baseDice: 1,
+            rolls: [5],
+          });
+        },
+      },
+      {
         id: 'run',
         title: 'Runner (RUN)',
         text:
-          'Runners relay command locally. They are fast support units: no direct attack, but critical for keeping distant troops responsive.',
-        focusKeys: [k.blueRun, k.redRun, k.blueInf, k.redInf],
+          'Runners relay command locally. They do not attack, but they keep distant troops linked when lines stretch.',
+        focusKeys: [k.blueRun, k.redRun, k.blueInfFrontL, k.redInfFrontR],
         paths: [
-          { fromKey: k.blueRun, toKey: k.blueInf, kind: 'command' },
-          { fromKey: k.redRun, toKey: k.redInf, kind: 'command' },
-        ],
-        learn: [
-          'Runners are command relays, not combat pieces.',
-          'Use runners to reconnect drifting formations to your command network.',
+          { fromKey: k.blueRun, toKey: k.blueInfFrontL, kind: 'command' },
+          { fromKey: k.redRun, toKey: k.redInfFrontR, kind: 'command' },
         ],
         unitProfile: {
-          move: 'Move: quality-based sprint (typically faster than line units). No direct attack.',
-          role: 'Role: command relay. Bridge gaps between generals and forward units.',
+          move: 'Move: quality-based sprint. No direct attack.',
+          role: 'Role: command relay support.',
           notes: [
-            'Runners improve control continuity, especially on stretched fronts.',
-            'Keep them alive; they are logistical assets, not duelists.',
+            'Use runners to reconnect units drifting beyond direct general influence.',
           ],
         },
         task: {
@@ -12016,22 +12261,17 @@ function unitColors(side) {
         id: 'med',
         title: 'Medic (MED)',
         text:
-          'Medics restore nearby wounded allies. Keep them protected just behind your line where they can stabilize key formations.',
-        focusKeys: [k.blueMed, k.redMed, k.blueInf, k.redInf],
+          'Medics restore nearby wounded allies. Keep them protected just behind likely contact points.',
+        focusKeys: [k.blueMed, k.redMed, k.blueInfFrontL, k.redInfFrontR],
         paths: [
-          { fromKey: k.blueMed, toKey: k.blueInf, kind: 'support' },
-          { fromKey: k.redMed, toKey: k.redInf, kind: 'support' },
-        ],
-        learn: [
-          'Medics heal adjacent allies (+1 HP) but have no attack.',
-          'Best position: one hex behind likely contact points.',
+          { fromKey: k.blueMed, toKey: k.blueInfFrontL, kind: 'support' },
+          { fromKey: k.redMed, toKey: k.redInfFrontR, kind: 'support' },
         ],
         unitProfile: {
-          move: 'Move: 1 hex. Action: heal +1 HP to one adjacent ally.',
-          role: 'Role: sustain. Keeps key line units from collapsing under attrition.',
+          move: 'Move: 1. Action: heal +1 HP to one adjacent ally.',
+          role: 'Role: sustain and recovery support.',
           notes: [
             'Medics cannot fight and should stay screened by combat units.',
-            'Use healing on units holding critical lanes or objectives.',
           ],
         },
         task: {
@@ -12041,49 +12281,53 @@ function unitColors(side) {
         },
       },
       {
+        id: 'terrain',
+        title: 'Terrain Friction & Positioning',
+        text:
+          'Terrain is geometry, not decoration. Woods, hills, and rough change movement tempo and tactical lanes.',
+        focusKeys: ['4,4', '10,6', '5,5', '9,5', '6,6', '8,4'],
+        learn: [
+          'Woods impose defensive pressure; rough and hills shape movement and lane choice.',
+          'Hover any terrain hex to see live movement/combat notes in Modifiers.',
+        ],
+        task: {
+          type: 'inspect',
+          text: 'Click any highlighted terrain hex to inspect modifiers.',
+          targetKeys: ['4,4', '10,6', '5,5', '9,5', '6,6', '8,4'],
+        },
+      },
+      {
         id: 'directives',
         title: 'War Council Directives',
         text:
-          'A directive is a tactical order you can issue during your turn. Some directives are reusable and some are single-use spikes. ' +
-          'Pick directives that match your current board shape before spending your actions.',
-        focusKeys: [k.blueGen, k.blueInf, k.blueCav, k.blueArc],
+          'A directive is a tactical order you can issue during your turn. Reusable directives can return; single-use directives are one-turn spikes.',
+        focusKeys: [k.blueGen, k.blueInfFrontL, k.blueCav, k.blueArc],
         learn: [
-          'Reusable directives are repeatable; single-use directives are one-turn power spikes.',
           'Directives spend actions from the same 3-action turn budget.',
-          'Use “Show UI” in this tutorial card if you want to inspect the full right-side command panel.',
+          'Use “Show UI” if you want to inspect the full right-side command panel while learning.',
         ],
       },
       {
-        id: 'combat',
-        title: 'Combat Result Flow',
+        id: 'combat_results',
+        title: 'Combat Results: Hit, Retreat, Disarray',
         text:
-          'Core dice language: 6 = hit + disarray, 5 = hit, 4 = retreat, 3 = disarray, 1-2 = miss. ' +
-          'Disarray means the unit loses clean tempo on its next activation.',
-        focusKeys: [k.blueInf, k.redInf],
-        paths: [{ fromKey: k.blueInf, toKey: k.redInf, kind: 'melee' }],
+          'Core dice language: 6 = hit + disarray, 5 = hit, 4 = retreat, 3 = disarray, 1-2 = miss.',
+        focusKeys: [k.blueInfFrontL, k.redInfFrontR],
+        paths: [{ fromKey: k.blueInfFrontL, toKey: k.redInfFrontR, kind: 'melee' }],
         learn: [
-          'Retreat that cannot resolve converts into extra damage.',
-          'Disarray lasts through the unit’s next activation, then clears.',
+          'Retreat and disarray can break lines even before units are destroyed.',
         ],
-        onEnter: () => {
-          setAttackFlash(k.redInf, ATTACK_FLASH_MS + 220, {
-            fromKey: k.blueInf,
-            strikeType: 'melee',
-            attackerType: 'inf',
-          });
-        },
       },
       {
         id: 'retreat',
         title: 'Retreat Resolution',
         text:
-          'A retreat result pushes the defender away from the attacker by one hex. ' +
-          'If no legal retreat hex exists (blocked by units, board edge, or impassable terrain), retreat converts into damage.',
-        focusKeys: [k.blueInf, k.redInf, redRetreatKey, blueRetreatKey].filter(Boolean),
+          'A retreat result pushes the defender away from the attacker by one hex. If no legal retreat exists, retreat converts into damage.',
+        focusKeys: [k.blueInfFrontL, k.redInfFrontR, redRetreatKey, blueRetreatKey].filter(Boolean),
         destinationKeys: [redRetreatKey, blueRetreatKey].filter(Boolean),
         paths: [
-          { fromKey: k.redInf, toKey: redRetreatKey, kind: 'retreat' },
-          { fromKey: k.blueInf, toKey: blueRetreatKey, kind: 'retreat' },
+          { fromKey: k.redInfFrontR, toKey: redRetreatKey, kind: 'retreat' },
+          { fromKey: k.blueInfFrontL, toKey: blueRetreatKey, kind: 'retreat' },
         ].filter((p) => p.toKey),
         learn: [
           'Retreat is positional pressure, not free escape.',
@@ -12099,25 +12343,23 @@ function unitColors(side) {
         id: 'disarray',
         title: 'Disarray & Recovery',
         text:
-          'Disarray means the formation is rattled. A disarrayed unit cannot move or attack on its next activation; ' +
-          'it effectively loses clean tempo, then recovers after that activation.',
-        focusKeys: [k.blueInf, k.redInf],
+          'Disarray means a formation is rattled. A disarrayed unit cannot move or attack on its next activation, then recovers.',
+        focusKeys: [k.blueInfFrontL, k.redInfFrontR],
         learn: [
-          'Disarray is often the opening for a follow-up directive or line shove.',
-          'Medics cannot heal disarrayed units under current rules.',
+          'Disarray creates tactical windows for follow-up directives or line shoves.',
+          'Medics cannot heal disarrayed units.',
         ],
         task: {
           type: 'select',
-          text: 'Select either highlighted infantry unit to review status flow.',
-          targetKeys: [k.blueInf, k.redInf],
+          text: 'Select either highlighted infantry unit to review disarray flow.',
+          targetKeys: [k.blueInfFrontL, k.redInfFrontR],
         },
       },
       {
         id: 'victory',
         title: 'Victory Conditions',
         text:
-          'Default mode is Decapitation: eliminate enemy generals. Other modes include annihilation and UP-based victories. ' +
-          'Track losses, command integrity, and battlefield position together.',
+          'Default mode is Decapitation: eliminate enemy generals. Other modes include annihilation and UP-based victory tracks.',
         focusKeys: [k.blueGen, k.redGen],
         learn: [
           'Score panel tracks each side’s UP and HP totals in real time.',
@@ -12128,11 +12370,11 @@ function unitColors(side) {
         id: 'ready',
         title: 'Tutorial Complete',
         text:
-          'You now have a visual read of every unit type. Exit tutorial to play this position, or return to the intro menu for Play Now or full setup.',
-        focusKeys: [k.blueGen, k.redGen, k.blueInf, k.redInf],
+          'You now have movement, combat, and command basics for each unit type. Exit tutorial to play this position, or return to intro for Play Now or full setup.',
+        focusKeys: [k.blueGen, k.redGen, k.blueInfFrontL, k.redInfFrontR],
         learn: [
-          'You can replay the tutorial anytime from the intro screen.',
-          'Next best step: play a full battle and test doctrine timing under pressure.',
+          'Replay tutorial anytime from the intro screen.',
+          'Next step: play a full battle and test doctrine timing under pressure.',
         ],
       },
     ];
@@ -12216,6 +12458,8 @@ function unitColors(side) {
     state.tutorial.stepIndex = clamped;
     clearTutorialTimers();
     clearSelection();
+    clearDoctrineTargeting();
+    closeCommandPhase();
 
     state.tutorial.visual = {
       focusKeys: Array.isArray(step.focusKeys) ? step.focusKeys.filter((k) => board.activeSet.has(k)) : [],
@@ -12230,7 +12474,13 @@ function unitColors(side) {
       state.selectedKey = step.selectedKey;
     }
 
-    state._hoverKey = state.tutorial.visual.focusKeys[0] || null;
+    if (typeof step.hoverKey === 'string' && board.activeSet.has(step.hoverKey)) {
+      state._hoverKey = step.hoverKey;
+    } else if (step.noAutoHover) {
+      state._hoverKey = null;
+    } else {
+      state._hoverKey = state.tutorial.visual.focusKeys[0] || null;
+    }
     if (typeof step.onEnter === 'function') {
       step.onEnter();
     }

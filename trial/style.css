@@ -431,7 +431,7 @@ body.tutorial-active #side{
 }
 
 body.tutorial-active #canvasWrap{
-  padding-left:min(34vw, 500px);
+  padding-left:min(42vw, 620px);
 }
 
 /* Optional tutorial UI view: horizontal pan between board and setup panel. */
