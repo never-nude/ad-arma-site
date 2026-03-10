@@ -1033,6 +1033,10 @@
         type: '',
         text: '',
         targetKeys: [],
+        sourceKeys: [],
+        destinationKeys: [],
+        enemyKeys: [],
+        progress: {},
         done: false,
       },
     },
@@ -11659,7 +11663,17 @@ function unitColors(side) {
       state.tutorial.showSidePanel = false;
       clearTutorialTimers();
       state.tutorial.visual = { focusKeys: [], destinationKeys: [], paths: [] };
-      state.tutorial.task = { active: false, type: '', text: '', targetKeys: [], done: false };
+      state.tutorial.task = {
+        active: false,
+        type: '',
+        text: '',
+        targetKeys: [],
+        sourceKeys: [],
+        destinationKeys: [],
+        enemyKeys: [],
+        progress: {},
+        done: false,
+      };
       if (state._hoverKey && !state.selectedKey) state._hoverKey = null;
     }
     if (elTutorialGuideOverlay) {
@@ -11693,20 +11707,75 @@ function unitColors(side) {
         type: '',
         text: '',
         targetKeys: [],
+        sourceKeys: [],
+        destinationKeys: [],
+        enemyKeys: [],
+        progress: {},
         done: false,
       };
       return;
     }
-    const targetKeys = Array.isArray(task.targetKeys)
+    const sourceKeys = Array.isArray(task.sourceKeys)
+      ? task.sourceKeys.filter((k) => board.activeSet.has(k))
+      : [];
+    const destinationKeys = Array.isArray(task.destinationKeys)
+      ? task.destinationKeys.filter((k) => board.activeSet.has(k))
+      : [];
+    const enemyKeys = Array.isArray(task.enemyKeys)
+      ? task.enemyKeys.filter((k) => board.activeSet.has(k))
+      : [];
+    const explicitTargets = Array.isArray(task.targetKeys)
       ? task.targetKeys.filter((k) => board.activeSet.has(k))
       : [];
+    const targetKeys = [...new Set([...explicitTargets, ...sourceKeys, ...destinationKeys, ...enemyKeys])];
     state.tutorial.task = {
       active: true,
       type: String(task.type || 'select'),
       text: String(task.text || 'Complete the highlighted practice step.'),
       targetKeys,
+      sourceKeys,
+      destinationKeys,
+      enemyKeys,
+      progress: {},
       done: false,
     };
+  }
+
+  function tutorialPositionsByUnitId() {
+    const out = new Map();
+    for (const [hk, u] of unitsByHex) {
+      if (!u || !Number.isFinite(u.id)) continue;
+      out.set(u.id, hk);
+    }
+    return out;
+  }
+
+  function tutorialTaskMoveMatched(task, beforePositions, afterPositions) {
+    const sourceSet = new Set((task?.sourceKeys?.length ? task.sourceKeys : task?.targetKeys) || []);
+    const destinationSet = new Set(task?.destinationKeys || []);
+    if (sourceSet.size === 0 || destinationSet.size === 0) return false;
+    for (const [unitId, beforeKey] of beforePositions) {
+      const afterKey = afterPositions.get(unitId);
+      if (!afterKey || beforeKey === afterKey) continue;
+      if (sourceSet.has(beforeKey) && destinationSet.has(afterKey)) return true;
+    }
+    return false;
+  }
+
+  function tutorialTaskAttackMatched(task, {
+    preSelected,
+    clickedKey,
+    preAttackTarget,
+    preActsUsed,
+    postActsUsed,
+  } = {}) {
+    const sourceSet = new Set((task?.sourceKeys?.length ? task.sourceKeys : task?.targetKeys) || []);
+    const enemySet = new Set((task?.enemyKeys?.length ? task.enemyKeys : task?.targetKeys) || []);
+    if (sourceSet.size === 0 || enemySet.size === 0) return false;
+    if (!preAttackTarget) return false;
+    if (!preSelected || !sourceSet.has(preSelected)) return false;
+    if (!clickedKey || !enemySet.has(clickedKey)) return false;
+    return postActsUsed > preActsUsed;
   }
 
   function tutorialTaskNeedsInput() {
@@ -11748,12 +11817,112 @@ function unitColors(side) {
     const clickedUnit = unitsByHex.get(hexKey) || null;
     const task = state.tutorial.task || { active: false, done: false };
 
-    // Keep tutorial board deterministic: selection only, no movement/attack commits.
-    if (clickedUnit) {
-      state.selectedKey = hexKey;
-      state._hoverKey = hexKey;
+    const isSelectTask = task.active && !task.done && task.type === 'select';
+    const isInspectTask = task.active && !task.done && task.type === 'inspect';
+
+    // Selection/inspection tasks intentionally remain deterministic.
+    if (isSelectTask || isInspectTask) {
+      if (clickedUnit) {
+        state.selectedKey = hexKey;
+        state._hoverKey = hexKey;
+      } else {
+        state._hoverKey = hexKey;
+      }
     } else {
+      // All action-focused tutorial steps run through live play logic.
+      const preSelected = state.selectedKey;
+      const preActsUsed = state.actsUsed;
+      const preMoveTarget = !!(state._moveTargets && state._moveTargets.has(hexKey));
+      const preAttackTarget = !!(state._attackTargets && state._attackTargets.has(hexKey));
+      const beforePositions = tutorialPositionsByUnitId();
+
+      clickPlay(hexKey);
       state._hoverKey = hexKey;
+
+      const afterPositions = tutorialPositionsByUnitId();
+
+      if (!task.active || task.done) {
+        updateHud();
+        return true;
+      }
+
+      if (task.type === 'move') {
+        if (tutorialTaskMoveMatched(task, beforePositions, afterPositions) && preMoveTarget) {
+          tutorialMarkTaskDone('Move complete.');
+          return true;
+        }
+        if ((task.sourceKeys || []).includes(hexKey)) {
+          log('Selected. Now click a highlighted destination hex.');
+        } else if ((task.destinationKeys || []).includes(hexKey) && !preMoveTarget) {
+          log('Select a highlighted source unit first, then click destination.');
+        } else {
+          log('Follow the move prompt: source unit first, then destination hex.');
+        }
+        renderTutorialGuide();
+        updateHud();
+        return true;
+      }
+
+      if (task.type === 'attack') {
+        if (tutorialTaskAttackMatched(task, {
+          preSelected,
+          clickedKey: hexKey,
+          preAttackTarget,
+          preActsUsed,
+          postActsUsed: state.actsUsed,
+        })) {
+          tutorialMarkTaskDone('Attack executed.');
+          return true;
+        }
+        if ((task.sourceKeys || []).includes(hexKey)) {
+          log('Attacker selected. Now click a highlighted enemy to attack.');
+        } else if ((task.enemyKeys || task.targetKeys || []).includes(hexKey)) {
+          log('Select a highlighted attacker first, then click enemy target.');
+        } else {
+          log('Follow the attack prompt: attacker first, then enemy target.');
+        }
+        renderTutorialGuide();
+        updateHud();
+        return true;
+      }
+
+      if (task.type === 'move_attack') {
+        task.progress = task.progress || {};
+        const movedNow = preMoveTarget && tutorialTaskMoveMatched(task, beforePositions, afterPositions);
+        if (movedNow) {
+          task.progress.moved = true;
+          log('Movement complete. Now click a highlighted enemy to attack.');
+          renderTutorialGuide();
+          updateHud();
+          return true;
+        }
+        if (task.progress.moved && tutorialTaskAttackMatched(task, {
+          preSelected,
+          clickedKey: hexKey,
+          preAttackTarget,
+          preActsUsed,
+          postActsUsed: state.actsUsed,
+        })) {
+          tutorialMarkTaskDone('Move + attack complete.');
+          return true;
+        }
+        if (!task.progress.moved) {
+          if ((task.sourceKeys || []).includes(hexKey)) {
+            log('Selected. Move this unit to a highlighted destination hex.');
+          } else {
+            log('Step 1: move the highlighted unit to a highlighted destination hex.');
+          }
+        } else {
+          log('Step 2: attack a highlighted enemy with your moved unit.');
+        }
+        renderTutorialGuide();
+        updateHud();
+        return true;
+      }
+
+      renderTutorialGuide();
+      updateHud();
+      return true;
     }
 
     if (!task.active || task.done) {
@@ -11967,9 +12136,10 @@ function unitColors(side) {
           ],
         },
         task: {
-          type: 'select',
-          text: 'Select either highlighted front-line Blue infantry unit.',
-          targetKeys: blueInfFront,
+          type: 'move',
+          text: 'Click the highlighted Blue infantry, then click the highlighted destination hex.',
+          sourceKeys: [k.blueInfFrontL],
+          destinationKeys: [bInfTo].filter(Boolean),
         },
       },
       {
@@ -12024,22 +12194,19 @@ function unitColors(side) {
         id: 'inf_combat',
         title: 'Infantry Combat Demo',
         text:
-          'Infantry melee uses close-range dice pressure. In this sample, infantry contact produces a hit, retreat pressure, and potential disarray.',
+          'Infantry melee uses close-range dice pressure. In this drill, move first, then click an adjacent enemy to attack.',
         focusKeys: [k.blueInfFrontL, k.redInfFrontR],
         paths: [{ fromKey: k.blueInfFrontL, toKey: k.redInfFrontR, kind: 'melee' }],
         learn: [
           'Infantry melee base dice: 2.',
           '6 = hit + disarray, 5 = hit, 4 = retreat, 3 = disarray, 1-2 = miss.',
         ],
-        onEnter: () => {
-          playTutorialCombatSample({
-            attackerKey: k.blueInfFrontL,
-            defenderKey: k.redInfFrontR,
-            kind: 'melee',
-            dist: 1,
-            baseDice: 2,
-            rolls: [6, 4],
-          });
+        task: {
+          type: 'move_attack',
+          text: 'Click Blue infantry -> click highlighted destination -> click highlighted Red infantry to attack.',
+          sourceKeys: [k.blueInfFrontL],
+          destinationKeys: [bInfTo].filter(Boolean),
+          enemyKeys: [k.redInfFrontR],
         },
       },
       {
@@ -12062,9 +12229,10 @@ function unitColors(side) {
           ],
         },
         task: {
-          type: 'select',
-          text: 'Select the highlighted Blue Cavalry unit.',
-          targetKeys: [k.blueCav],
+          type: 'move',
+          text: 'Click the highlighted Blue cavalry, then click a highlighted destination hex.',
+          sourceKeys: [k.blueCav],
+          destinationKeys: [bCavTo].filter(Boolean),
         },
       },
       {
@@ -12109,31 +12277,28 @@ function unitColors(side) {
           ],
         },
         task: {
-          type: 'select',
-          text: 'Select the highlighted Blue Skirmisher.',
-          targetKeys: [k.blueSkr],
+          type: 'move',
+          text: 'Click the highlighted Blue skirmisher, then click a highlighted destination hex.',
+          sourceKeys: [k.blueSkr],
+          destinationKeys: [bSkrTo].filter(Boolean),
         },
       },
       {
         id: 'skr_combat',
         title: 'Skirmisher Combat Demo',
         text:
-          'Skirmishers can sting at range 2 and can still fight in melee, but at lower raw dice than line infantry.',
+          'Skirmishers can sting at range 2 and can still fight in melee, but at lower raw dice than line infantry. Select then fire.',
         focusKeys: [k.blueSkr, k.redInfFrontL],
         paths: [{ fromKey: k.blueSkr, toKey: k.redInfFrontL, kind: 'ranged' }],
         learn: [
           'Skirmisher ranged profile: 1 die at range 2.',
           'Skirmisher melee profile: 1 die.',
         ],
-        onEnter: () => {
-          playTutorialCombatSample({
-            attackerKey: k.blueSkr,
-            defenderKey: k.redInfFrontL,
-            kind: 'ranged',
-            dist: 2,
-            baseDice: 1,
-            rolls: [4],
-          });
+        task: {
+          type: 'attack',
+          text: 'Click the highlighted Blue skirmisher, then click the highlighted Red infantry to attack.',
+          sourceKeys: [k.blueSkr],
+          enemyKeys: [k.redInfFrontL],
         },
       },
       {
@@ -12426,9 +12591,20 @@ function unitColors(side) {
       elTutorialGuideTaskText.textContent = task.text || 'Complete the highlighted task.';
     }
     if (elTutorialGuideTaskStatus && task.active) {
-      const status = task.done
-        ? 'Complete. You can continue.'
-        : `Pending: ${task.targetKeys?.length ? `${task.targetKeys.length} target${task.targetKeys.length === 1 ? '' : 's'} highlighted.` : 'follow prompt.'}`;
+      let status = '';
+      if (task.done) {
+        status = 'Complete. You can continue.';
+      } else if (task.type === 'move') {
+        status = 'Pending: click a highlighted source unit, then a highlighted destination hex.';
+      } else if (task.type === 'attack') {
+        status = 'Pending: click a highlighted attacker, then a highlighted enemy target.';
+      } else if (task.type === 'move_attack') {
+        status = task.progress?.moved
+          ? 'Pending: movement done. Now attack a highlighted enemy target.'
+          : 'Pending: move the highlighted unit first, then attack the highlighted enemy.';
+      } else {
+        status = `Pending: ${task.targetKeys?.length ? `${task.targetKeys.length} target${task.targetKeys.length === 1 ? '' : 's'} highlighted.` : 'follow prompt.'}`;
+      }
       elTutorialGuideTaskStatus.textContent = status;
       elTutorialGuideTaskStatus.classList.toggle('done', !!task.done);
     }
