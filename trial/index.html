@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=20260310-tutorial-sidebar-v4" />
+  <link rel="stylesheet" href="style.css?v=20260310-tutorial-sidebar-v6" />
 </head>
 <body>
   <div id="introOverlay" class="introOverlay open" aria-hidden="false">
@@ -55,13 +55,23 @@
     <div class="tutorialGuideCard" role="dialog" aria-modal="false" aria-labelledby="tutorialGuideTitle">
       <div class="tutorialGuideHead">
         <h2 id="tutorialGuideTitle">Battle Tutorial</h2>
-        <div id="tutorialGuideStepMeta" class="tutorialGuideStepMeta">Step 1/1</div>
+        <div class="tutorialGuideHeadRight">
+          <div id="tutorialGuideStepMeta" class="tutorialGuideStepMeta">Step 1/1</div>
+          <button id="tutorialToggleUiBtn" class="btn tutorialGuideHeadBtn" type="button">Show UI</button>
+          <button id="tutorialMinBtn" class="btn tutorialGuideHeadBtn" type="button">Minimize</button>
+        </div>
       </div>
       <h3 id="tutorialGuideStepTitle" class="tutorialGuideStepTitle">Introduction</h3>
       <p id="tutorialGuideStepText" class="tutorialGuideStepText">
         Tutorial narration loads here.
       </p>
       <ul id="tutorialGuideLearn" class="tutorialGuideLearn" hidden></ul>
+      <div id="tutorialGuideUnitWrap" class="tutorialGuideUnitWrap" hidden>
+        <div class="tutorialGuideUnitLabel">Unit Mechanics</div>
+        <div id="tutorialGuideUnitMove" class="tutorialGuideUnitMove"></div>
+        <div id="tutorialGuideUnitRole" class="tutorialGuideUnitRole"></div>
+        <ul id="tutorialGuideUnitNotes" class="tutorialGuideUnitNotes" hidden></ul>
+      </div>
       <div id="tutorialGuideTaskWrap" class="tutorialGuideTaskWrap" hidden>
         <div class="tutorialGuideTaskLabel">Practice Task</div>
         <div id="tutorialGuideTaskText" class="tutorialGuideTaskText">Task instructions load here.</div>
@@ -587,7 +597,7 @@
   </section>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  <script src="build.js?v=20260310-tutorial-sidebar-v4"></script>
-  <script src="main.js?v=20260310-tutorial-sidebar-v4"></script>
+  <script src="build.js?v=20260310-tutorial-sidebar-v6"></script>
+  <script src="main.js?v=20260310-tutorial-sidebar-v6"></script>
 </body>
 </html>

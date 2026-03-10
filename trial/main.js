@@ -987,6 +987,10 @@
   const elTutorialGuideStepTitle = document.getElementById('tutorialGuideStepTitle');
   const elTutorialGuideStepText = document.getElementById('tutorialGuideStepText');
   const elTutorialGuideLearn = document.getElementById('tutorialGuideLearn');
+  const elTutorialGuideUnitWrap = document.getElementById('tutorialGuideUnitWrap');
+  const elTutorialGuideUnitMove = document.getElementById('tutorialGuideUnitMove');
+  const elTutorialGuideUnitRole = document.getElementById('tutorialGuideUnitRole');
+  const elTutorialGuideUnitNotes = document.getElementById('tutorialGuideUnitNotes');
   const elTutorialGuideTaskWrap = document.getElementById('tutorialGuideTaskWrap');
   const elTutorialGuideTaskText = document.getElementById('tutorialGuideTaskText');
   const elTutorialGuideTaskStatus = document.getElementById('tutorialGuideTaskStatus');
@@ -995,6 +999,8 @@
   const elTutorialSkipTaskBtn = document.getElementById('tutorialSkipTaskBtn');
   const elTutorialNextBtn = document.getElementById('tutorialNextBtn');
   const elTutorialExitBtn = document.getElementById('tutorialExitBtn');
+  const elTutorialToggleUiBtn = document.getElementById('tutorialToggleUiBtn');
+  const elTutorialMinBtn = document.getElementById('tutorialMinBtn');
 
   // --- State
   const state = {
@@ -1003,6 +1009,8 @@
     tutorial: {
       active: false,
       autoplay: false,
+      showSidePanel: false,
+      minimized: false,
       stepIndex: 0,
       timers: [],
       visual: {
@@ -7893,31 +7901,7 @@ function unitColors(side) {
     const red = totals('red');
     document.body.dataset.mode = state.mode;
     document.body.dataset.combat = state.combatBusy ? 'on' : 'off';
-
-    // Deep fallback: enforce tutorial layout on every HUD render.
-    const tutorialOpen = !!(
-      state.tutorial?.active ||
-      (elTutorialGuideOverlay && !elTutorialGuideOverlay.hidden)
-    );
-    document.body.classList.toggle('tutorial-active', tutorialOpen);
-    {
-      const layoutEl = document.getElementById('layout');
-      const sideEl = document.getElementById('side');
-      const canvasWrapEl = document.getElementById('canvasWrap');
-      if (tutorialOpen) {
-        if (layoutEl) layoutEl.style.gridTemplateColumns = '1fr';
-        if (sideEl) sideEl.style.display = 'none';
-        if (canvasWrapEl && window.innerWidth > 980) {
-          canvasWrapEl.style.paddingLeft = 'min(34vw, 500px)';
-        } else if (canvasWrapEl) {
-          canvasWrapEl.style.paddingLeft = '';
-        }
-      } else {
-        if (layoutEl) layoutEl.style.gridTemplateColumns = '';
-        if (sideEl) sideEl.style.display = '';
-        if (canvasWrapEl) canvasWrapEl.style.paddingLeft = '';
-      }
-    }
+    applyTutorialLayoutState();
 
     elHudTitle.textContent = GAME_NAME;
     ensureDoctrineStateInitialized(false);
@@ -11612,11 +11596,28 @@ function unitColors(side) {
     return id;
   }
 
+  function applyTutorialLayoutState() {
+    const tutorialOpen = !!state.tutorial.active;
+    document.body.classList.toggle('tutorial-active', tutorialOpen);
+    document.body.classList.toggle('tutorial-show-side', tutorialOpen && !!state.tutorial.showSidePanel);
+  }
+
+  function setTutorialGuideMinimized(minimized) {
+    state.tutorial.minimized = !!minimized;
+    if (elTutorialGuideOverlay) {
+      elTutorialGuideOverlay.classList.toggle('is-minimized', !!state.tutorial.minimized);
+    }
+    if (elTutorialMinBtn) {
+      elTutorialMinBtn.textContent = state.tutorial.minimized ? 'Restore' : 'Minimize';
+    }
+  }
+
   function setTutorialGuideOpen(open) {
     const show = !!open;
     state.tutorial.active = show;
     if (!show) {
       state.tutorial.autoplay = false;
+      state.tutorial.showSidePanel = false;
       clearTutorialTimers();
       state.tutorial.visual = { focusKeys: [], destinationKeys: [], paths: [] };
       state.tutorial.task = { active: false, type: '', text: '', targetKeys: [], done: false };
@@ -11626,39 +11627,9 @@ function unitColors(side) {
       elTutorialGuideOverlay.hidden = !show;
       elTutorialGuideOverlay.setAttribute('aria-hidden', show ? 'false' : 'true');
     }
-    document.body.classList.toggle('tutorial-active', show);
-
-    // Hard fallback: force tutorial layout even if stylesheet class caching/mismatch occurs.
-    const layoutEl = document.getElementById('layout');
-    const sideEl = document.getElementById('side');
-    const canvasWrapEl = document.getElementById('canvasWrap');
-    if (show) {
-      if (layoutEl && layoutEl.dataset.tutorialPrevCols === undefined) {
-        layoutEl.dataset.tutorialPrevCols = layoutEl.style.gridTemplateColumns || '';
-      }
-      if (sideEl) {
-        if (sideEl.dataset.tutorialPrevDisplay === undefined) {
-          sideEl.dataset.tutorialPrevDisplay = sideEl.style.display || '';
-        }
-        sideEl.style.display = 'none';
-      }
-      if (layoutEl) layoutEl.style.gridTemplateColumns = '1fr';
-      if (canvasWrapEl && window.innerWidth > 980) {
-        canvasWrapEl.style.paddingLeft = 'min(34vw, 500px)';
-      }
-    } else {
-      if (layoutEl) {
-        layoutEl.style.gridTemplateColumns = layoutEl.dataset.tutorialPrevCols || '';
-        delete layoutEl.dataset.tutorialPrevCols;
-      }
-      if (sideEl) {
-        sideEl.style.display = sideEl.dataset.tutorialPrevDisplay || '';
-        delete sideEl.dataset.tutorialPrevDisplay;
-      }
-      if (canvasWrapEl) {
-        canvasWrapEl.style.paddingLeft = '';
-      }
-    }
+    if (show && state.tutorial.minimized) setTutorialGuideMinimized(false);
+    if (!show) setTutorialGuideMinimized(false);
+    applyTutorialLayoutState();
   }
 
   function tutorialForwardDestination(fromKey, side = 'blue') {
@@ -11839,6 +11810,14 @@ function unitColors(side) {
           'INF are strongest as connected lines, not isolated duelists.',
           'Use line advance to keep infantry shoulder-to-shoulder under pressure.',
         ],
+        unitProfile: {
+          move: 'Move: 1 hex per activation. Entering woods, hills, or rough can slow or stall momentum.',
+          role: 'Role: front-line anchor. Hold space, absorb contact, and push in formation.',
+          notes: [
+            'Best used in connected ranks with adjacent infantry support.',
+            'Line advance is strongest when your command chain is intact.',
+          ],
+        },
         task: {
           type: 'select',
           text: 'Select the highlighted Blue Infantry unit.',
@@ -11860,6 +11839,14 @@ function unitColors(side) {
           'CAV should threaten angles and weak flanks, not grind frontally into dense infantry.',
           'Open ground preserves cavalry tempo and shock value.',
         ],
+        unitProfile: {
+          move: 'Move: 2 hexes on open ground. Difficult terrain lowers tempo and can break attack rhythm.',
+          role: 'Role: flank shock and exploitation. Create local superiority through angles.',
+          notes: [
+            'Cavalry are strongest against exposed infantry in clear terrain.',
+            'Avoid prolonged frontal fights into dense support lines.',
+          ],
+        },
         task: {
           type: 'select',
           text: 'Select the highlighted Blue Cavalry unit.',
@@ -11881,6 +11868,14 @@ function unitColors(side) {
           'SKR are ideal for contesting hills and probing before main-line engagement.',
           'Use them to force awkward enemy responses and expose gaps.',
         ],
+        unitProfile: {
+          move: 'Move: 2 hexes in open lanes; difficult terrain can reduce movement to short repositioning steps.',
+          role: 'Role: screen and disrupt. Pull enemy tempo out of shape before infantry clash.',
+          notes: [
+            'Skirmishers are for pressure, not prolonged melee.',
+            'Use them to block lanes, scout threats, and setup stronger attacks.',
+          ],
+        },
         task: {
           type: 'select',
           text: 'Select the highlighted Blue Skirmisher.',
@@ -11935,6 +11930,14 @@ function unitColors(side) {
           'ARC damage is about tempo: forcing retreat/disarray opens lanes for infantry and cavalry.',
           'Protect archers behind your line; they are fragile in melee.',
         ],
+        unitProfile: {
+          move: 'Move: 1 hex. Ranged profile: 2 dice at range 2, 1 die at range 3.',
+          role: 'Role: ranged attrition and disruption before contact.',
+          notes: [
+            'Best behind infantry, with clear lanes toward enemy front ranks.',
+            'Use archer pressure to force retreats and disarray before your line commits.',
+          ],
+        },
         task: {
           type: 'select',
           text: 'Select the highlighted Blue Archer.',
@@ -11967,6 +11970,14 @@ function unitColors(side) {
           'General quality sets command radius: Green 3, Regular 4, Veteran 5.',
           'Losing command links can freeze lower-quality formations.',
         ],
+        unitProfile: {
+          move: 'Move: 2 hexes. Command radius depends on quality (Green 3, Regular 4, Veteran 5).',
+          role: 'Role: command anchor. Keeps formations responsive and coordinated.',
+          notes: [
+            'Protect generals from direct exposure in front-line combat.',
+            'Command coverage is often more valuable than one extra attack.',
+          ],
+        },
         task: {
           type: 'select',
           text: 'Select the highlighted Blue General to view command perimeter.',
@@ -11987,6 +11998,14 @@ function unitColors(side) {
           'Runners are command relays, not combat pieces.',
           'Use runners to reconnect drifting formations to your command network.',
         ],
+        unitProfile: {
+          move: 'Move: quality-based sprint (typically faster than line units). No direct attack.',
+          role: 'Role: command relay. Bridge gaps between generals and forward units.',
+          notes: [
+            'Runners improve control continuity, especially on stretched fronts.',
+            'Keep them alive; they are logistical assets, not duelists.',
+          ],
+        },
         task: {
           type: 'select',
           text: 'Select the highlighted Blue Runner.',
@@ -12007,6 +12026,14 @@ function unitColors(side) {
           'Medics heal adjacent allies (+1 HP) but have no attack.',
           'Best position: one hex behind likely contact points.',
         ],
+        unitProfile: {
+          move: 'Move: 1 hex. Action: heal +1 HP to one adjacent ally.',
+          role: 'Role: sustain. Keeps key line units from collapsing under attrition.',
+          notes: [
+            'Medics cannot fight and should stay screened by combat units.',
+            'Use healing on units holding critical lanes or objectives.',
+          ],
+        },
         task: {
           type: 'select',
           text: 'Select the highlighted Blue Medic.',
@@ -12023,6 +12050,7 @@ function unitColors(side) {
         learn: [
           'Reusable directives are repeatable; single-use directives are one-turn power spikes.',
           'Directives spend actions from the same 3-action turn budget.',
+          'Use “Show UI” in this tutorial card if you want to inspect the full right-side command panel.',
         ],
       },
       {
@@ -12128,6 +12156,26 @@ function unitColors(side) {
         elTutorialGuideLearn.innerHTML = '';
       }
     }
+    const unitProfile = step.unitProfile || null;
+    if (elTutorialGuideUnitWrap) {
+      elTutorialGuideUnitWrap.hidden = !unitProfile;
+    }
+    if (unitProfile) {
+      if (elTutorialGuideUnitMove) elTutorialGuideUnitMove.textContent = unitProfile.move || '';
+      if (elTutorialGuideUnitRole) elTutorialGuideUnitRole.textContent = unitProfile.role || '';
+      if (elTutorialGuideUnitNotes) {
+        const notes = Array.isArray(unitProfile.notes) ? unitProfile.notes.filter(Boolean) : [];
+        elTutorialGuideUnitNotes.hidden = notes.length === 0;
+        elTutorialGuideUnitNotes.innerHTML = notes.map((line) => `<li>${line}</li>`).join('');
+      }
+    } else {
+      if (elTutorialGuideUnitMove) elTutorialGuideUnitMove.textContent = '';
+      if (elTutorialGuideUnitRole) elTutorialGuideUnitRole.textContent = '';
+      if (elTutorialGuideUnitNotes) {
+        elTutorialGuideUnitNotes.hidden = true;
+        elTutorialGuideUnitNotes.innerHTML = '';
+      }
+    }
     const task = state.tutorial.task || { active: false, done: false };
     if (elTutorialGuideTaskWrap) {
       elTutorialGuideTaskWrap.hidden = !task.active;
@@ -12152,6 +12200,12 @@ function unitColors(side) {
       elTutorialAutoBtn.textContent = state.tutorial.autoplay ? 'Pause Auto' : 'Autoplay';
       elTutorialAutoBtn.classList.toggle('active', !!state.tutorial.autoplay);
       elTutorialAutoBtn.disabled = tutorialTaskNeedsInput();
+    }
+    if (elTutorialToggleUiBtn) {
+      elTutorialToggleUiBtn.textContent = state.tutorial.showSidePanel ? 'Hide UI' : 'Show UI';
+    }
+    if (elTutorialMinBtn) {
+      elTutorialMinBtn.textContent = state.tutorial.minimized ? 'Restore' : 'Minimize';
     }
   }
 
@@ -14974,6 +15028,22 @@ function unitColors(side) {
   if (elTutorialExitBtn) {
     elTutorialExitBtn.addEventListener('click', () => {
       stopGuidedTutorial();
+    });
+  }
+  if (elTutorialToggleUiBtn) {
+    elTutorialToggleUiBtn.addEventListener('click', () => {
+      if (!state.tutorial.active) return;
+      state.tutorial.showSidePanel = !state.tutorial.showSidePanel;
+      applyTutorialLayoutState();
+      renderTutorialGuide();
+      draw();
+    });
+  }
+  if (elTutorialMinBtn) {
+    elTutorialMinBtn.addEventListener('click', () => {
+      if (!state.tutorial.active) return;
+      setTutorialGuideMinimized(!state.tutorial.minimized);
+      renderTutorialGuide();
     });
   }
 
