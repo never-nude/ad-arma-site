@@ -1039,6 +1039,7 @@
         progress: {},
         done: false,
       },
+      unitIdByName: {},
     },
 
     mode: 'edit', // 'edit' | 'play'
@@ -11674,6 +11675,7 @@ function unitColors(side) {
         progress: {},
         done: false,
       };
+      state.tutorial.unitIdByName = {};
       if (state._hoverKey && !state.selectedKey) state._hoverKey = null;
     }
     if (elTutorialGuideOverlay) {
@@ -11768,6 +11770,12 @@ function unitColors(side) {
     preAttackTarget,
     preActsUsed,
     postActsUsed,
+    preEnemyId = null,
+    preEnemyHp = null,
+    postEnemyExists = null,
+    postEnemyHp = null,
+    postSelected = null,
+    requireActionSpend = true,
   } = {}) {
     const sourceSet = new Set((task?.sourceKeys?.length ? task.sourceKeys : task?.targetKeys) || []);
     const enemySet = new Set((task?.enemyKeys?.length ? task.enemyKeys : task?.targetKeys) || []);
@@ -11775,7 +11783,68 @@ function unitColors(side) {
     if (!preAttackTarget) return false;
     if (!preSelected || !sourceSet.has(preSelected)) return false;
     if (!clickedKey || !enemySet.has(clickedKey)) return false;
-    return postActsUsed > preActsUsed;
+    if (requireActionSpend && postActsUsed > preActsUsed) return true;
+    if (!requireActionSpend && postActsUsed > preActsUsed) return true;
+    if (preEnemyId != null) {
+      if (postEnemyExists === false) return true;
+      if (Number.isFinite(preEnemyHp) && Number.isFinite(postEnemyHp) && postEnemyHp !== preEnemyHp) return true;
+    }
+    if (!postSelected) return true;
+    return false;
+  }
+
+  function cacheTutorialUnitIds() {
+    const map = {};
+    for (const [name, hk] of Object.entries(TUTORIAL_KEYS)) {
+      const u = unitsByHex.get(hk);
+      if (u && Number.isFinite(u.id)) map[name] = u.id;
+    }
+    state.tutorial.unitIdByName = map;
+  }
+
+  function tutorialUnitKeyByName(name) {
+    const id = state.tutorial?.unitIdByName?.[name];
+    if (!Number.isFinite(id)) return null;
+    for (const [hk, u] of unitsByHex) {
+      if (u && u.id === id) return hk;
+    }
+    return null;
+  }
+
+  function tutorialResetUnitVitals(name) {
+    const hk = tutorialUnitKeyByName(name);
+    if (!hk) return false;
+    const u = unitsByHex.get(hk);
+    if (!u) return false;
+    u.hp = unitMaxHp(u.type, u.quality);
+    u.disarray = false;
+    u.disarrayAppliedSerial = null;
+    return true;
+  }
+
+  function tutorialTeleportUnit(name, toKey) {
+    if (!toKey || !board.activeSet.has(toKey)) return false;
+    const fromKey = tutorialUnitKeyByName(name);
+    if (!fromKey) return false;
+    if (fromKey === toKey) return true;
+
+    const movingUnit = unitsByHex.get(fromKey);
+    if (!movingUnit) return false;
+
+    const occupied = unitsByHex.get(toKey);
+    if (occupied && occupied.id !== movingUnit.id) {
+      const occupiedSet = new Set(unitsByHex.keys());
+      occupiedSet.delete(fromKey);
+      occupiedSet.delete(toKey);
+      const relocation = findScenarioRelocationKey(toKey, occupied.type, occupiedSet);
+      if (!relocation) return false;
+      unitsByHex.delete(toKey);
+      unitsByHex.set(relocation, occupied);
+    }
+
+    unitsByHex.delete(fromKey);
+    unitsByHex.set(toKey, movingUnit);
+    return true;
   }
 
   function tutorialTaskNeedsInput() {
@@ -11834,12 +11903,27 @@ function unitColors(side) {
       const preActsUsed = state.actsUsed;
       const preMoveTarget = !!(state._moveTargets && state._moveTargets.has(hexKey));
       const preAttackTarget = !!(state._attackTargets && state._attackTargets.has(hexKey));
+      const preEnemyUnit = preAttackTarget ? (unitsByHex.get(hexKey) || null) : null;
+      const preEnemyId = preEnemyUnit ? preEnemyUnit.id : null;
+      const preEnemyHp = preEnemyUnit ? Number(preEnemyUnit.hp) : null;
       const beforePositions = tutorialPositionsByUnitId();
 
       clickPlay(hexKey);
       state._hoverKey = hexKey;
 
       const afterPositions = tutorialPositionsByUnitId();
+      let postEnemyExists = null;
+      let postEnemyHp = null;
+      if (preEnemyId != null) {
+        for (const [, u] of unitsByHex) {
+          if (u && u.id === preEnemyId) {
+            postEnemyExists = true;
+            postEnemyHp = Number(u.hp);
+            break;
+          }
+        }
+        if (postEnemyExists == null) postEnemyExists = false;
+      }
 
       if (!task.active || task.done) {
         updateHud();
@@ -11870,6 +11954,12 @@ function unitColors(side) {
           preAttackTarget,
           preActsUsed,
           postActsUsed: state.actsUsed,
+          preEnemyId,
+          preEnemyHp,
+          postEnemyExists,
+          postEnemyHp,
+          postSelected: state.selectedKey,
+          requireActionSpend: true,
         })) {
           tutorialMarkTaskDone('Attack executed.');
           return true;
@@ -11902,6 +11992,12 @@ function unitColors(side) {
           preAttackTarget,
           preActsUsed,
           postActsUsed: state.actsUsed,
+          preEnemyId,
+          preEnemyHp,
+          postEnemyExists,
+          postEnemyHp,
+          postSelected: state.selectedKey,
+          requireActionSpend: false,
         })) {
           tutorialMarkTaskDone('Move + attack complete.');
           return true;
@@ -12043,6 +12139,11 @@ function unitColors(side) {
 
   function tutorialStepList() {
     const k = TUTORIAL_KEYS;
+    const cavDrillAtkKey = '10,6';
+    const cavDrillDefKey = '10,7';
+    const arcR2DrillDest = '9,4';
+    const genDrillAtkKey = '6,5';
+    const genDrillDefKey = '7,5';
     const blueInfFront = [k.blueInfFrontL, k.blueInfFrontR];
     const blueInfBack = [k.blueInfBackL, k.blueInfBackC, k.blueInfBackR];
     const redInfFront = [k.redInfFrontL, k.redInfFrontR];
@@ -12239,22 +12340,24 @@ function unitColors(side) {
         id: 'cav_combat',
         title: 'Cavalry Combat Demo',
         text:
-          'Cavalry melee can deliver larger impact than infantry when lanes are open and timing is right.',
-        focusKeys: [k.blueCav, k.redInfFrontL],
-        paths: [{ fromKey: k.blueCav, toKey: k.redInfFrontL, kind: 'melee' }],
+          'Cavalry melee can deliver larger impact than infantry when lanes are open and timing is right. Select cavalry, then strike the highlighted enemy.',
+        focusKeys: [cavDrillAtkKey, cavDrillDefKey],
+        paths: [{ fromKey: cavDrillAtkKey, toKey: cavDrillDefKey, kind: 'melee' }],
         learn: [
           'Cavalry melee base dice: 3.',
           'Cavalry shine when they can hit before the enemy line stabilizes.',
         ],
         onEnter: () => {
-          playTutorialCombatSample({
-            attackerKey: k.blueCav,
-            defenderKey: k.redInfFrontL,
-            kind: 'melee',
-            dist: 1,
-            baseDice: 3,
-            rolls: [5, 5, 3],
-          });
+          tutorialTeleportUnit('blueCav', cavDrillAtkKey);
+          tutorialTeleportUnit('redCav', cavDrillDefKey);
+          tutorialResetUnitVitals('blueCav');
+          tutorialResetUnitVitals('redCav');
+        },
+        task: {
+          type: 'attack',
+          text: 'Click the highlighted Blue cavalry, then click the highlighted Red cavalry to attack.',
+          sourceKeys: [cavDrillAtkKey],
+          enemyKeys: [cavDrillDefKey],
         },
       },
       {
@@ -12305,11 +12408,11 @@ function unitColors(side) {
         id: 'arc_range2',
         title: 'Archer Range 2 Demo',
         text:
-          'Archers fire stronger at range 2. This sample shows a two-die ranged strike and its outcomes.',
-        focusKeys: [k.blueArc, k.redArc, bArcR2Key, rArcR2Key].filter(Boolean),
+          'Archers fire stronger at range 2. Move the archer one hex, then attack from range 2.',
+        focusKeys: [k.blueArc, k.redSkr, arcR2DrillDest].filter(Boolean),
         paths: [
-          { fromKey: k.blueArc, toKey: bArcR2Key, kind: 'ranged' },
-          { fromKey: k.redArc, toKey: rArcR2Key, kind: 'ranged' },
+          { fromKey: k.blueArc, toKey: arcR2DrillDest, kind: 'move' },
+          { fromKey: arcR2DrillDest, toKey: k.redSkr, kind: 'ranged' },
         ].filter((p) => p.toKey),
         unitProfile: {
           move: 'Move: 1. Ranged: 2 dice at range 2, 1 die at range 3. Melee: 1 die.',
@@ -12319,38 +12422,42 @@ function unitColors(side) {
           ],
         },
         onEnter: () => {
-          playTutorialCombatSample({
-            attackerKey: k.blueArc,
-            defenderKey: k.redInfFrontL,
-            kind: 'ranged',
-            dist: 2,
-            baseDice: 2,
-            rolls: [6, 3],
-          });
+          tutorialTeleportUnit('blueArc', k.blueArc);
+          tutorialTeleportUnit('redSkr', k.redSkr);
+          tutorialResetUnitVitals('blueArc');
+          tutorialResetUnitVitals('redSkr');
+        },
+        task: {
+          type: 'move_attack',
+          text: 'Click Blue archer -> move to highlighted hex -> attack highlighted Red skirmisher.',
+          sourceKeys: [k.blueArc],
+          destinationKeys: [arcR2DrillDest],
+          enemyKeys: [k.redSkr],
         },
       },
       {
         id: 'arc_range3',
         title: 'Archer Range 3 Demo',
         text:
-          'At range 3, archers fire one die. Range still matters, but pressure becomes more selective.',
-        focusKeys: [k.blueArc, k.redArc, bArcR3Key, rArcR3Key].filter(Boolean),
+          'At range 3, archers fire one die. Select the archer and attack from long range.',
+        focusKeys: [k.blueArc, k.redSkr, bArcR3Key, rArcR3Key].filter(Boolean),
         paths: [
-          { fromKey: k.blueArc, toKey: bArcR3Key, kind: 'ranged' },
-          { fromKey: k.redArc, toKey: rArcR3Key, kind: 'ranged' },
+          { fromKey: k.blueArc, toKey: k.redSkr, kind: 'ranged' },
         ].filter((p) => p.toKey),
         learn: [
           'Range 3 is lower volume fire, useful for finishing pressure or forcing difficult choices.',
         ],
         onEnter: () => {
-          playTutorialCombatSample({
-            attackerKey: k.blueArc,
-            defenderKey: k.redInfBackC,
-            kind: 'ranged',
-            dist: 3,
-            baseDice: 1,
-            rolls: [5],
-          });
+          tutorialTeleportUnit('blueArc', k.blueArc);
+          tutorialTeleportUnit('redSkr', k.redSkr);
+          tutorialResetUnitVitals('blueArc');
+          tutorialResetUnitVitals('redSkr');
+        },
+        task: {
+          type: 'attack',
+          text: 'Click Blue archer, then click highlighted Red skirmisher (range 3).',
+          sourceKeys: [k.blueArc],
+          enemyKeys: [k.redSkr],
         },
       },
       {
@@ -12381,22 +12488,24 @@ function unitColors(side) {
         id: 'gen_combat',
         title: 'General Combat Demo',
         text:
-          'Generals can fight in melee, but they are not frontline brawlers. Use combat with them only when position demands it.',
-        focusKeys: [k.blueGen, k.redInfBackC],
-        paths: [{ fromKey: k.blueGen, toKey: k.redInfBackC, kind: 'melee' }],
+          'Generals can fight in melee, but they are not frontline brawlers. Use this drill to execute a single general attack.',
+        focusKeys: [genDrillAtkKey, genDrillDefKey],
+        paths: [{ fromKey: genDrillAtkKey, toKey: genDrillDefKey, kind: 'melee' }],
         learn: [
           'General melee profile: 1 die.',
           'Losing a general can collapse command and end games in Decapitation mode.',
         ],
         onEnter: () => {
-          playTutorialCombatSample({
-            attackerKey: k.blueGen,
-            defenderKey: k.redInfBackC,
-            kind: 'melee',
-            dist: 1,
-            baseDice: 1,
-            rolls: [5],
-          });
+          tutorialTeleportUnit('blueGen', genDrillAtkKey);
+          tutorialTeleportUnit('redArc', genDrillDefKey);
+          tutorialResetUnitVitals('blueGen');
+          tutorialResetUnitVitals('redArc');
+        },
+        task: {
+          type: 'attack',
+          text: 'Click the highlighted Blue general, then click the highlighted Red unit to attack.',
+          sourceKeys: [genDrillAtkKey],
+          enemyKeys: [genDrillDefKey],
         },
       },
       {
@@ -12530,6 +12639,13 @@ function unitColors(side) {
           'Score panel tracks each side’s UP and HP totals in real time.',
           'Decapitation ends immediately when all enemy generals are eliminated.',
         ],
+        onEnter: () => {
+          tutorialTeleportUnit('blueGen', k.blueGen);
+          tutorialTeleportUnit('redGen', k.redGen);
+          tutorialTeleportUnit('redArc', k.redArc);
+          tutorialResetUnitVitals('blueGen');
+          tutorialResetUnitVitals('redGen');
+        },
       },
       {
         id: 'ready',
@@ -12706,6 +12822,7 @@ function unitColors(side) {
     state.humanSide = 'blue';
     state.forwardAxis = 'vertical';
     loadScenario(GUIDED_TUTORIAL_SCENARIO_NAME);
+    cacheTutorialUnitIds();
     prepareQuickStartDoctrine();
     setIntroOverlayOpen(false);
     enterPlay();
