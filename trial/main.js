@@ -11602,6 +11602,38 @@ function unitColors(side) {
       elTutorialGuideOverlay.setAttribute('aria-hidden', show ? 'false' : 'true');
     }
     document.body.classList.toggle('tutorial-active', show);
+
+    // Hard fallback: force tutorial layout even if stylesheet class caching/mismatch occurs.
+    const layoutEl = document.getElementById('layout');
+    const sideEl = document.getElementById('side');
+    const canvasWrapEl = document.getElementById('canvasWrap');
+    if (show) {
+      if (layoutEl && layoutEl.dataset.tutorialPrevCols === undefined) {
+        layoutEl.dataset.tutorialPrevCols = layoutEl.style.gridTemplateColumns || '';
+      }
+      if (sideEl) {
+        if (sideEl.dataset.tutorialPrevDisplay === undefined) {
+          sideEl.dataset.tutorialPrevDisplay = sideEl.style.display || '';
+        }
+        sideEl.style.display = 'none';
+      }
+      if (layoutEl) layoutEl.style.gridTemplateColumns = '1fr';
+      if (canvasWrapEl && window.innerWidth > 980) {
+        canvasWrapEl.style.paddingLeft = 'min(34vw, 500px)';
+      }
+    } else {
+      if (layoutEl) {
+        layoutEl.style.gridTemplateColumns = layoutEl.dataset.tutorialPrevCols || '';
+        delete layoutEl.dataset.tutorialPrevCols;
+      }
+      if (sideEl) {
+        sideEl.style.display = sideEl.dataset.tutorialPrevDisplay || '';
+        delete sideEl.dataset.tutorialPrevDisplay;
+      }
+      if (canvasWrapEl) {
+        canvasWrapEl.style.paddingLeft = '';
+      }
+    }
   }
 
   function tutorialForwardDestination(fromKey, side = 'blue') {
