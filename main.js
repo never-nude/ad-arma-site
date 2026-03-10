@@ -4699,33 +4699,35 @@ function unitColors(side) {
       if (doctrineMark) {
         if (doctrineMark.eligible && !doctrineMark.selected) {
           ctx.save();
-          ctx.fillStyle = 'rgba(180, 206, 238, 0.15)';
+          // Explicit directive-target hint: strong purple tile for eligible units.
+          ctx.fillStyle = 'rgba(138, 84, 232, 0.33)';
           ctx.fill(p);
-          ctx.strokeStyle = 'rgba(155, 201, 255, 0.75)';
-          ctx.lineWidth = Math.max(1.8, Math.round(R * 0.08));
-          ctx.setLineDash([3, 4]);
+          ctx.strokeStyle = 'rgba(207, 174, 255, 0.96)';
+          ctx.lineWidth = Math.max(2.2, Math.round(R * 0.10));
           ctx.stroke(p);
-          ctx.setLineDash([]);
+          // Center pip so small screens still read eligibility instantly.
+          ctx.beginPath();
+          ctx.arc(h.cx, h.cy, Math.max(2, Math.round(R * 0.085)), 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(238, 224, 255, 0.95)';
+          ctx.fill();
           ctx.restore();
         }
         if (doctrineMark.selected) {
           ctx.save();
-          ctx.fillStyle = 'rgba(100, 186, 255, 0.22)';
+          ctx.fillStyle = 'rgba(117, 56, 223, 0.42)';
           ctx.fill(p);
-          ctx.strokeStyle = 'rgba(126, 209, 255, 0.92)';
-          ctx.lineWidth = Math.max(2.4, Math.round(R * 0.11));
+          ctx.strokeStyle = 'rgba(232, 214, 255, 0.98)';
+          ctx.lineWidth = Math.max(2.8, Math.round(R * 0.13));
           ctx.stroke(p);
           ctx.restore();
         }
         if (doctrineMark.hovered && !doctrineMark.selected) {
           ctx.save();
-          ctx.fillStyle = 'rgba(125, 204, 255, 0.18)';
+          ctx.fillStyle = 'rgba(171, 120, 245, 0.36)';
           ctx.fill(p);
-          ctx.strokeStyle = 'rgba(188, 232, 255, 0.96)';
-          ctx.lineWidth = Math.max(2.6, Math.round(R * 0.11));
-          ctx.setLineDash([2, 3]);
+          ctx.strokeStyle = 'rgba(248, 238, 255, 0.98)';
+          ctx.lineWidth = Math.max(3, Math.round(R * 0.14));
           ctx.stroke(p);
-          ctx.setLineDash([]);
           ctx.restore();
         }
         if (doctrineMark.destination) {
@@ -9224,6 +9226,18 @@ function unitColors(side) {
         if (!toKey) return { fromKey, toKey: null, blocked: true };
         return { fromKey, toKey, blocked: !canCommandRelocateUnit(fromKey, toKey, { unit: u }) };
       }
+      case 'forced_march': {
+        const toKey = forwardStepKey(fromKey, side);
+        if (!toKey) return { fromKey, toKey: null, blocked: true };
+        const selectedIds = new Set((state.doctrine.targeting?.selectedUnitIds || []).map(Number));
+        const occ = unitsByHex.get(toKey);
+        const steppingIntoSelected = !!(occ && selectedIds.has(occ.id));
+        const blocked = !canCommandRelocateUnit(fromKey, toKey, {
+          unit: u,
+          allowOccupied: steppingIntoSelected,
+        });
+        return { fromKey, toKey, blocked };
+      }
       case 'full_line_advance':
       case 'all_out_cavalry_sweep':
       case 'commit_reserves': {
@@ -9960,13 +9974,72 @@ function unitColors(side) {
   }
 
   function resolveDoctrineForcedMarch(side) {
-    const picks = byFrontlinePriority(friendlyEntries(side, (u) => u.type === 'inf' || u.type === 'skr'), side).slice(0, 4);
+    const picks = byFrontlinePriority(
+      friendlyEntries(side, (u) => u.type === 'inf' || u.type === 'skr'),
+      side
+    ).slice(0, 4);
     if (!picks.length) return commandResult(false, 'No INF/SKR available for Forced March.');
+
+    const affectedIds = picks.map((e) => e.unit.id);
+    const sourceSet = new Set(picks.map((e) => e.key));
+    const planned = [];
+    const blocked = [];
+
+    // Build a coordinated move plan first, then apply all moves together.
+    // This allows rear units to move into hexes vacated by selected front units.
     for (const e of picks) {
-      addCommandEffectValue('bonusMove', e.unit.id, 1);
+      const toKey = forwardStepKey(e.key, side);
+      if (!toKey || !board.activeSet.has(toKey)) {
+        blocked.push({ fromKey: e.key, reason: 'off-board' });
+        continue;
+      }
+      if (!canCommandRelocateUnit(e.key, toKey, { unit: e.unit, allowOccupied: true })) {
+        blocked.push({ fromKey: e.key, reason: 'terrain' });
+        continue;
+      }
+      const occ = unitsByHex.get(toKey);
+      if (occ && !sourceSet.has(toKey)) {
+        blocked.push({ fromKey: e.key, reason: 'occupied' });
+        continue;
+      }
+      planned.push({ fromKey: e.key, toKey, unit: e.unit });
+    }
+
+    // If destination is another selected source hex, that source must also move;
+    // otherwise we would collide into a stationary selected unit.
+    const plannedFromSet = new Set(planned.map((m) => m.fromKey));
+    const filtered = [];
+    for (const m of planned) {
+      if (sourceSet.has(m.toKey) && !plannedFromSet.has(m.toKey)) {
+        blocked.push({ fromKey: m.fromKey, reason: 'occupied' });
+        continue;
+      }
+      filtered.push(m);
+    }
+
+    for (const e of picks) {
+      // Forced march units cannot attack this turn.
       setCommandEffectFlag('cannotAttack', e.unit.id, true);
     }
-    return commandResult(true, `Forced March granted +1 move to ${picks.length} unit(s).`, picks.map(e => e.unit.id), false);
+
+    if (!filtered.length) {
+      return commandResult(false, 'Forced March failed: selected units are blocked and cannot advance.');
+    }
+
+    // Apply coordinated relocation.
+    for (const m of filtered) unitsByHex.delete(m.fromKey);
+    for (const m of filtered) unitsByHex.set(m.toKey, m.unit);
+
+    const movedCount = filtered.length;
+    const blockedCount = Math.max(0, picks.length - movedCount);
+
+    return commandResult(
+      true,
+      `Forced March advanced ${movedCount}/${picks.length} selected unit(s)` +
+      `${blockedCount ? ` (blocked ${blockedCount})` : ''} and locked them from attacking this turn.`,
+      affectedIds,
+      true
+    );
   }
 
   function resolveDoctrineStrengthenCenter(side) {
