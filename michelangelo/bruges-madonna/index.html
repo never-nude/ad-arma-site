@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <title>Bernini Apollo and Daphne - Museum Viewer</title>
+    <title>Michelangelo Bruges Madonna - Museum Viewer</title>
     <style>
       :root {
         --bg0: #efe6d8;
@@ -204,7 +204,7 @@
   <body>
     <div class="app">
       <section class="panel">
-        <h1 class="title">Gian Lorenzo Bernini: Apollo and Daphne</h1>
+        <h1 class="title">Michelangelo: Bruges Madonna</h1>
         <p id="stats" class="sub">Loading high-fidelity 3D sculpture...</p>
 
         <div class="grid">
@@ -233,9 +233,9 @@
     </div>
 
     <script type="module">
-      const MODEL_UID = "a48523a63b4e4a82ae886075d71c7139";
-      const MODEL_TRIANGLES = 18440;
-      const MODEL_SOURCE_BYTES = 137283;
+      const MODEL_UID = "aa52db3b02944ab796cde2709dabf91b";
+      const MODEL_TRIANGLES = 300000;
+      const MODEL_SOURCE_BYTES = 2212495;
 
       const stage = document.getElementById("stage");
       const stats = document.getElementById("stats");
@@ -570,7 +570,7 @@
 
         const iframe = document.createElement("iframe");
         iframe.className = "viewer-frame";
-        iframe.title = "Apollo and Daphne by Gian Lorenzo Bernini";
+        iframe.title = "Bruges Madonna by Michelangelo";
         iframe.allow = "autoplay; fullscreen; xr-spatial-tracking";
         iframe.setAttribute("allowfullscreen", "true");
         iframe.setAttribute("mozallowfullscreen", "true");
