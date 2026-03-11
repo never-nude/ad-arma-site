@@ -1,24 +1,18 @@
-# Bouchardon Cupid - 3D Viewer
+# Bouchardon Cupid - Museum Viewer
 
-Standalone browser viewer for Edme Bouchardon's *Cupid cutting his bow from the club of Hercules*.
+High-fidelity browser viewer for Edme Bouchardon's *Cupid cutting his bow from the club of Hercules*.
 
-## Build mesh dataset
+This version renders the original STL directly (instead of a decimated proxy mesh) for better form readability.
 
-```bash
-cd "/Users/michael/Documents/New project/BouchardonCupid"
-python3 build_cupid_mesh.py
-```
+## Files
 
-Optional quality controls:
-
-```bash
-CUPID_TRIANGLE_STRIDE=6 CUPID_GRID_RESOLUTION=280 CUPID_MAX_FACES=42000 python3 build_cupid_mesh.py
-```
+- `cupid_source.stl`: Source sculpture mesh.
+- `index.html`: Interactive Three.js viewer with museum lighting controls.
 
 ## Run locally
 
 ```bash
-cd "/Users/michael/Documents/New project/BouchardonCupid"
+cd "$HOME/ad-arma-site/bouchardon/cupid"
 python3 -m http.server 8040
 ```
 

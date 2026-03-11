@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Bouchardon Cupid - 3D Viewer</title>
+    <title>Bouchardon Cupid - Museum Viewer</title>
     <style>
       :root {
-        --bg0: #0b1014;
-        --bg1: #25313a;
-        --panel: #121920;
-        --panel-border: #30404d;
-        --text: #e8edf4;
-        --muted: #a2b2c0;
+        --bg0: #efe6d8;
+        --bg1: #d8c9b3;
+        --panel: #efe6d8f2;
+        --panel-border: #c6b79f;
+        --text: #2f2a22;
+        --muted: #6a5f51;
       }
       * {
         box-sizing: border-box;
@@ -21,7 +21,7 @@
         margin: 0;
         width: 100%;
         height: 100%;
-        background: radial-gradient(circle at 16% 10%, var(--bg1) 0%, var(--bg0) 66%);
+        background: radial-gradient(circle at 18% 8%, var(--bg1) 0%, var(--bg0) 64%);
         color: var(--text);
         font-family: "IBM Plex Sans", "Avenir Next", sans-serif;
       }
@@ -34,12 +34,13 @@
       .panel {
         padding: 12px 14px 10px;
         border-bottom: 1px solid var(--panel-border);
-        background: rgba(18, 25, 32, 0.96);
+        background: var(--panel);
+        backdrop-filter: blur(6px);
       }
       .title {
         margin: 0;
         font-size: 18px;
-        letter-spacing: 0.02em;
+        letter-spacing: 0.01em;
       }
       .sub {
         margin: 4px 0 10px;
@@ -48,7 +49,7 @@
       }
       .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
         gap: 8px 12px;
       }
       .control {
@@ -58,11 +59,12 @@
         font-size: 12px;
       }
       .control label {
-        min-width: 94px;
+        min-width: 88px;
         color: var(--text);
       }
       .control input[type="range"] {
         width: 100%;
+        accent-color: #8d7550;
       }
       .control output {
         min-width: 40px;
@@ -83,12 +85,13 @@
         display: flex;
         align-items: center;
         gap: 5px;
+        color: var(--text);
       }
       .btn {
-        border: 1px solid #405361;
+        border: 1px solid #a18f73;
         border-radius: 6px;
-        background: #18222b;
-        color: var(--text);
+        background: #ece1cf;
+        color: #2d261f;
         font-size: 12px;
         padding: 4px 10px;
         cursor: pointer;
@@ -110,54 +113,66 @@
         color: var(--muted);
         font-size: 14px;
       }
+      @media (max-width: 760px) {
+        .control label {
+          min-width: 78px;
+        }
+      }
     </style>
   </head>
   <body>
     <div class="app">
       <section class="panel">
         <h1 class="title">Edme Bouchardon: Cupid cutting his bow from the club of Hercules</h1>
-        <p id="stats" class="sub">Preparing 3D scene...</p>
+        <p id="stats" class="sub">Loading high-fidelity STL sculpture...</p>
 
         <div class="grid">
-          <div class="control"><label for="spin">Spin</label><input id="spin" type="range" min="0" max="2.4" step="0.01" value="0.32" /><output id="spinv">0.32</output></div>
-          <div class="control"><label for="zoom">Zoom</label><input id="zoom" type="range" min="1.0" max="5.6" step="0.01" value="2.35" /><output id="zoomv">2.35</output></div>
-          <div class="control"><label for="lightAngle">Light Angle</label><input id="lightAngle" type="range" min="-180" max="180" step="1" value="40" /><output id="lightAnglev">40.00</output></div>
-          <div class="control"><label for="lightPower">Light Power</label><input id="lightPower" type="range" min="0" max="3" step="0.01" value="1.28" /><output id="lightPowerv">1.28</output></div>
+          <div class="control"><label for="spin">Spin</label><input id="spin" type="range" min="0" max="1.6" step="0.01" value="0.12" /><output id="spinv">0.12</output></div>
+          <div class="control"><label for="zoom">Zoom</label><input id="zoom" type="range" min="1.2" max="6.4" step="0.01" value="2.70" /><output id="zoomv">2.70</output></div>
+          <div class="control"><label for="lightAngle">Key Angle</label><input id="lightAngle" type="range" min="-180" max="180" step="1" value="34" /><output id="lightAnglev">34.00</output></div>
+          <div class="control"><label for="lightPower">Light Power</label><input id="lightPower" type="range" min="0.2" max="4.5" step="0.01" value="2.20" /><output id="lightPowerv">2.20</output></div>
+          <div class="control"><label for="exposure">Exposure</label><input id="exposure" type="range" min="0.7" max="2.8" step="0.01" value="1.58" /><output id="exposurev">1.58</output></div>
+          <div class="control"><label for="rough">Roughness</label><input id="rough" type="range" min="0.2" max="1" step="0.01" value="0.58" /><output id="roughv">0.58</output></div>
         </div>
 
         <div class="row">
           <label><input id="canManipulate" type="checkbox" checked /> Manipulate</label>
           <label><input id="autoRotate" type="checkbox" checked /> Auto Rotate</label>
           <label><input id="multiLight" type="checkbox" checked /> Multi-Light</label>
+          <label><input id="wire" type="checkbox" /> Wireframe</label>
+          <button id="frontBtn" class="btn" type="button">Front</button>
           <button id="resetBtn" class="btn" type="button">Reset</button>
           <span>Drag to rotate. Scroll/pinch to zoom. Shift+drag to pan.</span>
         </div>
       </section>
 
       <section id="stage">
-        <div class="loading" id="loading">Preparing 3D scene...</div>
+        <div class="loading" id="loading">Loading high-fidelity STL sculpture...</div>
       </section>
     </div>
 
     <script type="module">
-      const MODEL_URL = "./cupid_mesh.json";
+      const MODEL_URL = "./cupid_source.stl";
 
       const stage = document.getElementById("stage");
       const stats = document.getElementById("stats");
       const loading = document.getElementById("loading");
 
       const defaults = {
-        spin: 0.32,
-        zoom: 2.35,
-        lightAngle: 40,
-        lightPower: 1.28,
+        spin: 0.12,
+        zoom: 2.70,
+        lightAngle: 34,
+        lightPower: 2.20,
+        exposure: 1.58,
+        rough: 0.58,
         canManipulate: true,
         autoRotate: true,
-        multiLight: true
+        multiLight: true,
+        wire: false
       };
 
-      const rangeIds = ["spin", "zoom", "lightAngle", "lightPower"];
-      const checkboxIds = ["canManipulate", "autoRotate", "multiLight"];
+      const rangeIds = ["spin", "zoom", "lightAngle", "lightPower", "exposure", "rough"];
+      const checkboxIds = ["canManipulate", "autoRotate", "multiLight", "wire"];
 
       function n(id) {
         return Number(document.getElementById(id).value);
@@ -184,34 +199,41 @@
 
         let THREE;
         let OrbitControls;
+        let STLLoader;
+        let RoomEnvironment;
+        let mergeVertices;
+
         try {
           THREE = await import("https://esm.sh/three@0.161.0?bundle");
           ({ OrbitControls } = await import("https://esm.sh/three@0.161.0/examples/jsm/controls/OrbitControls.js?bundle"));
+          ({ STLLoader } = await import("https://esm.sh/three@0.161.0/examples/jsm/loaders/STLLoader.js?bundle"));
+          ({ RoomEnvironment } = await import("https://esm.sh/three@0.161.0/examples/jsm/environments/RoomEnvironment.js?bundle"));
+          ({ mergeVertices } = await import("https://esm.sh/three@0.161.0/examples/jsm/utils/BufferGeometryUtils.js?bundle"));
         } catch (error) {
           loading.textContent = `Module load error: ${error.message}`;
           stats.textContent = "Failed to load 3D engine modules.";
           return;
         }
 
-        let model;
+        let stlByteLength = null;
         try {
-          const response = await fetch(MODEL_URL);
-          if (!response.ok) {
-            throw new Error(`Failed to load ${MODEL_URL} (${response.status})`);
+          const head = await fetch(MODEL_URL, { method: "HEAD" });
+          if (head.ok) {
+            const len = Number(head.headers.get("content-length"));
+            if (Number.isFinite(len) && len > 0) {
+              stlByteLength = len;
+            }
           }
-          model = await response.json();
-        } catch (error) {
-          loading.textContent = `Mesh load error: ${error.message}`;
-          stats.textContent = "Failed to load sculpture mesh.";
-          return;
+        } catch {
+          // No-op: HEAD may be unavailable in some static hosting setups.
         }
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.4));
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
         renderer.setSize(stage.clientWidth, stage.clientHeight);
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.0;
+        renderer.toneMappingExposure = defaults.exposure;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -219,85 +241,143 @@
         stage.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0b1014);
+        scene.background = new THREE.Color(0xe8dfd0);
+        scene.fog = new THREE.Fog(0xe8dfd0, 7.0, 12.0);
 
-        const camera = new THREE.PerspectiveCamera(44, stage.clientWidth / stage.clientHeight, 0.01, 90);
-        camera.position.set(1.8, 1.25, defaults.zoom);
+        const camera = new THREE.PerspectiveCamera(44, stage.clientWidth / stage.clientHeight, 0.01, 120);
+        camera.position.set(2.3, 1.6, defaults.zoom);
 
-        const ambient = new THREE.HemisphereLight(0xf6f9ff, 0x1e2935, 0.2);
-        scene.add(ambient);
+        const pmrem = new THREE.PMREMGenerator(renderer);
+        scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.03).texture;
 
-        const keyLight = new THREE.DirectionalLight(0xfff3e6, defaults.lightPower);
+        const hemi = new THREE.HemisphereLight(0xfff7e9, 0xbcad98, 0.95);
+        scene.add(hemi);
+
+        const keyLight = new THREE.DirectionalLight(0xfff7ea, defaults.lightPower);
         keyLight.castShadow = true;
-        keyLight.shadow.mapSize.set(1024, 1024);
+        keyLight.shadow.mapSize.set(2048, 2048);
         keyLight.shadow.camera.near = 0.1;
-        keyLight.shadow.camera.far = 14;
-        keyLight.shadow.camera.left = -2.8;
-        keyLight.shadow.camera.right = 2.8;
-        keyLight.shadow.camera.top = 2.8;
-        keyLight.shadow.camera.bottom = -2.8;
+        keyLight.shadow.camera.far = 16;
+        keyLight.shadow.camera.left = -3.2;
+        keyLight.shadow.camera.right = 3.2;
+        keyLight.shadow.camera.top = 3.2;
+        keyLight.shadow.camera.bottom = -3.2;
         scene.add(keyLight);
 
-        const fillLight = new THREE.DirectionalLight(0xcfdded, defaults.lightPower * 0.44);
+        const fillLight = new THREE.DirectionalLight(0xf4efe7, defaults.lightPower * 0.82);
         scene.add(fillLight);
 
-        const rimLight = new THREE.DirectionalLight(0xeef3ff, defaults.lightPower * 0.33);
+        const rimLight = new THREE.DirectionalLight(0xdde4f4, defaults.lightPower * 0.66);
         scene.add(rimLight);
 
+        const bounceLight = new THREE.PointLight(0xffead1, defaults.lightPower * 0.34, 12, 2);
+        bounceLight.position.set(0.0, 0.9, 1.25);
+        scene.add(bounceLight);
+
         const floor = new THREE.Mesh(
-          new THREE.CircleGeometry(3.0, 72),
-          new THREE.ShadowMaterial({ opacity: 0.30 })
+          new THREE.PlaneGeometry(12, 12),
+          new THREE.MeshStandardMaterial({ color: 0xd2c5b2, roughness: 0.96, metalness: 0.0 })
         );
         floor.rotation.x = -Math.PI * 0.5;
         floor.position.y = 0;
         floor.receiveShadow = true;
         scene.add(floor);
 
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(model.positions), 3));
-        geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(model.indices), 1));
-        geometry.computeVertexNormals();
-        geometry.computeBoundingBox();
+        const backdrop = new THREE.Mesh(
+          new THREE.PlaneGeometry(12, 6),
+          new THREE.MeshStandardMaterial({ color: 0xdccfbf, roughness: 0.95, metalness: 0 })
+        );
+        backdrop.position.set(0, 2.6, -4.2);
+        scene.add(backdrop);
 
-        const box = geometry.boundingBox;
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-        geometry.translate(-center.x, -box.min.y, -center.z);
+        const pedestalHeight = 0.30;
+        const pedestal = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.46, 0.56, pedestalHeight, 80),
+          new THREE.MeshStandardMaterial({ color: 0xc5b7a4, roughness: 0.82, metalness: 0.02 })
+        );
+        pedestal.position.y = pedestalHeight * 0.5;
+        pedestal.castShadow = true;
+        pedestal.receiveShadow = true;
+        scene.add(pedestal);
 
-        const material = new THREE.MeshStandardMaterial({
-          color: new THREE.Color("#d9d1c4"),
-          roughness: 0.72,
-          metalness: 0.02
-        });
+        let sculptureMaterial = null;
+        let sculpture = null;
+        let focusY = 1.0;
 
-        const sculpture = new THREE.Mesh(geometry, material);
-        const targetHeight = 1.74;
-        const scale = targetHeight / size.y;
-        sculpture.scale.setScalar(scale);
-        sculpture.castShadow = true;
-        sculpture.receiveShadow = true;
-        scene.add(sculpture);
+        try {
+          const loader = new STLLoader();
+          let geometry = await loader.loadAsync(MODEL_URL);
+
+          geometry = mergeVertices(geometry, 1e-4);
+          geometry.computeVertexNormals();
+          geometry.computeBoundingBox();
+
+          const box = geometry.boundingBox;
+          const size = box.getSize(new THREE.Vector3());
+          const center = box.getCenter(new THREE.Vector3());
+          geometry.translate(-center.x, -box.min.y, -center.z);
+
+          sculptureMaterial = new THREE.MeshPhysicalMaterial({
+            color: new THREE.Color("#ece3d3"),
+            roughness: defaults.rough,
+            metalness: 0.0,
+            clearcoat: 0.18,
+            clearcoatRoughness: 0.38,
+            sheen: 0.22,
+            sheenRoughness: 0.8,
+            sheenColor: new THREE.Color("#fff2df"),
+            reflectivity: 0.38
+          });
+
+          sculpture = new THREE.Mesh(geometry, sculptureMaterial);
+          const targetHeight = 1.72;
+          const scale = targetHeight / size.y;
+          sculpture.scale.setScalar(scale);
+          sculpture.position.y = pedestalHeight;
+          sculpture.castShadow = true;
+          sculpture.receiveShadow = true;
+          scene.add(sculpture);
+
+          focusY = pedestalHeight + targetHeight * 0.57;
+
+          const triCount = geometry.index ? geometry.index.count / 3 : geometry.attributes.position.count / 3;
+          const sizeLabel = stlByteLength ? `${(stlByteLength / (1024 * 1024)).toFixed(1)} MB STL` : "High-fidelity STL";
+          stats.textContent = `${Math.round(triCount).toLocaleString()} triangles | ${sizeLabel}`;
+        } catch (error) {
+          stats.textContent = "Failed to parse STL mesh.";
+          const fail = document.createElement("div");
+          fail.className = "loading";
+          fail.textContent = `Mesh load error: ${error.message}`;
+          stage.appendChild(fail);
+          return;
+        }
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.dampingFactor = 0.08;
-        controls.target.set(0, 0.88, 0);
-        controls.minDistance = 1.0;
-        controls.maxDistance = 6.5;
+        controls.dampingFactor = 0.06;
+        controls.target.set(0, focusY, 0);
+        controls.minDistance = 1.2;
+        controls.maxDistance = 8.0;
+        controls.maxPolarAngle = Math.PI * 0.5 - 0.04;
+
+        camera.position.copy(controls.target.clone().add(new THREE.Vector3(1.8, 0.72, 1.85).normalize().multiplyScalar(defaults.zoom)));
 
         const clock = new THREE.Clock();
 
         function updateLight() {
           const angle = THREE.MathUtils.degToRad(n("lightAngle"));
-          const radius = 2.9;
-          keyLight.position.set(Math.cos(angle) * radius, 3.15, Math.sin(angle) * radius);
-          fillLight.position.set(-Math.sin(angle) * 2.2, 1.45, Math.cos(angle) * 2.2);
-          rimLight.position.set(-Math.cos(angle) * 2.0, 2.0, -Math.sin(angle) * 2.0);
+          const radius = 3.6;
+          keyLight.position.set(Math.cos(angle) * radius, 4.2, Math.sin(angle) * radius);
+          fillLight.position.set(-Math.sin(angle) * 3.2, 2.3, Math.cos(angle) * 2.8);
+          rimLight.position.set(-Math.cos(angle) * 2.7, 2.7, -Math.sin(angle) * 2.9);
 
           const power = n("lightPower");
+          const multi = document.getElementById("multiLight").checked;
+
           keyLight.intensity = power;
-          fillLight.intensity = power * (document.getElementById("multiLight").checked ? 0.44 : 0.0);
-          rimLight.intensity = power * (document.getElementById("multiLight").checked ? 0.33 : 0.0);
+          fillLight.intensity = multi ? power * 0.82 : 0;
+          rimLight.intensity = multi ? power * 0.66 : 0;
+          bounceLight.intensity = multi ? power * 0.34 : 0;
         }
 
         function updateCameraDistance() {
@@ -306,14 +386,28 @@
           camera.position.copy(controls.target.clone().addScaledVector(dir, z));
         }
 
+        function updateLook() {
+          renderer.toneMappingExposure = n("exposure");
+          if (sculptureMaterial) {
+            sculptureMaterial.roughness = n("rough");
+            sculptureMaterial.wireframe = document.getElementById("wire").checked;
+          }
+        }
+
         const resetBtn = document.getElementById("resetBtn");
         resetBtn.addEventListener("click", () => {
           setDefaults();
-          controls.target.set(0, 0.88, 0);
-          camera.position.set(1.8, 1.25, defaults.zoom);
+          controls.target.set(0, focusY, 0);
+          camera.position.copy(controls.target.clone().add(new THREE.Vector3(1.8, 0.72, 1.85).normalize().multiplyScalar(defaults.zoom)));
           controls.update();
           updateLight();
-          renderer.toneMappingExposure = 1.0;
+          updateLook();
+        });
+
+        const frontBtn = document.getElementById("frontBtn");
+        frontBtn.addEventListener("click", () => {
+          camera.position.set(0.0, focusY + 0.2, n("zoom"));
+          controls.update();
         });
 
         for (const id of rangeIds) {
@@ -325,6 +419,9 @@
             if (id === "lightAngle" || id === "lightPower") {
               updateLight();
             }
+            if (id === "exposure" || id === "rough") {
+              updateLook();
+            }
           });
         }
 
@@ -332,18 +429,18 @@
           document.getElementById(id).addEventListener("change", () => {
             controls.enabled = document.getElementById("canManipulate").checked;
             updateLight();
+            updateLook();
           });
         }
 
         updateLight();
+        updateLook();
         controls.enabled = defaults.canManipulate;
-
-        stats.textContent = `${model.meta.vertices.toLocaleString()} vertices | ${model.meta.faces.toLocaleString()} faces | source: ${model.meta.source_file}`;
 
         function render() {
           const dt = clock.getDelta();
 
-          if (document.getElementById("autoRotate").checked) {
+          if (sculpture && document.getElementById("autoRotate").checked) {
             sculpture.rotation.y += dt * n("spin");
           }
 
