@@ -308,6 +308,8 @@
           const loader = new STLLoader();
           let geometry = await loader.loadAsync(MODEL_URL);
 
+          // Source scan uses Z-up. Rotate into Y-up so it stands upright by default.
+          geometry.rotateX(-Math.PI * 0.5);
           geometry = mergeVertices(geometry, 1e-4);
           geometry.computeVertexNormals();
           geometry.computeBoundingBox();
