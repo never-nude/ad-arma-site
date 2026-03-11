@@ -28,22 +28,53 @@
         </button>
         <button id="introTutorialBtn" class="btn introActionBtn" type="button">
           <span class="introActionTitle">Tutorial</span>
-          <span class="introActionSub">Open a tutorial preview panel (full tutorial coming next).</span>
+          <span class="introActionSub">Launch a guided, animated battle tutorial.</span>
         </button>
       </div>
       <div id="introTutorialPanel" class="introTutorialPanel" hidden>
-        <h2>Tutorial Preview</h2>
+        <h2>Guided Tutorial</h2>
         <p>
-          Tutorial chapters are coming next. This panel will become a guided walkthrough of movement, command range,
-          terrain effects, combat results, and War Council orders.
+          This scripted lesson loads a fixed mirrored battlefield and walks through each piece type with narrated text
+          and animated board callouts.
         </p>
         <ul>
-          <li>Chapter 1: Reading the battlefield</li>
-          <li>Chapter 2: Command and cohesion</li>
-          <li>Chapter 3: Combat, retreat, and disarray</li>
-          <li>Chapter 4: War Council doctrine timing</li>
+          <li>Infantry, Cavalry, Skirmisher, Archer</li>
+          <li>General command radius, Runner relay, Medic support</li>
+          <li>Combat flow: hit, retreat, and disarray</li>
+          <li>Short movement and targeting demonstrations</li>
         </ul>
-        <button id="introTutorialBackBtn" class="btn" type="button">Back</button>
+        <div class="row">
+          <button id="introTutorialStartBtn" class="btn wide btnHero" type="button">Start Guided Tutorial</button>
+          <button id="introTutorialBackBtn" class="btn" type="button">Back</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tutorialGuideOverlay" class="tutorialGuideOverlay" hidden aria-hidden="true">
+    <div class="tutorialGuideCard" role="dialog" aria-modal="false" aria-labelledby="tutorialGuideTitle">
+      <div class="tutorialGuideHead">
+        <h2 id="tutorialGuideTitle">Battle Tutorial</h2>
+        <div id="tutorialGuideStepMeta" class="tutorialGuideStepMeta">Step 1/1</div>
+      </div>
+      <h3 id="tutorialGuideStepTitle" class="tutorialGuideStepTitle">Introduction</h3>
+      <p id="tutorialGuideStepText" class="tutorialGuideStepText">
+        Tutorial narration loads here.
+      </p>
+      <ul id="tutorialGuideLearn" class="tutorialGuideLearn" hidden></ul>
+      <div id="tutorialGuideTaskWrap" class="tutorialGuideTaskWrap" hidden>
+        <div class="tutorialGuideTaskLabel">Practice Task</div>
+        <div id="tutorialGuideTaskText" class="tutorialGuideTaskText">Task instructions load here.</div>
+        <div id="tutorialGuideTaskStatus" class="tutorialGuideTaskStatus">Waiting…</div>
+      </div>
+      <div class="tutorialGuideControls">
+        <button id="tutorialPrevBtn" class="btn" type="button">Previous</button>
+        <button id="tutorialAutoBtn" class="btn" type="button">Autoplay</button>
+        <button id="tutorialSkipTaskBtn" class="btn" type="button">Skip Task</button>
+        <button id="tutorialNextBtn" class="btn" type="button">Next</button>
+      </div>
+      <div class="tutorialGuideFooter">
+        <button id="tutorialExitBtn" class="btn" type="button">Exit Tutorial</button>
       </div>
     </div>
   </div>

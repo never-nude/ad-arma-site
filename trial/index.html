@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=20260310-tutorial-interactive-v2" />
+  <link rel="stylesheet" href="style.css?v=20260310-warcouncil-preview-v1" />
 </head>
 <body>
   <div id="introOverlay" class="introOverlay open" aria-hidden="false">
@@ -160,6 +160,9 @@
         <div class="row">
           <button id="lineAdvanceBtn" class="btn wide">Line Advance</button>
         </div>
+        <div class="row">
+          <button id="doctrineOpenTurnBtn" class="btn wide btnHero">Open War Council</button>
+        </div>
         <div class="row playOnlyRow">
           <div class="label">Advance Dir</div>
           <select id="lineAdvanceDirSel" class="select">
@@ -176,9 +179,6 @@
         <div class="row playOnlyRow">
           <button id="commandUseBtn" class="btn wide">Use Directive</button>
           <button id="commandSkipBtn" class="btn wide">Skip Directive</button>
-        </div>
-        <div class="row playOnlyRow">
-          <button id="doctrineOpenTurnBtn" class="btn wide">War Council (3/3/3)</button>
         </div>
         <div class="row playOnlyRow">
           <button id="openOrdersKeyBtn" class="btn wide">Orders Key</button>
@@ -433,9 +433,9 @@
                 important for readability.
               </p>
               <p>
-                Two additional tactical behaviors are active in this ruleset: infantry that are in command (or are veteran) can
-                auto-pivot against flank or rear melee before impact, and veteran cavalry can disengage after melee when movement
-                remains and the withdrawal hex is safe. Blocked retreats always convert into hits.
+                Two additional tactical behaviors are active in this ruleset: cavalry gain angle pressure against unbraced infantry
+                (+1 die from flank, +2 dice from rear), and veteran cavalry can disengage after melee when movement remains and the
+                withdrawal hex is safe. Blocked retreats always convert into hits.
               </p>
               <p>
                 Victory conditions are scenario-dependent. In Clear Victory, players race to capture enough enemy UP. In
@@ -493,6 +493,10 @@
           <div id="doctrineBuilderCounts" class="note">Select exactly 3 commands in each cost group.</div>
           <div id="doctrineExplain" class="doctrineExplain">
             Select an order to view its full effect and targeting.
+          </div>
+          <div id="doctrinePreviewWrap" class="doctrinePreviewWrap" aria-label="Command preview">
+            <canvas id="doctrinePreviewCanvas" width="520" height="180"></canvas>
+            <div id="doctrinePreviewCaption" class="doctrinePreviewCaption">Preview appears here after selecting a directive.</div>
           </div>
           <div class="doctrineBuilderGrid">
             <section id="doctrineCost1Col" class="doctrineCostCol">
@@ -597,7 +601,7 @@
   </section>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  <script src="build.js?v=20260310-tutorial-interactive-v2"></script>
-  <script src="main.js?v=20260310-tutorial-interactive-v2"></script>
+  <script src="build.js?v=20260310-warcouncil-preview-v1"></script>
+  <script src="main.js?v=20260310-warcouncil-preview-v1"></script>
 </body>
 </html>

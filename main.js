@@ -96,6 +96,23 @@
     hard: { startMs: 460, stepMs: 760, intentMs: 320, movePauseMs: 420, combatPauseMs: 1180 },
   };
   const RANDOM_START_SCENARIO_NAME = 'Randomized Opening (Auto)';
+  const GUIDED_TUTORIAL_SCENARIO_NAME = 'Tutorial — Piece Walkthrough (Mirrored)';
+  const TUTORIAL_KEYS = {
+    blueGen: '7,2',
+    blueRun: '6,2',
+    blueMed: '8,2',
+    blueInf: '7,3',
+    blueCav: '5,3',
+    blueSkr: '6,3',
+    blueArc: '8,3',
+    redGen: '7,8',
+    redRun: '8,8',
+    redMed: '6,8',
+    redInf: '7,7',
+    redCav: '9,7',
+    redSkr: '8,7',
+    redArc: '6,7',
+  };
   const RANDOM_START_UNITS_PER_SIDE_MIN = 22;
   const RANDOM_START_UNITS_PER_SIDE_MAX = 30;
   const SCENARIO_UNIT_CAP_PER_SIDE = 30;
@@ -110,6 +127,8 @@
   const MOVE_ANIM_MS_HUMAN = 220;
   const MOVE_ANIM_MS_AI = 520;
   const ATTACK_FLASH_MS = 920;
+  const TUTORIAL_AUTOPLAY_STEP_MS = 16800;
+  const TUTORIAL_AUTOPLAY_AFTER_TASK_MS = 5200;
   const ENABLE_BATTLE_SFX = true;
   const COMMAND_COSTS = [1, 2, 3];
   const COMMANDS_PER_COST = 3;
@@ -961,12 +980,44 @@
   const elIntroSetupBtn = document.getElementById('introSetupBtn');
   const elIntroTutorialBtn = document.getElementById('introTutorialBtn');
   const elIntroTutorialPanel = document.getElementById('introTutorialPanel');
+  const elIntroTutorialStartBtn = document.getElementById('introTutorialStartBtn');
   const elIntroTutorialBackBtn = document.getElementById('introTutorialBackBtn');
+  const elTutorialGuideOverlay = document.getElementById('tutorialGuideOverlay');
+  const elTutorialGuideStepMeta = document.getElementById('tutorialGuideStepMeta');
+  const elTutorialGuideStepTitle = document.getElementById('tutorialGuideStepTitle');
+  const elTutorialGuideStepText = document.getElementById('tutorialGuideStepText');
+  const elTutorialGuideLearn = document.getElementById('tutorialGuideLearn');
+  const elTutorialGuideTaskWrap = document.getElementById('tutorialGuideTaskWrap');
+  const elTutorialGuideTaskText = document.getElementById('tutorialGuideTaskText');
+  const elTutorialGuideTaskStatus = document.getElementById('tutorialGuideTaskStatus');
+  const elTutorialPrevBtn = document.getElementById('tutorialPrevBtn');
+  const elTutorialAutoBtn = document.getElementById('tutorialAutoBtn');
+  const elTutorialSkipTaskBtn = document.getElementById('tutorialSkipTaskBtn');
+  const elTutorialNextBtn = document.getElementById('tutorialNextBtn');
+  const elTutorialExitBtn = document.getElementById('tutorialExitBtn');
 
   // --- State
   const state = {
     introOpen: true,
     introTutorialOpen: false,
+    tutorial: {
+      active: false,
+      autoplay: false,
+      stepIndex: 0,
+      timers: [],
+      visual: {
+        focusKeys: [],
+        destinationKeys: [],
+        paths: [],
+      },
+      task: {
+        active: false,
+        type: '',
+        text: '',
+        targetKeys: [],
+        done: false,
+      },
+    },
 
     mode: 'edit', // 'edit' | 'play'
     tool: 'units', // 'units' | 'terrain'
@@ -1572,6 +1623,41 @@
         { q: 12, r: 6, side: 'red', type: 'skr', quality: 'regular' },
         { q: 14, r: 5, side: 'red', type: 'arc', quality: 'green' },
       ],
+    },
+    [GUIDED_TUTORIAL_SCENARIO_NAME]: {
+      terrain: [
+        { q: 4, r: 4, terrain: 'woods' },
+        { q: 10, r: 6, terrain: 'woods' },
+        { q: 5, r: 5, terrain: 'hills' },
+        { q: 9, r: 5, terrain: 'hills' },
+        { q: 6, r: 6, terrain: 'rough' },
+        { q: 8, r: 4, terrain: 'rough' },
+      ],
+      units: [
+        { q: 7, r: 2, side: 'blue', type: 'gen', quality: 'regular' },
+        { q: 6, r: 2, side: 'blue', type: 'run', quality: 'regular' },
+        { q: 8, r: 2, side: 'blue', type: 'iat', quality: 'regular' },
+        { q: 7, r: 3, side: 'blue', type: 'inf', quality: 'regular' },
+        { q: 5, r: 3, side: 'blue', type: 'cav', quality: 'veteran' },
+        { q: 6, r: 3, side: 'blue', type: 'skr', quality: 'regular' },
+        { q: 8, r: 3, side: 'blue', type: 'arc', quality: 'regular' },
+
+        { q: 7, r: 8, side: 'red', type: 'gen', quality: 'regular' },
+        { q: 8, r: 8, side: 'red', type: 'run', quality: 'regular' },
+        { q: 6, r: 8, side: 'red', type: 'iat', quality: 'regular' },
+        { q: 7, r: 7, side: 'red', type: 'inf', quality: 'regular' },
+        { q: 9, r: 7, side: 'red', type: 'cav', quality: 'veteran' },
+        { q: 8, r: 7, side: 'red', type: 'skr', quality: 'regular' },
+        { q: 6, r: 7, side: 'red', type: 'arc', quality: 'regular' },
+      ],
+      meta: {
+        group: 'tutorial',
+        lesson: 'general',
+        size: 'small',
+        terrain: 'mixed',
+        description: 'Mirrored instructional line used by the guided piece tutorial.',
+        sideLabels: { blue: 'Blue Trainees', red: 'Red Trainees', named: true },
+      },
     },
   
     'Terrain G — Tuderberg Ring Ambush': {
@@ -4609,6 +4695,7 @@ function unitColors(side) {
     })();
     const lineAdvanceOverlay = (state.mode === 'play') ? buildLineAdvanceOverlay() : null;
     const doctrineTargetOverlay = (state.mode === 'play') ? buildDoctrineTargetOverlay() : null;
+    const tutorialOverlay = buildTutorialBoardOverlay(nowMs);
 
     // Hexes
     for (const h of board.active) {
@@ -4743,6 +4830,39 @@ function unitColors(side) {
         }
       }
 
+      const tutorialMark = tutorialOverlay ? tutorialOverlay.byHex.get(h.k) : null;
+      if (tutorialMark) {
+        if (tutorialMark.tutorialTaskTarget) {
+          ctx.save();
+          ctx.fillStyle = `rgba(164, 106, 246, ${(0.24 + (tutorialOverlay.pulse * 0.18)).toFixed(3)})`;
+          ctx.fill(p);
+          ctx.strokeStyle = 'rgba(236, 220, 255, 0.98)';
+          ctx.lineWidth = Math.max(2.8, Math.round(R * 0.13));
+          ctx.stroke(p);
+          ctx.restore();
+        }
+        if (tutorialMark.tutorialFocus) {
+          ctx.save();
+          ctx.fillStyle = `rgba(136, 96, 230, ${(0.18 + (tutorialOverlay.pulse * 0.18)).toFixed(3)})`;
+          ctx.fill(p);
+          ctx.strokeStyle = 'rgba(219, 195, 255, 0.96)';
+          ctx.lineWidth = Math.max(2.2, Math.round(R * 0.10));
+          ctx.stroke(p);
+          ctx.restore();
+        }
+        if (tutorialMark.tutorialDestination) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(226, 190, 115, 0.20)';
+          ctx.fill(p);
+          ctx.strokeStyle = 'rgba(243, 215, 156, 0.9)';
+          ctx.lineWidth = Math.max(2.2, Math.round(R * 0.10));
+          ctx.setLineDash([6, 5]);
+          ctx.stroke(p);
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      }
+
       // Outline
       ctx.strokeStyle = gridStroke();
       ctx.lineWidth = 2;
@@ -4838,6 +4958,73 @@ function unitColors(side) {
         ctx.fillStyle = mv.blocked
           ? 'rgba(255, 122, 122, 0.88)'
           : (mv.hover ? 'rgba(228, 244, 255, 0.93)' : 'rgba(144, 221, 255, 0.88)');
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    if (tutorialOverlay && Array.isArray(tutorialOverlay.paths)) {
+      for (const mv of tutorialOverlay.paths) {
+        const fromHex = board.byKey.get(mv.fromKey);
+        const toHex = board.byKey.get(mv.toKey);
+        if (!fromHex || !toHex) continue;
+        const isRanged = mv.kind === 'ranged';
+        const isSupport = mv.kind === 'support' || mv.kind === 'command';
+        const isRetreat = mv.kind === 'retreat';
+
+        ctx.save();
+        ctx.lineWidth = Math.max(2.4, Math.round(R * 0.10));
+        if (isRanged) {
+          const midX = (fromHex.cx + toHex.cx) * 0.5;
+          const arcLift = Math.max(R * 0.8, Math.abs(fromHex.cx - toHex.cx) * 0.15);
+          const midY = Math.min(fromHex.cy, toHex.cy) - arcLift;
+          ctx.strokeStyle = 'rgba(246, 224, 169, 0.95)';
+          ctx.setLineDash([8, 6]);
+          ctx.beginPath();
+          ctx.moveTo(fromHex.cx, fromHex.cy);
+          ctx.quadraticCurveTo(midX, midY, toHex.cx, toHex.cy);
+          ctx.stroke();
+        } else {
+          ctx.strokeStyle = isRetreat
+            ? 'rgba(255, 156, 156, 0.96)'
+            : (isSupport
+              ? 'rgba(158, 220, 255, 0.92)'
+              : 'rgba(246, 212, 146, 0.94)');
+          ctx.setLineDash(
+            isRetreat
+              ? [3, 4]
+              : (isSupport ? [2, 4] : [6, 5])
+          );
+          ctx.beginPath();
+          ctx.moveTo(fromHex.cx, fromHex.cy);
+          ctx.lineTo(toHex.cx, toHex.cy);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(toHex.cx, toHex.cy, Math.max(3, Math.round(R * 0.12)), 0, Math.PI * 2);
+        ctx.fillStyle = isRetreat
+          ? 'rgba(255, 178, 178, 0.96)'
+          : (isSupport ? 'rgba(194, 234, 255, 0.93)' : 'rgba(249, 230, 182, 0.96)');
+        ctx.fill();
+
+        // Moving marker to make the tutorial path feel animated and readable.
+        const t = tutorialOverlay.travelPhase ?? 0;
+        let markerX = fromHex.cx + ((toHex.cx - fromHex.cx) * t);
+        let markerY = fromHex.cy + ((toHex.cy - fromHex.cy) * t);
+        if (isRanged) {
+          const midX = (fromHex.cx + toHex.cx) * 0.5;
+          const arcLift = Math.max(R * 0.8, Math.abs(fromHex.cx - toHex.cx) * 0.15);
+          const midY = Math.min(fromHex.cy, toHex.cy) - arcLift;
+          const inv = 1 - t;
+          markerX = (inv * inv * fromHex.cx) + (2 * inv * t * midX) + (t * t * toHex.cx);
+          markerY = (inv * inv * fromHex.cy) + (2 * inv * t * midY) + (t * t * toHex.cy);
+        }
+        ctx.beginPath();
+        ctx.arc(markerX, markerY, Math.max(2.4, Math.round(R * 0.10)), 0, Math.PI * 2);
+        ctx.fillStyle = isRetreat
+          ? 'rgba(255, 162, 162, 0.97)'
+          : (isSupport ? 'rgba(166, 227, 255, 0.95)' : 'rgba(255, 233, 178, 0.96)');
         ctx.fill();
         ctx.restore();
       }
@@ -5498,7 +5685,7 @@ function unitColors(side) {
     state.lastCombat = null;
     if (elCombatSummary) elCombatSummary.textContent = 'No combat yet. Select a unit and attack to see exact dice math.';
     if (elCombatMath) elCombatMath.textContent = 'Dice math: -';
-    if (elCombatTerrain) elCombatTerrain.textContent = 'Position modifiers: -';
+    if (elCombatTerrain) elCombatTerrain.textContent = '-';
     if (elCombatOutcome) elCombatOutcome.textContent = 'Outcome: -';
     if (elCombatHint) elCombatHint.textContent = COMBAT_RULE_HINT;
   }
@@ -5533,7 +5720,7 @@ function unitColors(side) {
     elCombatMath.textContent =
       `Dice math: base ${info.baseDice}${flankText}${rearText}${braceText}${terrainText} = ${info.dice}.`;
     elCombatTerrain.textContent =
-      `Position modifiers: ${terrainMath}. ${braceRuleText}`;
+      `${terrainMath}. ${braceRuleText}`;
 
     const retreatResolved =
       (typeof info.retreatMoved === 'number' || typeof info.retreatBlocked === 'number')
@@ -5608,7 +5795,7 @@ function unitColors(side) {
     const posText = (impactPosition && impactPosition !== 'none') ? `, ${impactPosition}` : '';
     const pivotText = pivoted ? ', defender pivoted' : '';
     return (
-      `Position modifiers (preview): ${atk.side.toUpperCase()} ${UNIT_BY_ID.get(atk.type)?.abbrev || atk.type} ` +
+      `${atk.side.toUpperCase()} ${UNIT_BY_ID.get(atk.type)?.abbrev || atk.type} ` +
       `${prof.kind} vs ${defU.side.toUpperCase()} ${UNIT_BY_ID.get(defU.type)?.abbrev || defU.type}` +
       `${posText}${pivotText} · ` +
       `terrain ${terrainLabel(defenderTerrain)} ${formatSigned(terrainDiceMod)}, ` +
@@ -5641,7 +5828,7 @@ function unitColors(side) {
       ? 'Woods (attacker -1 die)'
       : `${terrainLabel(terrainId)} (no direct defense dice change)`;
 
-    const parts = [`Position modifiers: terrain ${terrainTxt}.`];
+    const parts = [`Terrain ${terrainTxt}.`];
 
     if (u.type === 'inf') {
       const brace = infantryBraceInfoForHover(unitKey);
@@ -5701,10 +5888,10 @@ function unitColors(side) {
 
   function buildTerrainHoverModifierSummary(hexKey, selectedKey = null, selectedUnit = null) {
     const h = board.byKey.get(hexKey);
-    if (!h) return 'Position modifiers: -';
+    if (!h) return '-';
     const terrainId = h.terrain || 'clear';
     const parts = [
-      `Position modifiers: hovering ${terrainLabel(terrainId)} at ${hexKey}.`,
+      `${terrainLabel(terrainId)} terrain.`,
       `Terrain effect: ${terrainHoverCombatText(terrainId)}`
     ];
 
@@ -5751,7 +5938,7 @@ function unitColors(side) {
           : buildTerrainHoverModifierSummary(hoverKey, null, null);
         return;
       }
-      if (!state.lastCombat) elCombatTerrain.textContent = 'Position modifiers: -';
+      if (!state.lastCombat) elCombatTerrain.textContent = '-';
       return;
     }
 
@@ -5787,7 +5974,7 @@ function unitColors(side) {
 
     // If there is a previous combat breakdown on screen, keep it visible.
     if (state.lastCombat?.info) return;
-    elCombatTerrain.textContent = 'Position modifiers: -';
+    elCombatTerrain.textContent = '-';
   }
 
   function renderDiceDisplay(rolls, info) {
@@ -7513,6 +7700,7 @@ function unitColors(side) {
     elDoctrineOverlay.classList.add('open');
     elDoctrineOverlay.setAttribute('aria-hidden', 'false');
     if (elCloseDoctrineBtn) elCloseDoctrineBtn.textContent = 'Minimize';
+    maybeCompleteTutorialTaskOnDoctrineOpen();
   }
 
   function closeDoctrineBuilder() {
@@ -8109,6 +8297,7 @@ function unitColors(side) {
     if (elOrdersViewRedBtn) elOrdersViewRedBtn.disabled = !ordersUnlocked;
     renderOrdersExplainList();
     renderDoctrineIntel();
+    renderTutorialGuide();
 
     syncLayoutChromeHeights();
     updateInspector();
@@ -9339,6 +9528,51 @@ function unitColors(side) {
     }
 
     return { byHex, paths };
+  }
+
+  function buildTutorialBoardOverlay(nowMs = Date.now()) {
+    if (!state.tutorial.active) return null;
+    const visual = state.tutorial.visual || {};
+    const byHex = new Map();
+    const focusKeys = Array.isArray(visual.focusKeys) ? visual.focusKeys : [];
+    const destinationKeys = Array.isArray(visual.destinationKeys) ? visual.destinationKeys : [];
+    const paths = Array.isArray(visual.paths) ? visual.paths : [];
+    const pulse = 0.55 + (Math.sin((nowMs / 360) * Math.PI) * 0.25);
+    const travelPhase = (nowMs % 1500) / 1500;
+    const taskKeys = (state.tutorial.task?.active && !state.tutorial.task?.done)
+      ? (Array.isArray(state.tutorial.task.targetKeys) ? state.tutorial.task.targetKeys : [])
+      : [];
+
+    for (const hk of focusKeys) {
+      if (!board.activeSet.has(hk)) continue;
+      const cur = byHex.get(hk) || {
+        tutorialFocus: false,
+        tutorialDestination: false,
+      };
+      cur.tutorialFocus = true;
+      byHex.set(hk, cur);
+    }
+    for (const hk of destinationKeys) {
+      if (!board.activeSet.has(hk)) continue;
+      const cur = byHex.get(hk) || {
+        tutorialFocus: false,
+        tutorialDestination: false,
+      };
+      cur.tutorialDestination = true;
+      byHex.set(hk, cur);
+    }
+    for (const hk of taskKeys) {
+      if (!board.activeSet.has(hk)) continue;
+      const cur = byHex.get(hk) || {
+        tutorialFocus: false,
+        tutorialDestination: false,
+      };
+      cur.tutorialTaskTarget = true;
+      byHex.set(hk, cur);
+    }
+
+    const legalPaths = paths.filter((p) => p && p.fromKey && p.toKey && board.activeSet.has(p.fromKey) && board.activeSet.has(p.toKey));
+    return { byHex, paths: legalPaths, pulse, travelPhase };
   }
 
   function lineAdvanceMovePlan(formation, direction = state.lineAdvanceDirection) {
@@ -11335,6 +11569,654 @@ function unitColors(side) {
     if (elIntroActions) elIntroActions.style.display = show ? 'none' : 'grid';
   }
 
+  function clearTutorialTimers() {
+    const timers = Array.isArray(state.tutorial?.timers) ? state.tutorial.timers : [];
+    for (const id of timers) {
+      try { clearTimeout(id); } catch (_) {}
+    }
+    state.tutorial.timers = [];
+  }
+
+  function queueTutorialTimer(fn, delayMs) {
+    const id = setTimeout(() => {
+      state.tutorial.timers = (state.tutorial.timers || []).filter((x) => x !== id);
+      fn();
+    }, Math.max(0, Number(delayMs) || 0));
+    state.tutorial.timers = state.tutorial.timers || [];
+    state.tutorial.timers.push(id);
+    return id;
+  }
+
+  function setTutorialGuideOpen(open) {
+    const show = !!open;
+    state.tutorial.active = show;
+    if (!show) {
+      state.tutorial.autoplay = false;
+      clearTutorialTimers();
+      state.tutorial.visual = { focusKeys: [], destinationKeys: [], paths: [] };
+      state.tutorial.task = { active: false, type: '', text: '', targetKeys: [], done: false };
+      if (state._hoverKey && !state.selectedKey) state._hoverKey = null;
+    }
+    if (elTutorialGuideOverlay) {
+      elTutorialGuideOverlay.hidden = !show;
+      elTutorialGuideOverlay.setAttribute('aria-hidden', show ? 'false' : 'true');
+    }
+    document.body.classList.toggle('tutorial-active', show);
+
+    // Hard fallback: force tutorial layout even if stylesheet class caching/mismatch occurs.
+    const layoutEl = document.getElementById('layout');
+    const sideEl = document.getElementById('side');
+    const canvasWrapEl = document.getElementById('canvasWrap');
+    if (show) {
+      if (layoutEl && layoutEl.dataset.tutorialPrevCols === undefined) {
+        layoutEl.dataset.tutorialPrevCols = layoutEl.style.gridTemplateColumns || '';
+      }
+      if (sideEl) {
+        if (sideEl.dataset.tutorialPrevDisplay === undefined) {
+          sideEl.dataset.tutorialPrevDisplay = sideEl.style.display || '';
+        }
+        sideEl.style.display = 'none';
+      }
+      if (layoutEl) layoutEl.style.gridTemplateColumns = '1fr';
+      if (canvasWrapEl && window.innerWidth > 980) {
+        canvasWrapEl.style.paddingLeft = 'min(34vw, 500px)';
+      }
+    } else {
+      if (layoutEl) {
+        layoutEl.style.gridTemplateColumns = layoutEl.dataset.tutorialPrevCols || '';
+        delete layoutEl.dataset.tutorialPrevCols;
+      }
+      if (sideEl) {
+        sideEl.style.display = sideEl.dataset.tutorialPrevDisplay || '';
+        delete sideEl.dataset.tutorialPrevDisplay;
+      }
+      if (canvasWrapEl) {
+        canvasWrapEl.style.paddingLeft = '';
+      }
+    }
+  }
+
+  function tutorialForwardDestination(fromKey, side = 'blue') {
+    const dst = forwardStepKey(fromKey, side);
+    if (!dst || !board.activeSet.has(dst)) return null;
+    return dst;
+  }
+
+  function currentTutorialStep() {
+    if (!state.tutorial.active) return null;
+    const steps = tutorialStepList();
+    if (!steps.length) return null;
+    const idx = Math.max(0, Math.min(steps.length - 1, Number(state.tutorial.stepIndex) || 0));
+    return steps[idx] || null;
+  }
+
+  function setTutorialTaskFromStep(step) {
+    const task = step?.task || null;
+    if (!task) {
+      state.tutorial.task = {
+        active: false,
+        type: '',
+        text: '',
+        targetKeys: [],
+        done: false,
+      };
+      return;
+    }
+    const targetKeys = Array.isArray(task.targetKeys)
+      ? task.targetKeys.filter((k) => board.activeSet.has(k))
+      : [];
+    state.tutorial.task = {
+      active: true,
+      type: String(task.type || 'select'),
+      text: String(task.text || 'Complete the highlighted practice step.'),
+      targetKeys,
+      done: false,
+    };
+  }
+
+  function tutorialTaskNeedsInput() {
+    return !!(state.tutorial.active && state.tutorial.task?.active && !state.tutorial.task?.done);
+  }
+
+  function tutorialMarkTaskDone(statusText = 'Task complete.') {
+    if (!state.tutorial.task?.active) return;
+    state.tutorial.task.done = true;
+    if (elTutorialGuideTaskStatus) {
+      elTutorialGuideTaskStatus.textContent = statusText;
+      elTutorialGuideTaskStatus.classList.add('done');
+    }
+    log(`Tutorial task complete: ${statusText}`);
+    renderTutorialGuide();
+    updateHud();
+    if (state.tutorial.autoplay) {
+      const steps = tutorialStepList();
+      const idx = Math.max(0, Math.min(steps.length - 1, state.tutorial.stepIndex || 0));
+      if (idx < (steps.length - 1)) {
+        queueTutorialTimer(() => {
+          if (!state.tutorial.active) return;
+          applyTutorialStep(idx + 1);
+        }, TUTORIAL_AUTOPLAY_AFTER_TASK_MS);
+      }
+    }
+  }
+
+  function maybeCompleteTutorialTaskOnDoctrineOpen() {
+    if (!state.tutorial.active || !state.tutorial.task?.active || state.tutorial.task?.done) return;
+    if (state.tutorial.task.type !== 'open_builder') return;
+    tutorialMarkTaskDone('War Council opened.');
+  }
+
+  function handleTutorialCanvasClick(hexKey) {
+    if (!state.tutorial.active) return false;
+    if (!hexKey) return true;
+
+    const clickedUnit = unitsByHex.get(hexKey) || null;
+    const task = state.tutorial.task || { active: false, done: false };
+
+    // Keep tutorial board deterministic: selection only, no movement/attack commits.
+    if (clickedUnit) {
+      state.selectedKey = hexKey;
+      state._hoverKey = hexKey;
+    } else {
+      state._hoverKey = hexKey;
+    }
+
+    if (!task.active || task.done) {
+      log('Tutorial focus updated. Use Next/Previous to continue the lesson.');
+      updateHud();
+      return true;
+    }
+
+    if (task.type === 'select') {
+      if (task.targetKeys.includes(hexKey)) {
+        tutorialMarkTaskDone('Correct unit selected.');
+      } else {
+        log('Select a highlighted tutorial unit to complete this step.');
+        renderTutorialGuide();
+        updateHud();
+      }
+      return true;
+    }
+
+    if (task.type === 'inspect') {
+      if (task.targetKeys.includes(hexKey)) {
+        tutorialMarkTaskDone('Hex inspected.');
+      } else {
+        log('Inspect one of the highlighted tutorial hexes.');
+        renderTutorialGuide();
+        updateHud();
+      }
+      return true;
+    }
+
+    log('Follow the current tutorial task prompt to continue.');
+    renderTutorialGuide();
+    updateHud();
+    return true;
+  }
+
+  function tutorialStepList() {
+    const k = TUTORIAL_KEYS;
+    const bInfTo = tutorialForwardDestination(k.blueInf, 'blue');
+    const rInfTo = tutorialForwardDestination(k.redInf, 'red');
+    const bCavTo = tutorialForwardDestination(k.blueCav, 'blue');
+    const rCavTo = tutorialForwardDestination(k.redCav, 'red');
+    const bSkrTo = tutorialForwardDestination(k.blueSkr, 'blue');
+    const rSkrTo = tutorialForwardDestination(k.redSkr, 'red');
+    const bArcLane = k.redInf;
+    const rArcLane = k.blueInf;
+    const redRetreatKey = retreatPick(k.blueInf, k.redInf);
+    const blueRetreatKey = retreatPick(k.redInf, k.blueInf);
+
+    return [
+      {
+        id: 'field',
+        title: 'Read The Field',
+        text:
+          'This mirrored tutorial battle keeps both armies symmetrical so each mechanic is easy to compare. ' +
+          'Blue starts at the top, Red starts at the bottom.',
+        focusKeys: [k.blueGen, k.redGen, k.blueInf, k.redInf, k.blueCav, k.redCav],
+        learn: [
+          'Blue controls the northern deployment, Red controls the southern deployment.',
+          'The center is left open so line geometry is easy to read.',
+          'You can hover any hex during tutorial to preview terrain modifiers below.',
+        ],
+        task: {
+          type: 'inspect',
+          text: 'Click either highlighted General to inspect command anchors.',
+          targetKeys: [k.blueGen, k.redGen],
+        },
+      },
+      {
+        id: 'turn_flow',
+        title: 'Turn Rhythm & Actions',
+        text:
+          'Each turn gives 3 actions. Most units activate once per turn. Good sequencing matters: move, attack, support, ' +
+          'line advance, and directives compete for the same action economy.',
+        focusKeys: [k.blueInf, k.blueSkr, k.blueArc],
+        learn: [
+          'Action economy is the core tempo system: every action spent should improve position or pressure.',
+          'Directives share the same action pool as movement and attacks.',
+        ],
+      },
+      {
+        id: 'inf',
+        title: 'Infantry (INF)',
+        text:
+          'Infantry are your line anchor. They hold the center, absorb pressure, and advance methodically by one hex at a time.',
+        focusKeys: [k.blueInf, k.redInf],
+        destinationKeys: [bInfTo, rInfTo].filter(Boolean),
+        paths: [
+          { fromKey: k.blueInf, toKey: bInfTo, kind: 'move' },
+          { fromKey: k.redInf, toKey: rInfTo, kind: 'move' },
+        ].filter((p) => p.toKey),
+        learn: [
+          'INF are strongest as connected lines, not isolated duelists.',
+          'Use line advance to keep infantry shoulder-to-shoulder under pressure.',
+        ],
+        task: {
+          type: 'select',
+          text: 'Select the highlighted Blue Infantry unit.',
+          targetKeys: [k.blueInf],
+        },
+      },
+      {
+        id: 'cav',
+        title: 'Cavalry (CAV)',
+        text:
+          'Cavalry are your flank decision arm. They reposition quickly and punish exposed formations, especially in open ground.',
+        focusKeys: [k.blueCav, k.redCav],
+        destinationKeys: [bCavTo, rCavTo].filter(Boolean),
+        paths: [
+          { fromKey: k.blueCav, toKey: bCavTo, kind: 'move' },
+          { fromKey: k.redCav, toKey: rCavTo, kind: 'move' },
+        ].filter((p) => p.toKey),
+        learn: [
+          'CAV should threaten angles and weak flanks, not grind frontally into dense infantry.',
+          'Open ground preserves cavalry tempo and shock value.',
+        ],
+        task: {
+          type: 'select',
+          text: 'Select the highlighted Blue Cavalry unit.',
+          targetKeys: [k.blueCav],
+        },
+      },
+      {
+        id: 'skr',
+        title: 'Skirmishers (SKR)',
+        text:
+          'Skirmishers are flexible disruptors. They screen, harass, and slip around the main line where heavier troops would bog down.',
+        focusKeys: [k.blueSkr, k.redSkr],
+        destinationKeys: [bSkrTo, rSkrTo].filter(Boolean),
+        paths: [
+          { fromKey: k.blueSkr, toKey: bSkrTo, kind: 'move' },
+          { fromKey: k.redSkr, toKey: rSkrTo, kind: 'move' },
+        ].filter((p) => p.toKey),
+        learn: [
+          'SKR are ideal for contesting hills and probing before main-line engagement.',
+          'Use them to force awkward enemy responses and expose gaps.',
+        ],
+        task: {
+          type: 'select',
+          text: 'Select the highlighted Blue Skirmisher.',
+          targetKeys: [k.blueSkr],
+        },
+      },
+      {
+        id: 'terrain',
+        title: 'Terrain Friction & Positioning',
+        text:
+          'Terrain is geometry, not decoration. Woods, hills, and rough change movement tempo and combat pressure. ' +
+          'Position before contact whenever possible.',
+        focusKeys: ['4,4', '10,6', '5,5', '9,5', '6,6', '8,4'],
+        learn: [
+          'Woods and rough slow or constrain many units; mountains and water are fully impassable.',
+          'High ground and lanes matter as much as raw unit count.',
+        ],
+        task: {
+          type: 'inspect',
+          text: 'Click any highlighted terrain hex to inspect positional friction.',
+          targetKeys: ['4,4', '10,6', '5,5', '9,5', '6,6', '8,4'],
+        },
+      },
+      {
+        id: 'line_advance',
+        title: 'Line Advance Concept',
+        text:
+          'Line Advance is a coordinated infantry shove. When a valid shoulder-to-shoulder segment is selected, ' +
+          'the line can shift together along legal diagonal vectors rather than drifting out of formation.',
+        focusKeys: [k.blueInf, k.redInf],
+        destinationKeys: [bInfTo, rInfTo].filter(Boolean),
+        paths: [
+          { fromKey: k.blueInf, toKey: bInfTo, kind: 'move' },
+          { fromKey: k.redInf, toKey: rInfTo, kind: 'move' },
+        ].filter((p) => p.toKey),
+        learn: [
+          'Line advance is formation movement: partial moves are allowed when some units are blocked.',
+          'Use direction choice to preserve command range and flank integrity.',
+        ],
+      },
+      {
+        id: 'arc',
+        title: 'Archers (ARC)',
+        text:
+          'Archers apply ranged pressure. Use them to soften targets, force retreats, and set up better melee exchanges.',
+        focusKeys: [k.blueArc, k.redArc, k.blueInf, k.redInf],
+        paths: [
+          { fromKey: k.blueArc, toKey: bArcLane, kind: 'ranged' },
+          { fromKey: k.redArc, toKey: rArcLane, kind: 'ranged' },
+        ],
+        learn: [
+          'ARC damage is about tempo: forcing retreat/disarray opens lanes for infantry and cavalry.',
+          'Protect archers behind your line; they are fragile in melee.',
+        ],
+        task: {
+          type: 'select',
+          text: 'Select the highlighted Blue Archer.',
+          targetKeys: [k.blueArc],
+        },
+        onEnter: () => {
+          setAttackFlash(k.redInf, ATTACK_FLASH_MS + 180, {
+            fromKey: k.blueArc,
+            strikeType: 'ranged',
+            attackerType: 'arc',
+          });
+          queueTutorialTimer(() => {
+            if (!state.tutorial.active) return;
+            setAttackFlash(k.blueInf, ATTACK_FLASH_MS + 180, {
+              fromKey: k.redArc,
+              strikeType: 'ranged',
+              attackerType: 'arc',
+            });
+          }, 420);
+        },
+      },
+      {
+        id: 'gen',
+        title: 'General (GEN)',
+        text:
+          'Generals project command radius. Troops inside command operate normally; broken command chains create friction and lost tempo.',
+        focusKeys: [k.blueGen, k.redGen],
+        selectedKey: k.blueGen,
+        learn: [
+          'General quality sets command radius: Green 3, Regular 4, Veteran 5.',
+          'Losing command links can freeze lower-quality formations.',
+        ],
+        task: {
+          type: 'select',
+          text: 'Select the highlighted Blue General to view command perimeter.',
+          targetKeys: [k.blueGen],
+        },
+      },
+      {
+        id: 'run',
+        title: 'Runner (RUN)',
+        text:
+          'Runners relay command locally. They are fast support units: no direct attack, but critical for keeping distant troops responsive.',
+        focusKeys: [k.blueRun, k.redRun, k.blueInf, k.redInf],
+        paths: [
+          { fromKey: k.blueRun, toKey: k.blueInf, kind: 'command' },
+          { fromKey: k.redRun, toKey: k.redInf, kind: 'command' },
+        ],
+        learn: [
+          'Runners are command relays, not combat pieces.',
+          'Use runners to reconnect drifting formations to your command network.',
+        ],
+        task: {
+          type: 'select',
+          text: 'Select the highlighted Blue Runner.',
+          targetKeys: [k.blueRun],
+        },
+      },
+      {
+        id: 'med',
+        title: 'Medic (MED)',
+        text:
+          'Medics restore nearby wounded allies. Keep them protected just behind your line where they can stabilize key formations.',
+        focusKeys: [k.blueMed, k.redMed, k.blueInf, k.redInf],
+        paths: [
+          { fromKey: k.blueMed, toKey: k.blueInf, kind: 'support' },
+          { fromKey: k.redMed, toKey: k.redInf, kind: 'support' },
+        ],
+        learn: [
+          'Medics heal adjacent allies (+1 HP) but have no attack.',
+          'Best position: one hex behind likely contact points.',
+        ],
+        task: {
+          type: 'select',
+          text: 'Select the highlighted Blue Medic.',
+          targetKeys: [k.blueMed],
+        },
+      },
+      {
+        id: 'directives',
+        title: 'War Council Directives',
+        text:
+          'A directive is a tactical order you can issue during your turn. Some directives are reusable and some are single-use spikes. ' +
+          'Pick directives that match your current board shape before spending your actions.',
+        focusKeys: [k.blueGen, k.blueInf, k.blueCav, k.blueArc],
+        learn: [
+          'Reusable directives are repeatable; single-use directives are one-turn power spikes.',
+          'Directives spend actions from the same 3-action turn budget.',
+        ],
+        task: {
+          type: 'open_builder',
+          text: 'Open War Council once to see doctrine loadout controls.',
+          targetKeys: [],
+        },
+      },
+      {
+        id: 'combat',
+        title: 'Combat Result Flow',
+        text:
+          'Core dice language: 6 = hit + disarray, 5 = hit, 4 = retreat, 3 = disarray, 1-2 = miss. ' +
+          'Disarray means the unit loses clean tempo on its next activation.',
+        focusKeys: [k.blueInf, k.redInf],
+        paths: [{ fromKey: k.blueInf, toKey: k.redInf, kind: 'melee' }],
+        learn: [
+          'Retreat that cannot resolve converts into extra damage.',
+          'Disarray lasts through the unit’s next activation, then clears.',
+        ],
+        onEnter: () => {
+          setAttackFlash(k.redInf, ATTACK_FLASH_MS + 220, {
+            fromKey: k.blueInf,
+            strikeType: 'melee',
+            attackerType: 'inf',
+          });
+        },
+      },
+      {
+        id: 'retreat',
+        title: 'Retreat Resolution',
+        text:
+          'A retreat result pushes the defender away from the attacker by one hex. ' +
+          'If no legal retreat hex exists (blocked by units, board edge, or impassable terrain), retreat converts into damage.',
+        focusKeys: [k.blueInf, k.redInf, redRetreatKey, blueRetreatKey].filter(Boolean),
+        destinationKeys: [redRetreatKey, blueRetreatKey].filter(Boolean),
+        paths: [
+          { fromKey: k.redInf, toKey: redRetreatKey, kind: 'retreat' },
+          { fromKey: k.blueInf, toKey: blueRetreatKey, kind: 'retreat' },
+        ].filter((p) => p.toKey),
+        learn: [
+          'Retreat is positional pressure, not free escape.',
+          'Pinning retreat lanes is often stronger than chasing raw hits.',
+        ],
+        task: {
+          type: 'inspect',
+          text: 'Click one highlighted retreat destination hex.',
+          targetKeys: [redRetreatKey, blueRetreatKey].filter(Boolean),
+        },
+      },
+      {
+        id: 'disarray',
+        title: 'Disarray & Recovery',
+        text:
+          'Disarray means the formation is rattled. A disarrayed unit cannot move or attack on its next activation; ' +
+          'it effectively loses clean tempo, then recovers after that activation.',
+        focusKeys: [k.blueInf, k.redInf],
+        learn: [
+          'Disarray is often the opening for a follow-up directive or line shove.',
+          'Medics cannot heal disarrayed units under current rules.',
+        ],
+        task: {
+          type: 'select',
+          text: 'Select either highlighted infantry unit to review status flow.',
+          targetKeys: [k.blueInf, k.redInf],
+        },
+      },
+      {
+        id: 'victory',
+        title: 'Victory Conditions',
+        text:
+          'Default mode is Decapitation: eliminate enemy generals. Other modes include annihilation and UP-based victories. ' +
+          'Track losses, command integrity, and battlefield position together.',
+        focusKeys: [k.blueGen, k.redGen],
+        learn: [
+          'Score panel tracks each side’s UP and HP totals in real time.',
+          'Decapitation ends immediately when all enemy generals are eliminated.',
+        ],
+      },
+      {
+        id: 'ready',
+        title: 'Tutorial Complete',
+        text:
+          'You now have a visual read of every unit type. Exit tutorial to play this position, or return to the intro menu for Play Now or full setup.',
+        focusKeys: [k.blueGen, k.redGen, k.blueInf, k.redInf],
+        learn: [
+          'You can replay the tutorial anytime from the intro screen.',
+          'Next best step: play a full battle and test doctrine timing under pressure.',
+        ],
+      },
+    ];
+  }
+
+  function renderTutorialGuide() {
+    if (!elTutorialGuideOverlay) return;
+    if (!state.tutorial.active) return;
+    const steps = tutorialStepList();
+    const idx = Math.max(0, Math.min(steps.length - 1, state.tutorial.stepIndex || 0));
+    const step = steps[idx];
+    if (elTutorialGuideStepMeta) elTutorialGuideStepMeta.textContent = `Step ${idx + 1}/${steps.length}`;
+    if (elTutorialGuideStepTitle) elTutorialGuideStepTitle.textContent = step.title;
+    if (elTutorialGuideStepText) elTutorialGuideStepText.textContent = step.text;
+    if (elTutorialGuideLearn) {
+      const learn = Array.isArray(step.learn) ? step.learn.filter(Boolean) : [];
+      elTutorialGuideLearn.hidden = learn.length === 0;
+      if (learn.length > 0) {
+        elTutorialGuideLearn.innerHTML = learn.map((line) => `<li>${line}</li>`).join('');
+      } else {
+        elTutorialGuideLearn.innerHTML = '';
+      }
+    }
+    const task = state.tutorial.task || { active: false, done: false };
+    if (elTutorialGuideTaskWrap) {
+      elTutorialGuideTaskWrap.hidden = !task.active;
+    }
+    if (elTutorialGuideTaskText && task.active) {
+      elTutorialGuideTaskText.textContent = task.text || 'Complete the highlighted task.';
+    }
+    if (elTutorialGuideTaskStatus && task.active) {
+      const status = task.done
+        ? 'Complete. You can continue.'
+        : `Pending: ${task.targetKeys?.length ? `${task.targetKeys.length} target${task.targetKeys.length === 1 ? '' : 's'} highlighted.` : 'follow prompt.'}`;
+      elTutorialGuideTaskStatus.textContent = status;
+      elTutorialGuideTaskStatus.classList.toggle('done', !!task.done);
+    }
+    if (elTutorialPrevBtn) elTutorialPrevBtn.disabled = idx <= 0;
+    if (elTutorialNextBtn) elTutorialNextBtn.disabled = idx >= (steps.length - 1) || tutorialTaskNeedsInput();
+    if (elTutorialSkipTaskBtn) {
+      elTutorialSkipTaskBtn.hidden = !task.active;
+      elTutorialSkipTaskBtn.disabled = !task.active || !!task.done;
+    }
+    if (elTutorialAutoBtn) {
+      elTutorialAutoBtn.textContent = state.tutorial.autoplay ? 'Pause Auto' : 'Autoplay';
+      elTutorialAutoBtn.classList.toggle('active', !!state.tutorial.autoplay);
+      elTutorialAutoBtn.disabled = tutorialTaskNeedsInput();
+    }
+  }
+
+  function applyTutorialStep(idx, options = {}) {
+    const steps = tutorialStepList();
+    const clamped = Math.max(0, Math.min(steps.length - 1, Number(idx) || 0));
+    const step = steps[clamped];
+    state.tutorial.stepIndex = clamped;
+    clearTutorialTimers();
+    clearSelection();
+
+    state.tutorial.visual = {
+      focusKeys: Array.isArray(step.focusKeys) ? step.focusKeys.filter((k) => board.activeSet.has(k)) : [],
+      destinationKeys: Array.isArray(step.destinationKeys) ? step.destinationKeys.filter((k) => board.activeSet.has(k)) : [],
+      paths: Array.isArray(step.paths)
+        ? step.paths.filter((p) => p && p.fromKey && p.toKey && board.activeSet.has(p.fromKey) && board.activeSet.has(p.toKey))
+        : [],
+    };
+    setTutorialTaskFromStep(step);
+
+    if (step.selectedKey && board.activeSet.has(step.selectedKey) && unitsByHex.has(step.selectedKey)) {
+      state.selectedKey = step.selectedKey;
+    }
+
+    state._hoverKey = state.tutorial.visual.focusKeys[0] || null;
+    if (typeof step.onEnter === 'function') {
+      step.onEnter();
+    }
+
+    if (state.tutorial.autoplay && clamped < (steps.length - 1) && !tutorialTaskNeedsInput()) {
+      queueTutorialTimer(() => {
+        if (!state.tutorial.active) return;
+        applyTutorialStep(clamped + 1);
+      }, TUTORIAL_AUTOPLAY_STEP_MS);
+    }
+
+    if (options.log !== false) {
+      log(`Tutorial: ${step.title}`);
+    }
+    renderTutorialGuide();
+    updateHud();
+  }
+
+  function setTutorialAutoplay(on) {
+    state.tutorial.autoplay = !!on;
+    if (!state.tutorial.autoplay) {
+      clearTutorialTimers();
+      renderTutorialGuide();
+      return;
+    }
+    if (tutorialTaskNeedsInput()) {
+      state.tutorial.autoplay = false;
+      log('Autoplay paused: complete the current tutorial task first.');
+      renderTutorialGuide();
+      return;
+    }
+    applyTutorialStep(state.tutorial.stepIndex, { log: false });
+  }
+
+  function stopGuidedTutorial() {
+    setTutorialAutoplay(false);
+    clearTutorialTimers();
+    setTutorialGuideOpen(false);
+    clearSelection();
+    state._hoverKey = null;
+    log('Tutorial closed.');
+    updateHud();
+  }
+
+  function startGuidedTutorialFromIntro() {
+    state.gameMode = 'hvai';
+    state.humanSide = 'blue';
+    state.forwardAxis = 'vertical';
+    loadScenario(GUIDED_TUTORIAL_SCENARIO_NAME);
+    prepareQuickStartDoctrine();
+    setIntroOverlayOpen(false);
+    enterPlay();
+    setTutorialGuideOpen(true);
+    state.tutorial.stepIndex = 0;
+    state.tutorial.autoplay = false;
+    applyTutorialStep(0, { log: true });
+    log('Guided tutorial started. Use Next/Previous or Autoplay in the tutorial card.');
+    updateHud();
+  }
+
   function setIntroOverlayOpen(open) {
     const show = !!open;
     state.introOpen = show;
@@ -11343,6 +12225,7 @@ function unitColors(side) {
       elIntroOverlay.setAttribute('aria-hidden', show ? 'false' : 'true');
     }
     if (!show) setIntroTutorialOpen(false);
+    if (show && state.tutorial.active) stopGuidedTutorial();
     document.body.classList.toggle('intro-open', show);
   }
 
@@ -11356,6 +12239,7 @@ function unitColors(side) {
   }
 
   function startPlayNowFromIntro() {
+    if (state.tutorial.active) stopGuidedTutorial();
     const randomScenario = installRandomStartupScenario();
     populateScenarioSelect();
     if (elScenarioSel && [...elScenarioSel.options].some((o) => o.value === RANDOM_START_SCENARIO_NAME)) {
@@ -11373,6 +12257,7 @@ function unitColors(side) {
   }
 
   function startSetupFromIntro() {
+    if (state.tutorial.active) stopGuidedTutorial();
     state.doctrine.builder.preBattleReady = false;
     state.doctrine.builder.confirmed = { blue: false, red: false };
     setIntroOverlayOpen(false);
@@ -13962,6 +14847,10 @@ function unitColors(side) {
 
   function handleCanvasHexAction(hexKey) {
     if (!hexKey) return;
+    if (state.tutorial.active) {
+      handleTutorialCanvasClick(hexKey);
+      return;
+    }
     if (state.mode === 'edit') {
       if (onlineModeActive() && net.connected && !net.isHost) {
         log('Online: host controls setup and mode.');
@@ -14026,9 +14915,45 @@ function unitColors(side) {
       setIntroTutorialOpen(true);
     });
   }
+  if (elIntroTutorialStartBtn) {
+    elIntroTutorialStartBtn.addEventListener('click', () => {
+      startGuidedTutorialFromIntro();
+    });
+  }
   if (elIntroTutorialBackBtn) {
     elIntroTutorialBackBtn.addEventListener('click', () => {
       setIntroTutorialOpen(false);
+    });
+  }
+  if (elTutorialPrevBtn) {
+    elTutorialPrevBtn.addEventListener('click', () => {
+      if (!state.tutorial.active) return;
+      setTutorialAutoplay(false);
+      applyTutorialStep(state.tutorial.stepIndex - 1);
+    });
+  }
+  if (elTutorialNextBtn) {
+    elTutorialNextBtn.addEventListener('click', () => {
+      if (!state.tutorial.active) return;
+      setTutorialAutoplay(false);
+      applyTutorialStep(state.tutorial.stepIndex + 1);
+    });
+  }
+  if (elTutorialAutoBtn) {
+    elTutorialAutoBtn.addEventListener('click', () => {
+      if (!state.tutorial.active) return;
+      setTutorialAutoplay(!state.tutorial.autoplay);
+    });
+  }
+  if (elTutorialSkipTaskBtn) {
+    elTutorialSkipTaskBtn.addEventListener('click', () => {
+      if (!state.tutorial.active || !state.tutorial.task?.active || state.tutorial.task?.done) return;
+      tutorialMarkTaskDone('Skipped by player.');
+    });
+  }
+  if (elTutorialExitBtn) {
+    elTutorialExitBtn.addEventListener('click', () => {
+      stopGuidedTutorial();
     });
   }
 
@@ -14040,6 +14965,25 @@ function unitColors(side) {
         setIntroTutorialOpen(false);
       }
       return;
+    }
+    if (state.tutorial.active) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        stopGuidedTutorial();
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setTutorialAutoplay(false);
+        applyTutorialStep(state.tutorial.stepIndex + 1);
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setTutorialAutoplay(false);
+        applyTutorialStep(state.tutorial.stepIndex - 1);
+        return;
+      }
     }
     if (e.key === 'Escape' && state.doctrine.builder.open) {
       e.preventDefault();
