@@ -3,16 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Michelangelo's Pieta (1498-1499) - Marble Node/Edge 3D Model</title>
-    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <title>Michelangelo's Pieta (1498-1499) - Real-Time Marble Viewer</title>
     <style>
       :root {
         --bg: #0d1218;
-        --panel: #131a23;
-        --text: #dce4ef;
-        --subtle: #8ea0b8;
-        --edge: #86add6;
-        --node: #f4f8ff;
+        --panel: #151f2a;
+        --panel-border: #2c3d53;
+        --text: #e5edf8;
+        --muted: #9ab0cb;
       }
       * {
         box-sizing: border-box;
@@ -22,36 +20,34 @@
         margin: 0;
         width: 100%;
         height: 100%;
-        background: radial-gradient(circle at 20% 15%, #1f2a37 0%, var(--bg) 60%);
+        background: radial-gradient(circle at 20% 15%, #223245 0%, #0d1218 62%);
         color: var(--text);
         font-family: "IBM Plex Sans", "Avenir Next", sans-serif;
       }
-      .wrap {
-        display: flex;
-        flex-direction: column;
+      .app {
         width: 100%;
         height: 100%;
+        display: grid;
+        grid-template-rows: auto 1fr;
       }
-      .header {
-        padding: 14px 16px 10px;
-        border-bottom: 1px solid #243345;
-        background: rgba(19, 26, 35, 0.95);
-        backdrop-filter: blur(3px);
+      .panel {
+        padding: 12px 14px 10px;
+        background: color-mix(in srgb, var(--panel) 95%, transparent);
+        border-bottom: 1px solid var(--panel-border);
       }
-      h1 {
-        margin: 0 0 6px;
+      .title {
+        margin: 0;
         font-size: 18px;
         letter-spacing: 0.02em;
       }
       .sub {
-        margin: 0;
-        color: var(--subtle);
+        margin: 4px 0 8px;
+        color: var(--muted);
         font-size: 13px;
       }
       .controls {
-        margin-top: 10px;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
         gap: 8px 12px;
       }
       .control {
@@ -59,10 +55,9 @@
         align-items: center;
         gap: 8px;
         font-size: 12px;
-        color: var(--subtle);
       }
       .control label {
-        min-width: 68px;
+        min-width: 86px;
         color: var(--text);
       }
       .control input[type="range"] {
@@ -71,344 +66,294 @@
       .control output {
         min-width: 38px;
         text-align: right;
-        color: var(--text);
+        color: var(--muted);
         font-variant-numeric: tabular-nums;
       }
       .control input[type="color"] {
-        width: 42px;
+        width: 44px;
         height: 26px;
-        border: 1px solid #2f4158;
+        border: 1px solid #3a4d66;
         border-radius: 4px;
         background: transparent;
         padding: 0;
       }
-      .toggles {
+      .row {
+        margin-top: 8px;
         display: flex;
         align-items: center;
-        gap: 10px;
-        margin-top: 6px;
+        gap: 12px;
         font-size: 12px;
-        color: var(--subtle);
+        color: var(--muted);
       }
-      .toggle {
+      .row label {
         display: flex;
         align-items: center;
         gap: 5px;
       }
       .btn {
-        border: 1px solid #334861;
-        color: var(--text);
-        background: #192433;
+        border: 1px solid #38506e;
         border-radius: 6px;
-        padding: 4px 10px;
+        background: #1a2838;
+        color: var(--text);
         font-size: 12px;
+        padding: 4px 10px;
         cursor: pointer;
       }
-      #plot {
-        flex: 1;
-        min-height: 260px;
+      #stage {
         width: 100%;
+        height: 100%;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
       }
       .loading {
-        padding: 24px 18px;
-        color: var(--subtle);
+        height: 100%;
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        font-size: 14px;
       }
-      a {
-        color: #9ec5ff;
-      }
-      @media (max-width: 720px) {
+      @media (max-width: 760px) {
         .control label {
-          min-width: 60px;
+          min-width: 72px;
         }
       }
     </style>
   </head>
   <body>
-    <div class="wrap">
-      <div class="header">
-        <h1>Michelangelo's Pieta (1498-1499): Marble Surface + Node/Edge</h1>
-        <p class="sub" id="stats">Loading model data...</p>
+    <div class="app">
+      <section class="panel">
+        <h1 class="title">Michelangelo's Pieta (1498-1499): Studio Marble View</h1>
+        <p class="sub" id="stats">Loading model...</p>
 
         <div class="controls">
-          <div class="control"><label for="lightX">Light X</label><input id="lightX" type="range" min="-4" max="4" step="0.05" value="1.7" /><output id="lightXv">1.70</output></div>
-          <div class="control"><label for="lightY">Light Y</label><input id="lightY" type="range" min="-4" max="4" step="0.05" value="1.5" /><output id="lightYv">1.50</output></div>
-          <div class="control"><label for="lightZ">Light Z</label><input id="lightZ" type="range" min="-4" max="4" step="0.05" value="1.3" /><output id="lightZv">1.30</output></div>
-          <div class="control"><label for="spinSpeed">Spin</label><input id="spinSpeed" type="range" min="0" max="2" step="0.01" value="0.70" /><output id="spinSpeedv">0.70</output></div>
-          <div class="control"><label for="ambient">Ambient</label><input id="ambient" type="range" min="0" max="1" step="0.01" value="0.42" /><output id="ambientv">0.42</output></div>
-          <div class="control"><label for="diffuse">Diffuse</label><input id="diffuse" type="range" min="0" max="1" step="0.01" value="0.72" /><output id="diffusev">0.72</output></div>
-          <div class="control"><label for="specular">Specular</label><input id="specular" type="range" min="0" max="1" step="0.01" value="0.30" /><output id="specularv">0.30</output></div>
-          <div class="control"><label for="roughness">Roughness</label><input id="roughness" type="range" min="0" max="1" step="0.01" value="0.80" /><output id="roughnessv">0.80</output></div>
-          <div class="control"><label for="fresnel">Fresnel</label><input id="fresnel" type="range" min="0" max="1" step="0.01" value="0.08" /><output id="fresnelv">0.08</output></div>
+          <div class="control"><label for="speed">Spin</label><input id="speed" type="range" min="0" max="2.5" step="0.01" value="0.42" /><output id="speedv">0.42</output></div>
+          <div class="control"><label for="lightX">Light X</label><input id="lightX" type="range" min="-5" max="5" step="0.05" value="2.2" /><output id="lightXv">2.20</output></div>
+          <div class="control"><label for="lightY">Light Y</label><input id="lightY" type="range" min="0.2" max="8" step="0.05" value="3.8" /><output id="lightYv">3.80</output></div>
+          <div class="control"><label for="lightZ">Light Z</label><input id="lightZ" type="range" min="-5" max="5" step="0.05" value="2.0" /><output id="lightZv">2.00</output></div>
+          <div class="control"><label for="lightI">Light Int</label><input id="lightI" type="range" min="0" max="3" step="0.01" value="1.30" /><output id="lightIv">1.30</output></div>
+          <div class="control"><label for="exposure">Exposure</label><input id="exposure" type="range" min="0.5" max="2" step="0.01" value="1.05" /><output id="exposurev">1.05</output></div>
+          <div class="control"><label for="rough">Roughness</label><input id="rough" type="range" min="0.2" max="1" step="0.01" value="0.67" /><output id="roughv">0.67</output></div>
+          <div class="control"><label for="clearcoat">Clearcoat</label><input id="clearcoat" type="range" min="0" max="1" step="0.01" value="0.22" /><output id="clearcoatv">0.22</output></div>
           <div class="control"><label for="marble">Marble</label><input id="marble" type="color" value="#d7d0c0" /></div>
         </div>
 
-        <div class="toggles">
-          <label class="toggle"><input id="autoRotate" type="checkbox" checked /> Auto Rotate</label>
-          <label class="toggle"><input id="showEdges" type="checkbox" checked /> Edges</label>
-          <label class="toggle"><input id="showNodes" type="checkbox" checked /> Nodes</label>
-          <button id="resetLighting" class="btn" type="button">Reset Lighting</button>
+        <div class="row">
+          <label><input id="autoRotate" type="checkbox" checked /> Auto Rotate</label>
+          <button id="resetView" class="btn" type="button">Reset View</button>
+          <span>Hold simulation: drag to grab and rotate, scroll/pinch to zoom.</span>
         </div>
-      </div>
+      </section>
 
-      <div id="plot">
-        <div class="loading">
-          If this does not load from <code>file://</code>, run
-          <code>python3 -m http.server 8000</code> in this folder and open
-          <a href="http://localhost:8000">http://localhost:8000</a>.
-        </div>
+      <div id="stage">
+        <div class="loading" id="loading">Preparing real-time viewer...</div>
       </div>
     </div>
 
-    <script>
-      const DEFAULTS = {
-        lightX: 1.7,
-        lightY: 1.5,
-        lightZ: 1.3,
-        spinSpeed: 0.70,
-        ambient: 0.42,
-        diffuse: 0.72,
-        specular: 0.30,
-        roughness: 0.80,
-        fresnel: 0.08,
+    <script type="module">
+      import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
+      import { OrbitControls } from "https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js";
+      import { RoomEnvironment } from "https://unpkg.com/three@0.161.0/examples/jsm/environments/RoomEnvironment.js";
+
+      const MODEL_URL = "./pieta_wireframe.json";
+
+      const stage = document.getElementById("stage");
+      const loading = document.getElementById("loading");
+      const stats = document.getElementById("stats");
+
+      const defaults = {
+        speed: 0.42,
+        lightX: 2.2,
+        lightY: 3.8,
+        lightZ: 2.0,
+        lightI: 1.30,
+        exposure: 1.05,
+        rough: 0.67,
+        clearcoat: 0.22,
         marble: "#d7d0c0"
       };
 
-      function numberValue(id) {
+      const rangeIds = ["speed", "lightX", "lightY", "lightZ", "lightI", "exposure", "rough", "clearcoat"];
+
+      function n(id) {
         return Number(document.getElementById(id).value);
       }
 
-      function updateReadouts() {
-        const ids = ["lightX", "lightY", "lightZ", "spinSpeed", "ambient", "diffuse", "specular", "roughness", "fresnel"];
-        for (const id of ids) {
-          document.getElementById(id + "v").textContent = numberValue(id).toFixed(2);
+      function refreshReadouts() {
+        for (const id of rangeIds) {
+          document.getElementById(id + "v").textContent = n(id).toFixed(2);
         }
       }
 
-      async function load() {
-        const response = await fetch("./pieta_wireframe.json");
+      async function init() {
+        const response = await fetch(MODEL_URL);
         if (!response.ok) {
-          throw new Error(`Failed to load pieta_wireframe.json (${response.status})`);
+          throw new Error(`Failed to load ${MODEL_URL} (${response.status})`);
         }
         const model = await response.json();
 
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        renderer.setSize(stage.clientWidth, stage.clientHeight);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = defaults.exposure;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        loading.remove();
+        stage.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0d1218);
+
+        const camera = new THREE.PerspectiveCamera(44, stage.clientWidth / stage.clientHeight, 0.01, 80);
+        camera.position.set(1.8, 1.25, 2.1);
+
+        const pmrem = new THREE.PMREMGenerator(renderer);
+        scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+        const hemi = new THREE.HemisphereLight(0xeaf2ff, 0x243344, 0.48);
+        scene.add(hemi);
+
+        const keyLight = new THREE.DirectionalLight(0xfff4e6, defaults.lightI);
+        keyLight.position.set(defaults.lightX, defaults.lightY, defaults.lightZ);
+        keyLight.castShadow = true;
+        keyLight.shadow.mapSize.set(1024, 1024);
+        keyLight.shadow.camera.near = 0.1;
+        keyLight.shadow.camera.far = 12;
+        keyLight.shadow.camera.left = -2.3;
+        keyLight.shadow.camera.right = 2.3;
+        keyLight.shadow.camera.top = 2.3;
+        keyLight.shadow.camera.bottom = -2.3;
+        scene.add(keyLight);
+
+        const fillLight = new THREE.DirectionalLight(0xc9daef, 0.35);
+        fillLight.position.set(-1.6, 1.4, -2.2);
+        scene.add(fillLight);
+
+        const floor = new THREE.Mesh(
+          new THREE.CircleGeometry(2.7, 72),
+          new THREE.ShadowMaterial({ opacity: 0.28 })
+        );
+        floor.rotation.x = -Math.PI * 0.5;
+        floor.position.y = 0;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
         const vertices = model.vertices;
         const faces = model.faces || [];
-        const edges = model.edges;
-        const nodes = model.nodes;
-
-        const vx = [];
-        const vy = [];
-        const vz = [];
-        for (const [x, y, z] of vertices) {
-          vx.push(x);
-          vy.push(y);
-          vz.push(z);
+        const positions = new Float32Array(vertices.length * 3);
+        for (let i = 0; i < vertices.length; i++) {
+          const v = vertices[i];
+          positions[i * 3 + 0] = v[0];
+          positions[i * 3 + 1] = v[1];
+          positions[i * 3 + 2] = v[2];
         }
 
-        const fi = [];
-        const fj = [];
-        const fk = [];
-        for (const [a, b, c] of faces) {
-          fi.push(a);
-          fj.push(b);
-          fk.push(c);
+        const indexArray = new Uint32Array(faces.length * 3);
+        for (let i = 0; i < faces.length; i++) {
+          const f = faces[i];
+          indexArray[i * 3 + 0] = f[0];
+          indexArray[i * 3 + 1] = f[1];
+          indexArray[i * 3 + 2] = f[2];
         }
 
-        const ex = [];
-        const ey = [];
-        const ez = [];
-        for (const [a, b] of edges) {
-          const va = vertices[a];
-          const vb = vertices[b];
-          ex.push(va[0], vb[0], null);
-          ey.push(va[1], vb[1], null);
-          ez.push(va[2], vb[2], null);
-        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        geometry.setIndex(new THREE.BufferAttribute(indexArray, 1));
+        geometry.computeVertexNormals();
+        geometry.computeBoundingBox();
 
-        const nx = [];
-        const ny = [];
-        const nz = [];
-        for (const [x, y, z] of nodes) {
-          nx.push(x);
-          ny.push(y);
-          nz.push(z);
-        }
+        const box = geometry.boundingBox;
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        geometry.translate(-center.x, -box.min.y, -center.z);
 
-        const meshTrace = {
-          type: "mesh3d",
-          x: vx,
-          y: vy,
-          z: vz,
-          i: fi,
-          j: fj,
-          k: fk,
-          color: DEFAULTS.marble,
-          opacity: 1.0,
-          flatshading: false,
-          hoverinfo: "skip",
-          lighting: {
-            ambient: DEFAULTS.ambient,
-            diffuse: DEFAULTS.diffuse,
-            specular: DEFAULTS.specular,
-            roughness: DEFAULTS.roughness,
-            fresnel: DEFAULTS.fresnel
-          },
-          lightposition: {
-            x: DEFAULTS.lightX,
-            y: DEFAULTS.lightY,
-            z: DEFAULTS.lightZ
-          },
-          name: "Marble"
-        };
-
-        const edgeTrace = {
-          type: "scatter3d",
-          mode: "lines",
-          x: ex,
-          y: ey,
-          z: ez,
-          line: {
-            color: getComputedStyle(document.documentElement).getPropertyValue("--edge").trim(),
-            width: 1
-          },
-          opacity: 0.50,
-          hoverinfo: "skip",
-          name: "Edges"
-        };
-
-        const nodeTrace = {
-          type: "scatter3d",
-          mode: "markers",
-          x: nx,
-          y: ny,
-          z: nz,
-          marker: {
-            size: 1.6,
-            color: getComputedStyle(document.documentElement).getPropertyValue("--node").trim(),
-            opacity: 0.24
-          },
-          hoverinfo: "skip",
-          name: "Nodes"
-        };
-
-        const layout = {
-          paper_bgcolor: "rgba(0,0,0,0)",
-          plot_bgcolor: "rgba(0,0,0,0)",
-          margin: { l: 0, r: 0, t: 0, b: 0 },
-          showlegend: false,
-          scene: {
-            xaxis: { visible: false },
-            yaxis: { visible: false },
-            zaxis: { visible: false },
-            aspectmode: "data",
-            camera: {
-              eye: { x: 1.7, y: 1.5, z: 1.2 }
-            }
-          }
-        };
-
-        await Plotly.newPlot("plot", [meshTrace, edgeTrace, nodeTrace], layout, {
-          responsive: true,
-          displaylogo: false
+        const sculptMat = new THREE.MeshPhysicalMaterial({
+          color: new THREE.Color(defaults.marble),
+          roughness: defaults.rough,
+          metalness: 0.02,
+          clearcoat: defaults.clearcoat,
+          clearcoatRoughness: 0.42,
+          reflectivity: 0.5,
+          envMapIntensity: 0.9
         });
 
-        const rotation = {
-          angle: Math.atan2(layout.scene.camera.eye.y, layout.scene.camera.eye.x),
-          radius: Math.hypot(layout.scene.camera.eye.x, layout.scene.camera.eye.y),
-          z: layout.scene.camera.eye.z,
-          lastTs: 0
-        };
+        const mesh = new THREE.Mesh(geometry, sculptMat);
+        const targetHeight = 1.65;
+        const scale = targetHeight / size.y;
+        mesh.scale.setScalar(scale);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
 
-        function animate(ts) {
-          if (!rotation.lastTs) {
-            rotation.lastTs = ts;
-          }
-          const dt = ts - rotation.lastTs;
-          rotation.lastTs = ts;
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = defaults.speed;
+        controls.minDistance = 0.9;
+        controls.maxDistance = 5.2;
+        controls.target.set(0, 0.9, 0);
 
-          if (document.getElementById("autoRotate").checked) {
-            rotation.angle += dt * numberValue("spinSpeed") * 0.0014;
-            Plotly.relayout("plot", {
-              "scene.camera.eye": {
-                x: Math.cos(rotation.angle) * rotation.radius,
-                y: Math.sin(rotation.angle) * rotation.radius,
-                z: rotation.z
-              }
-            });
-          }
+        refreshReadouts();
 
-          window.requestAnimationFrame(animate);
-        }
-        window.requestAnimationFrame(animate);
-
-        function applyMaterialAndLight() {
-          updateReadouts();
-          const marble = document.getElementById("marble").value;
-          Plotly.restyle(
-            "plot",
-            {
-              color: [marble],
-              "lighting.ambient": [numberValue("ambient")],
-              "lighting.diffuse": [numberValue("diffuse")],
-              "lighting.specular": [numberValue("specular")],
-              "lighting.roughness": [numberValue("roughness")],
-              "lighting.fresnel": [numberValue("fresnel")],
-              "lightposition.x": [numberValue("lightX")],
-              "lightposition.y": [numberValue("lightY")],
-              "lightposition.z": [numberValue("lightZ")]
-            },
-            [0]
-          );
-
-          Plotly.restyle("plot", { visible: [document.getElementById("showEdges").checked] }, [1]);
-          Plotly.restyle("plot", { visible: [document.getElementById("showNodes").checked] }, [2]);
+        function syncControls() {
+          controls.autoRotate = document.getElementById("autoRotate").checked;
+          controls.autoRotateSpeed = n("speed");
+          keyLight.position.set(n("lightX"), n("lightY"), n("lightZ"));
+          keyLight.intensity = n("lightI");
+          renderer.toneMappingExposure = n("exposure");
+          sculptMat.roughness = n("rough");
+          sculptMat.clearcoat = n("clearcoat");
+          sculptMat.color.set(document.getElementById("marble").value);
+          sculptMat.needsUpdate = true;
+          refreshReadouts();
         }
 
-        const ids = [
-          "lightX",
-          "lightY",
-          "lightZ",
-          "spinSpeed",
-          "ambient",
-          "diffuse",
-          "specular",
-          "roughness",
-          "fresnel",
-          "marble",
-          "autoRotate",
-          "showEdges",
-          "showNodes"
-        ];
-        for (const id of ids) {
-          document.getElementById(id).addEventListener("input", applyMaterialAndLight);
-          document.getElementById(id).addEventListener("change", applyMaterialAndLight);
+        for (const id of [...rangeIds, "marble", "autoRotate"]) {
+          const el = document.getElementById(id);
+          el.addEventListener("input", syncControls);
+          el.addEventListener("change", syncControls);
         }
 
-        document.getElementById("resetLighting").addEventListener("click", () => {
-          for (const [k, v] of Object.entries(DEFAULTS)) {
+        document.getElementById("resetView").addEventListener("click", () => {
+          for (const [k, v] of Object.entries(defaults)) {
             document.getElementById(k).value = String(v);
           }
           document.getElementById("autoRotate").checked = true;
-          document.getElementById("showEdges").checked = true;
-          document.getElementById("showNodes").checked = true;
-          rotation.lastTs = 0;
-          applyMaterialAndLight();
+          camera.position.set(1.8, 1.25, 2.1);
+          controls.target.set(0, 0.9, 0);
+          controls.update();
+          syncControls();
         });
 
-        applyMaterialAndLight();
+        function onResize() {
+          camera.aspect = stage.clientWidth / stage.clientHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(stage.clientWidth, stage.clientHeight);
+        }
+        window.addEventListener("resize", onResize);
 
-        const facesTotal = model.meta.faces_total || model.meta.faces;
-        document.getElementById("stats").textContent =
-          `Source triangles: ${model.meta.source_triangles.toLocaleString()} | ` +
-          `Sample stride: ${model.meta.triangle_stride} | ` +
-          `Faces: ${model.meta.faces.toLocaleString()} (from ${facesTotal.toLocaleString()}) | ` +
-          `Edges: ${model.meta.edges.toLocaleString()} | ` +
-          `Nodes: ${model.meta.nodes.toLocaleString()}`;
+        stats.textContent =
+          `Triangles: ${model.meta.faces.toLocaleString()} | Vertices: ${model.meta.vertices.toLocaleString()} | ` +
+          `Drag to hold/rotate, pinch or scroll to zoom.`;
+
+        function render() {
+          requestAnimationFrame(render);
+          controls.update();
+          renderer.render(scene, camera);
+        }
+        syncControls();
+        render();
       }
 
-      load().catch((error) => {
-        const plot = document.getElementById("plot");
-        plot.innerHTML = `<div class="loading">Error loading model: ${error.message}</div>`;
+      init().catch((error) => {
+        loading.textContent = `Viewer error: ${error.message}`;
+        stats.textContent = "Failed to initialize viewer.";
       });
     </script>
   </body>
