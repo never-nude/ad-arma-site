@@ -355,13 +355,6 @@
         floor.receiveShadow = true;
         scene.add(floor);
 
-        const backdrop = new THREE.Mesh(
-          new THREE.PlaneGeometry(12, 6),
-          new THREE.MeshStandardMaterial({ color: 0xdccfbf, roughness: 0.95, metalness: 0 })
-        );
-        backdrop.position.set(0, 2.6, -4.2);
-        scene.add(backdrop);
-
         const pedestalHeight = 0.30;
         const pedestal = new THREE.Mesh(
           new THREE.CylinderGeometry(0.46, 0.56, pedestalHeight, 80),
