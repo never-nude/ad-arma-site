@@ -7776,168 +7776,501 @@ function unitColors(side) {
       tokens: [],
       arrows: [],
     };
+
+    const setScene = (caption, tokens, arrows, rows = 4, cols = 8) => {
+      s.caption = caption;
+      s.tokens = tokens;
+      s.arrows = arrows;
+      s.rows = rows;
+      s.cols = cols;
+    };
+
     switch (commandId) {
       case 'quick_dress':
-        s.caption = 'Quick Dress: infantry slide laterally while maintaining line integrity.';
-        s.tokens = [
-          { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
-          { side: 'blue', type: 'inf', c: 2, r: 2, mc: 3, mr: 2 },
-          { side: 'blue', type: 'inf', c: 3, r: 2, mc: 4, mr: 2 },
-          { side: 'red', type: 'inf', c: 3, r: 1 },
-        ];
-        s.arrows = [
-          { from: [1, 2], to: [2, 2], kind: 'move' },
-          { from: [2, 2], to: [3, 2], kind: 'move' },
-          { from: [3, 2], to: [4, 2], kind: 'move' },
-        ];
+        setScene(
+          'Quick Dress: adjacent infantry slide laterally in the same row while keeping formation.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
+            { side: 'blue', type: 'inf', c: 2, r: 2, mc: 3, mr: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2, mc: 4, mr: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+          ],
+          [
+            { from: [1, 2], to: [2, 2], kind: 'move' },
+            { from: [2, 2], to: [3, 2], kind: 'move' },
+            { from: [3, 2], to: [4, 2], kind: 'move' },
+          ]
+        );
         break;
       case 'runner_burst':
-        s.caption = 'Runner Burst: one runner surges forward and relays command to nearby units.';
-        s.tokens = [
-          { side: 'blue', type: 'run', c: 1, r: 3, mc: 4, mr: 2 },
-          { side: 'blue', type: 'inf', c: 3, r: 2 },
-          { side: 'blue', type: 'cav', c: 4, r: 1 },
-        ];
-        s.arrows = [
-          { from: [1, 3], to: [4, 2], kind: 'move' },
-          { from: [4, 2], to: [3, 2], kind: 'command' },
-          { from: [4, 2], to: [4, 1], kind: 'command' },
-        ];
+        setScene(
+          'Runner Burst: one runner surges and extends local command relay support.',
+          [
+            { side: 'blue', type: 'run', c: 1, r: 3, mc: 4, mr: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'cav', c: 4, r: 1 },
+          ],
+          [
+            { from: [1, 3], to: [4, 2], kind: 'move' },
+            { from: [4, 2], to: [3, 2], kind: 'command' },
+            { from: [4, 2], to: [4, 1], kind: 'command' },
+          ]
+        );
         break;
       case 'javelin_volley':
-      case 'covering_fire':
-      case 'wing_screen':
-        s.caption = 'Missile order: light troops project ranged pressure while preserving spacing.';
-        s.tokens = [
-          { side: 'blue', type: 'skr', c: 2, r: 2 },
-          { side: 'blue', type: 'arc', c: 3, r: 2 },
-          { side: 'red', type: 'inf', c: 5, r: 1 },
-          { side: 'red', type: 'inf', c: 6, r: 2 },
-        ];
-        s.arrows = [
-          { from: [2, 2], to: [5, 1], kind: 'ranged' },
-          { from: [3, 2], to: [6, 2], kind: 'ranged' },
-        ];
+        setScene(
+          'Javelin Volley: up to two light missile units throw with boosted ranged impact.',
+          [
+            { side: 'blue', type: 'skr', c: 2, r: 2 },
+            { side: 'blue', type: 'arc', c: 3, r: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 1 },
+            { side: 'red', type: 'inf', c: 6, r: 2 },
+          ],
+          [
+            { from: [2, 2], to: [5, 1], kind: 'ranged' },
+            { from: [3, 2], to: [6, 2], kind: 'ranged' },
+          ]
+        );
         break;
       case 'quick_withdraw':
-        s.caption = 'Quick Withdraw: pull an exposed missile unit out of contact.';
-        s.tokens = [
-          { side: 'blue', type: 'skr', c: 3, r: 2, mc: 2, mr: 2 },
-          { side: 'blue', type: 'inf', c: 2, r: 2 },
-          { side: 'red', type: 'inf', c: 4, r: 2 },
-        ];
-        s.arrows = [{ from: [3, 2], to: [2, 2], kind: 'move' }];
+        setScene(
+          'Quick Withdraw: an exposed skirmisher/archer steps back out of pressure.',
+          [
+            { side: 'blue', type: 'skr', c: 3, r: 2, mc: 2, mr: 2 },
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'red', type: 'inf', c: 4, r: 2 },
+          ],
+          [{ from: [3, 2], to: [2, 2], kind: 'move' }]
+        );
         break;
       case 'close_ranks':
-      case 'hold_fast':
-      case 'shield_wall':
-      case 'grand_shield_wall':
-      case 'stand_or_die':
-      case 'strengthen_center':
-        s.caption = 'Defensive order: infantry harden the line and absorb incoming pressure.';
-        s.tokens = [
-          { side: 'blue', type: 'inf', c: 2, r: 2 },
-          { side: 'blue', type: 'inf', c: 3, r: 2 },
-          { side: 'blue', type: 'inf', c: 4, r: 2 },
-          { side: 'red', type: 'cav', c: 5, r: 2 },
-        ];
-        s.arrows = [
-          { from: [5, 2], to: [4, 2], kind: 'attack' },
-          { from: [2, 2], to: [4, 2], kind: 'hold' },
-        ];
+        setScene(
+          'Close Ranks: one infantry unit braces and absorbs melee pressure.',
+          [
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'red', type: 'cav', c: 5, r: 2 },
+          ],
+          [
+            { from: [5, 2], to: [3, 2], kind: 'attack' },
+            { from: [2, 2], to: [3, 2], kind: 'hold' },
+          ]
+        );
         break;
       case 'spur_horses':
-      case 'cavalry_exploit':
-      case 'countercharge':
-      case 'all_out_cavalry_sweep':
-        s.caption = 'Cavalry order: ride for angle, hit exposed infantry, and disengage if needed.';
-        s.tokens = [
-          { side: 'blue', type: 'cav', c: 1, r: 2, mc: 4, mr: 1 },
-          { side: 'blue', type: 'inf', c: 3, r: 2 },
-          { side: 'red', type: 'inf', c: 5, r: 2 },
-          { side: 'red', type: 'inf', c: 5, r: 1 },
-        ];
-        s.arrows = [
-          { from: [1, 2], to: [4, 1], kind: 'move' },
-          { from: [4, 1], to: [5, 2], kind: 'attack' },
-        ];
+        setScene(
+          'Spur the Horses: one cavalry gains extra reach to claim better attack angles.',
+          [
+            { side: 'blue', type: 'cav', c: 1, r: 2, mc: 4, mr: 1 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+          ],
+          [
+            { from: [1, 2], to: [4, 1], kind: 'move' },
+            { from: [4, 1], to: [5, 2], kind: 'attack' },
+          ]
+        );
         break;
       case 'signal_call':
-      case 'command_surge':
-      case 'general_assault':
-        s.caption = 'Command order: generals extend influence and activate a local battle sector.';
-        s.tokens = [
-          { side: 'blue', type: 'gen', c: 2, r: 2 },
-          { side: 'blue', type: 'inf', c: 4, r: 1 },
-          { side: 'blue', type: 'inf', c: 5, r: 2 },
-          { side: 'red', type: 'inf', c: 6, r: 2 },
-        ];
-        s.arrows = [
-          { from: [2, 2], to: [4, 1], kind: 'command' },
-          { from: [2, 2], to: [5, 2], kind: 'command' },
-          { from: [5, 2], to: [6, 2], kind: 'attack' },
-        ];
+        setScene(
+          'Signal Call: a general briefly pulls nearby out-of-command units back into control.',
+          [
+            { side: 'blue', type: 'gen', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 1 },
+            { side: 'blue', type: 'inf', c: 5, r: 2 },
+          ],
+          [
+            { from: [2, 2], to: [4, 1], kind: 'command' },
+            { from: [2, 2], to: [5, 2], kind: 'command' },
+          ]
+        );
         break;
-      case 'forced_march':
-      case 'local_reserve':
-      case 'commit_reserves':
-        s.caption = 'Reserve order: rear units surge forward to reinforce the active front.';
-        s.tokens = [
-          { side: 'blue', type: 'inf', c: 2, r: 3, mc: 3, mr: 2 },
-          { side: 'blue', type: 'skr', c: 3, r: 3, mc: 4, mr: 2 },
-          { side: 'blue', type: 'inf', c: 4, r: 3, mc: 5, mr: 2 },
-        ];
-        s.arrows = [
-          { from: [2, 3], to: [3, 2], kind: 'move' },
-          { from: [3, 3], to: [4, 2], kind: 'move' },
-          { from: [4, 3], to: [5, 2], kind: 'move' },
-        ];
+      case 'loose_screen':
+        setScene(
+          'Loose Screen: light troops slip through adjacent infantry by one hex to reposition.',
+          [
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2 },
+            { side: 'blue', type: 'skr', c: 3, r: 3, mc: 4, mr: 2 },
+            { side: 'blue', type: 'arc', c: 2, r: 2, mc: 3, mr: 1 },
+            { side: 'red', type: 'inf', c: 6, r: 2 },
+          ],
+          [
+            { from: [3, 3], to: [4, 2], kind: 'move' },
+            { from: [2, 2], to: [3, 1], kind: 'move' },
+          ]
+        );
+        break;
+      case 'covering_fire':
+        setScene(
+          'Covering Fire: missile attacks ignore terrain firing penalties this turn.',
+          [
+            { side: 'blue', type: 'arc', c: 2, r: 2 },
+            { side: 'blue', type: 'skr', c: 3, r: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+            { side: 'red', type: 'inf', c: 6, r: 1 },
+          ],
+          [
+            { from: [2, 2], to: [5, 2], kind: 'ranged' },
+            { from: [3, 2], to: [6, 1], kind: 'ranged' },
+          ]
+        );
+        break;
+      case 'hold_fast':
+        setScene(
+          'Hold Fast: one unit resists retreat pressure and keeps local cohesion.',
+          [
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+          ],
+          [
+            { from: [5, 2], to: [3, 2], kind: 'attack' },
+            { from: [3, 2], to: [3, 2], kind: 'hold' },
+          ]
+        );
+        break;
+
+      case 'shield_wall':
+        setScene(
+          'Shield Wall: a contiguous infantry block hardens and becomes harder to break in melee.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2 },
+            { side: 'red', type: 'cav', c: 5, r: 2 },
+          ],
+          [
+            { from: [5, 2], to: [4, 2], kind: 'attack' },
+            { from: [2, 2], to: [4, 2], kind: 'hold' },
+          ]
+        );
+        break;
+      case 'cavalry_exploit':
+        setScene(
+          'Cavalry Exploit: a cavalry wing moves into open-ground attack lanes for stronger shock.',
+          [
+            { side: 'blue', type: 'cav', c: 1, r: 2, mc: 4, mr: 1 },
+            { side: 'blue', type: 'cav', c: 2, r: 3, mc: 5, mr: 2 },
+            { side: 'red', type: 'inf', c: 6, r: 2 },
+          ],
+          [
+            { from: [1, 2], to: [4, 1], kind: 'move' },
+            { from: [4, 1], to: [6, 2], kind: 'attack' },
+            { from: [2, 3], to: [5, 2], kind: 'move' },
+          ],
+          5
+        );
         break;
       case 'refuse_flank':
+        setScene(
+          'Refuse the Flank: wing infantry pull inward/back to avoid getting wrapped.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 2, mc: 1, mr: 3 },
+            { side: 'blue', type: 'inf', c: 2, r: 2, mc: 2, mr: 3 },
+            { side: 'blue', type: 'inf', c: 3, r: 2, mc: 3, mr: 2 },
+          ],
+          [
+            { from: [1, 2], to: [1, 3], kind: 'move' },
+            { from: [2, 2], to: [2, 3], kind: 'move' },
+          ]
+        );
+        break;
+      case 'forced_march':
+        setScene(
+          'Forced March: up to four infantry/skirmishers surge forward but cannot attack this turn.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 3, mc: 3, mr: 2 },
+            { side: 'blue', type: 'skr', c: 3, r: 3, mc: 4, mr: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 3, mc: 5, mr: 2 },
+          ],
+          [
+            { from: [2, 3], to: [3, 2], kind: 'move' },
+            { from: [3, 3], to: [4, 2], kind: 'move' },
+            { from: [4, 3], to: [5, 2], kind: 'move' },
+          ]
+        );
+        break;
+      case 'strengthen_center':
+        setScene(
+          'Strengthen the Center: infantry near the general anchor and resist retreat pressure.',
+          [
+            { side: 'blue', type: 'gen', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 1 },
+          ],
+          [
+            { from: [2, 2], to: [3, 2], kind: 'command' },
+            { from: [2, 2], to: [4, 2], kind: 'command' },
+            { from: [2, 2], to: [3, 1], kind: 'command' },
+          ]
+        );
+        break;
+      case 'wing_screen':
+        setScene(
+          'Wing Screen: flank missile units fire, then reposition 1 hex.',
+          [
+            { side: 'blue', type: 'skr', c: 2, r: 3, mc: 3, mr: 2 },
+            { side: 'blue', type: 'arc', c: 3, r: 3, mc: 4, mr: 2 },
+            { side: 'red', type: 'inf', c: 6, r: 2 },
+          ],
+          [
+            { from: [2, 3], to: [6, 2], kind: 'ranged' },
+            { from: [2, 3], to: [3, 2], kind: 'move' },
+            { from: [3, 3], to: [4, 2], kind: 'move' },
+          ]
+        );
+        break;
+      case 'countercharge':
+        setScene(
+          'Countercharge: cavalry react when enemies close, striking immediately.',
+          [
+            { side: 'blue', type: 'cav', c: 2, r: 2 },
+            { side: 'red', type: 'inf', c: 4, r: 2, mc: 3, mr: 2 },
+          ],
+          [
+            { from: [4, 2], to: [3, 2], kind: 'move' },
+            { from: [2, 2], to: [3, 2], kind: 'attack' },
+          ]
+        );
+        break;
       case 'jaws_inward':
-      case 'collapse_center':
-      case 'reforge_line':
-      case 'full_line_advance':
-        s.caption = 'Formation order: re-shape or advance linked infantry in a coordinated line action.';
-        s.tokens = [
-          { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
-          { side: 'blue', type: 'inf', c: 2, r: 2, mc: 3, mr: 2 },
-          { side: 'blue', type: 'inf', c: 3, r: 2, mc: 4, mr: 2 },
-          { side: 'blue', type: 'inf', c: 4, r: 2, mc: 5, mr: 2 },
-        ];
-        s.arrows = [
-          { from: [1, 2], to: [2, 2], kind: 'move' },
-          { from: [2, 2], to: [3, 2], kind: 'move' },
-          { from: [3, 2], to: [4, 2], kind: 'move' },
-          { from: [4, 2], to: [5, 2], kind: 'move' },
-        ];
+        setScene(
+          'Jaws Inward: experienced infantry close from both sides to compress an enemy pocket.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
+            { side: 'blue', type: 'inf', c: 5, r: 2, mc: 4, mr: 2 },
+            { side: 'red', type: 'inf', c: 3, r: 2 },
+          ],
+          [
+            { from: [1, 2], to: [2, 2], kind: 'move' },
+            { from: [5, 2], to: [4, 2], kind: 'move' },
+          ]
+        );
+        break;
+      case 'local_reserve':
+        setScene(
+          'Local Reserve: rear-line units are released to act immediately.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 3, mc: 3, mr: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 3, mc: 4, mr: 2 },
+            { side: 'blue', type: 'cav', c: 4, r: 3, mc: 5, mr: 2 },
+          ],
+          [
+            { from: [2, 3], to: [3, 2], kind: 'move' },
+            { from: [3, 3], to: [4, 2], kind: 'move' },
+            { from: [4, 3], to: [5, 2], kind: 'move' },
+          ]
+        );
         break;
       case 'drive_them_back':
-      case 'last_push':
-        s.caption = 'Pressure order: selected attackers spike output and force enemy cohesion checks.';
-        s.tokens = [
-          { side: 'blue', type: 'inf', c: 2, r: 2 },
-          { side: 'blue', type: 'inf', c: 3, r: 2 },
-          { side: 'red', type: 'inf', c: 5, r: 2 },
-          { side: 'red', type: 'inf', c: 5, r: 1 },
-        ];
-        s.arrows = [
-          { from: [2, 2], to: [5, 2], kind: 'attack' },
-          { from: [3, 2], to: [5, 1], kind: 'attack' },
-        ];
+        setScene(
+          'Drive Them Back: infantry attacks spike pressure to force disarray and retreats.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+          ],
+          [
+            { from: [2, 2], to: [5, 2], kind: 'attack' },
+            { from: [3, 2], to: [5, 2], kind: 'attack' },
+          ]
+        );
         break;
+
+      case 'full_line_advance':
+        setScene(
+          'Full Line Advance: one major row advances together; blocked units hold.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
+            { side: 'blue', type: 'inf', c: 2, r: 2, mc: 3, mr: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2, mc: 4, mr: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2, mc: 5, mr: 2 },
+          ],
+          [
+            { from: [1, 2], to: [2, 2], kind: 'move' },
+            { from: [2, 2], to: [3, 2], kind: 'move' },
+            { from: [3, 2], to: [4, 2], kind: 'move' },
+            { from: [4, 2], to: [5, 2], kind: 'move' },
+          ]
+        );
+        break;
+      case 'grand_shield_wall':
+        setScene(
+          'Grand Shield Wall: a larger infantry mass locks in, trading mobility for heavy staying power.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 2 },
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2 },
+            { side: 'blue', type: 'inf', c: 5, r: 2 },
+            { side: 'red', type: 'cav', c: 6, r: 2 },
+          ],
+          [
+            { from: [6, 2], to: [5, 2], kind: 'attack' },
+            { from: [1, 2], to: [5, 2], kind: 'hold' },
+          ],
+          4,
+          9
+        );
+        break;
+      case 'all_out_cavalry_sweep':
+        setScene(
+          'All-Out Cavalry Sweep: a wing cavalry package surges for decisive flank shock.',
+          [
+            { side: 'blue', type: 'cav', c: 1, r: 3, mc: 4, mr: 2 },
+            { side: 'blue', type: 'cav', c: 2, r: 3, mc: 5, mr: 1 },
+            { side: 'red', type: 'inf', c: 6, r: 2 },
+            { side: 'red', type: 'inf', c: 6, r: 1 },
+          ],
+          [
+            { from: [1, 3], to: [4, 2], kind: 'move' },
+            { from: [2, 3], to: [5, 1], kind: 'move' },
+            { from: [4, 2], to: [6, 2], kind: 'attack' },
+            { from: [5, 1], to: [6, 1], kind: 'attack' },
+          ],
+          5
+        );
+        break;
+      case 'commit_reserves':
+        setScene(
+          'Commit Reserves: deep reserves push toward contact and receive a strong support package.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 4, mc: 2, mr: 3 },
+            { side: 'blue', type: 'inf', c: 2, r: 4, mc: 3, mr: 3 },
+            { side: 'blue', type: 'skr', c: 3, r: 4, mc: 4, mr: 3 },
+            { side: 'blue', type: 'cav', c: 4, r: 4, mc: 5, mr: 3 },
+          ],
+          [
+            { from: [1, 4], to: [2, 3], kind: 'move' },
+            { from: [2, 4], to: [3, 3], kind: 'move' },
+            { from: [3, 4], to: [4, 3], kind: 'move' },
+            { from: [4, 4], to: [5, 3], kind: 'move' },
+          ],
+          5,
+          9
+        );
+        break;
+      case 'general_assault':
+        setScene(
+          'General Assault: units around a general execute one coordinated local strike package.',
+          [
+            { side: 'blue', type: 'gen', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 1 },
+            { side: 'blue', type: 'cav', c: 4, r: 3 },
+            { side: 'red', type: 'inf', c: 6, r: 2 },
+          ],
+          [
+            { from: [2, 2], to: [3, 2], kind: 'command' },
+            { from: [2, 2], to: [4, 1], kind: 'command' },
+            { from: [2, 2], to: [4, 3], kind: 'command' },
+            { from: [4, 1], to: [6, 2], kind: 'attack' },
+          ],
+          5,
+          9
+        );
+        break;
+      case 'collapse_center':
+        setScene(
+          'Collapse the Center: center yields while wings fold inward to create a trap shape.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 2, mc: 2, mr: 3 },
+            { side: 'blue', type: 'inf', c: 3, r: 2, mc: 3, mr: 3 },
+            { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2, mc: 3, mr: 2 },
+          ],
+          [
+            { from: [2, 2], to: [2, 3], kind: 'move' },
+            { from: [3, 2], to: [3, 3], kind: 'move' },
+            { from: [1, 2], to: [2, 2], kind: 'move' },
+            { from: [4, 2], to: [3, 2], kind: 'move' },
+          ]
+        );
+        break;
+      case 'last_push':
+        setScene(
+          'Last Push: selected attackers commit for maximum short-term striking power.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'blue', type: 'cav', c: 3, r: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 1 },
+          ],
+          [
+            { from: [2, 2], to: [5, 2], kind: 'attack' },
+            { from: [3, 2], to: [5, 1], kind: 'attack' },
+          ]
+        );
+        break;
+      case 'reforge_line':
+        setScene(
+          'Reforge the Line: connected infantry re-shape one hex each to rebuild structure.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
+            { side: 'blue', type: 'inf', c: 2, r: 2, mc: 2, mr: 1 },
+            { side: 'blue', type: 'inf', c: 3, r: 2, mc: 4, mr: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2, mc: 5, mr: 2 },
+          ],
+          [
+            { from: [1, 2], to: [2, 2], kind: 'move' },
+            { from: [2, 2], to: [2, 1], kind: 'move' },
+            { from: [3, 2], to: [4, 2], kind: 'move' },
+            { from: [4, 2], to: [5, 2], kind: 'move' },
+          ]
+        );
+        break;
+      case 'command_surge':
+        setScene(
+          'Command Surge: one general temporarily expands command radius and snaps units back in-control.',
+          [
+            { side: 'blue', type: 'gen', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 5, r: 1 },
+            { side: 'blue', type: 'inf', c: 5, r: 3 },
+            { side: 'blue', type: 'cav', c: 6, r: 2 },
+          ],
+          [
+            { from: [2, 2], to: [5, 1], kind: 'command' },
+            { from: [2, 2], to: [5, 3], kind: 'command' },
+            { from: [2, 2], to: [6, 2], kind: 'command' },
+          ],
+          5,
+          9
+        );
+        break;
+      case 'stand_or_die':
+        setScene(
+          'Stand or Die: infantry around a general hold ground and ignore retreat pressure.',
+          [
+            { side: 'blue', type: 'gen', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 1 },
+            { side: 'blue', type: 'inf', c: 3, r: 3 },
+            { side: 'red', type: 'cav', c: 5, r: 2 },
+          ],
+          [
+            { from: [5, 2], to: [3, 2], kind: 'attack' },
+            { from: [2, 2], to: [3, 2], kind: 'hold' },
+            { from: [2, 2], to: [3, 1], kind: 'hold' },
+            { from: [2, 2], to: [3, 3], kind: 'hold' },
+          ]
+        );
+        break;
+
       default:
-        s.caption = 'Select directives that match your current battlefield geometry and timing.';
-        s.tokens = [
-          { side: 'blue', type: 'inf', c: 2, r: 2 },
-          { side: 'blue', type: 'gen', c: 1, r: 2 },
-          { side: 'red', type: 'inf', c: 5, r: 2 },
-        ];
-        s.arrows = [{ from: [2, 2], to: [5, 2], kind: 'attack' }];
+        setScene(
+          'Select directives that match your current battlefield geometry and timing.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'blue', type: 'gen', c: 1, r: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+          ],
+          [{ from: [2, 2], to: [5, 2], kind: 'attack' }]
+        );
         break;
     }
     return s;
   }
+
 
   function drawDoctrinePreviewCanvas(timeSec = 0) {
     if (!elDoctrinePreviewCanvas) return;
