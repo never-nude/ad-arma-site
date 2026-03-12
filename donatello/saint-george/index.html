@@ -101,12 +101,16 @@
       #stage {
         width: 100%;
         height: 100%;
+        position: relative;
+        overflow: hidden;
+        background: radial-gradient(circle at 50% 36%, #f6efe3 0%, #ebe0d0 48%, #dacbb5 100%);
       }
       .viewer-frame {
         display: block;
         width: 100%;
         height: 100%;
         border: 0;
+        background: transparent;
       }
       .loading {
         width: 100%;
@@ -205,23 +209,23 @@
         <p id="stats" class="sub">Loading high-fidelity source mesh...</p>
 
         <div class="grid">
-          <div class="control"><label for="spin">Spin</label><input id="spin" type="range" min="0" max="1.6" step="0.01" value="0.12" /><output id="spinv">0.12</output></div>
-          <div class="control"><label for="zoom">Zoom</label><input id="zoom" type="range" min="1.2" max="6.4" step="0.01" value="3.30" /><output id="zoomv">3.30</output></div>
+          <div class="control"><label for="spin">Spin</label><input id="spin" type="range" min="0" max="1.6" step="0.01" value="0.08" /><output id="spinv">0.08</output></div>
+          <div class="control"><label for="zoom">Zoom</label><input id="zoom" type="range" min="1.2" max="6.4" step="0.01" value="1.95" /><output id="zoomv">1.95</output></div>
           <div class="control"><label for="lightAngle">Key Angle</label><input id="lightAngle" type="range" min="-180" max="180" step="1" value="34" /><output id="lightAnglev">34.00</output></div>
-          <div class="control"><label for="lightPower">Light Power</label><input id="lightPower" type="range" min="0.2" max="4.5" step="0.01" value="2.20" /><output id="lightPowerv">2.20</output></div>
-          <div class="control"><label for="exposure">Exposure</label><input id="exposure" type="range" min="0" max="2.8" step="0.01" value="0.39" /><output id="exposurev">0.39</output></div>
-          <div class="control"><label for="rough">Roughness</label><input id="rough" type="range" min="0.2" max="1" step="0.01" value="0.58" /><output id="roughv">0.58</output></div>
+          <div class="control"><label for="lightPower">Light Power</label><input id="lightPower" type="range" min="0.2" max="4.5" step="0.01" value="2.55" /><output id="lightPowerv">2.55</output></div>
+          <div class="control"><label for="exposure">Exposure</label><input id="exposure" type="range" min="0" max="2.8" step="0.01" value="0.62" /><output id="exposurev">0.62</output></div>
+          <div class="control"><label for="rough">Roughness</label><input id="rough" type="range" min="0.2" max="1" step="0.01" value="0.64" /><output id="roughv">0.64</output></div>
         </div>
 
         <div class="row">
           <label><input id="canManipulate" type="checkbox" checked /> Manipulate</label>
-          <label><input id="autoRotate" type="checkbox" checked /> Auto Rotate</label>
+          <label><input id="autoRotate" type="checkbox" /> Auto Rotate</label>
           <label><input id="multiLight" type="checkbox" checked /> Multi-Light</label>
           <label><input id="wire" type="checkbox" /> Wireframe</label>
           <button id="frontBtn" class="btn" type="button">Front</button>
           <button id="resetBtn" class="btn" type="button">Reset</button>
           <button id="museumBtn" class="btn" type="button">Museum</button>
-          <span>Drag to rotate. Scroll/pinch to zoom. Shift+drag to pan.</span>
+          <span>Drag to rotate. Scroll/pinch to zoom. Shift+drag to pan. Hover pauses spin.</span>
         </div>
       </section>
 
@@ -240,14 +244,14 @@
       const loading = document.getElementById("loading");
 
       const defaults = {
-        spin: 0.12,
-        zoom: 3.30,
+        spin: 0.08,
+        zoom: 1.95,
         lightAngle: 34,
-        lightPower: 2.20,
-        exposure: 0.39,
-        rough: 0.58,
+        lightPower: 2.55,
+        exposure: 0.62,
+        rough: 0.64,
         canManipulate: true,
-        autoRotate: true,
+        autoRotate: false,
         multiLight: true,
         wire: false
       };
@@ -266,9 +270,11 @@
         postBase: null,
         materialsBase: null,
         roughnessTimer: null,
+        interactionTimer: null,
         sceneReady: false,
         programmaticMoveUntil: 0,
-        userInteracting: false
+        userInteracting: false,
+        pointerInsideStage: false
       };
 
       function n(id) {
@@ -386,6 +392,23 @@
         });
       }
 
+      function clearInteractionTimer() {
+        if (state.interactionTimer) {
+          clearTimeout(state.interactionTimer);
+          state.interactionTimer = null;
+        }
+      }
+
+      function pauseAutoRotate(duration = 1400) {
+        state.userInteracting = true;
+        clearInteractionTimer();
+        state.interactionTimer = setTimeout(() => {
+          if (!state.pointerInsideStage) {
+            state.userInteracting = false;
+          }
+        }, duration);
+      }
+
       function setCamera(position, target, duration = 0) {
         if (!state.api || typeof state.api.setCameraLookAt !== "function") return;
         state.programmaticMoveUntil = performance.now() + Math.max(220, duration * 1000 + 120);
@@ -427,7 +450,10 @@
         if (!state.api || typeof state.api.setUserInteraction !== "function") return;
         const enabled = document.getElementById("canManipulate").checked;
         state.api.setUserInteraction(enabled, () => {});
-        if (!enabled) state.userInteracting = false;
+        if (!enabled) {
+          clearInteractionTimer();
+          state.userInteracting = false;
+        }
       }
 
       function applyWireframe() {
@@ -513,7 +539,14 @@
           const dt = Math.min(0.06, (ts - lastTs) / 1000);
           lastTs = ts;
 
-          if (state.sceneReady && state.camera && state.orbitOffset && document.getElementById("autoRotate").checked && !state.userInteracting) {
+          if (
+            state.sceneReady &&
+            state.camera &&
+            state.orbitOffset &&
+            document.getElementById("autoRotate").checked &&
+            !state.userInteracting &&
+            !state.pointerInsideStage
+          ) {
             const speed = n("spin");
             if (speed > 0.0001 && ts - lastSend > 70) {
               const axis = state.orbitAxis;
@@ -582,6 +615,22 @@
         iframe.setAttribute("allowfullscreen", "true");
         iframe.setAttribute("mozallowfullscreen", "true");
         iframe.setAttribute("webkitallowfullscreen", "true");
+        iframe.addEventListener("mouseenter", () => {
+          state.pointerInsideStage = true;
+          pauseAutoRotate(2400);
+        });
+        iframe.addEventListener("mouseleave", () => {
+          state.pointerInsideStage = false;
+          pauseAutoRotate(220);
+        });
+        iframe.addEventListener("focus", () => {
+          state.pointerInsideStage = true;
+          pauseAutoRotate(2400);
+        });
+        iframe.addEventListener("blur", () => {
+          state.pointerInsideStage = false;
+          pauseAutoRotate(220);
+        });
         stage.appendChild(iframe);
 
         const client = new window.Sketchfab("1.12.1", iframe);
@@ -590,7 +639,7 @@
           preload: 1,
           camera: 0,
           dnt: 1,
-          transparent: 0,
+          transparent: 1,
           ui_infos: 0,
           ui_controls: 0,
           ui_stop: 0,
@@ -601,7 +650,7 @@
           ui_vr: 0,
           ui_help: 0,
           ui_fullscreen: 0,
-          ui_inspector: 1,
+          ui_inspector: 0,
           success: (api) => {
             state.api = api;
             api.start();
@@ -644,13 +693,13 @@
 
               api.addEventListener("camerastart", () => {
                 if (performance.now() > state.programmaticMoveUntil + 40) {
-                  state.userInteracting = true;
+                  pauseAutoRotate(2200);
                 }
               });
 
               api.addEventListener("camerastop", async () => {
                 await syncFromViewer();
-                state.userInteracting = false;
+                pauseAutoRotate(420);
               });
 
               if (typeof api.recenterCamera === "function") {
