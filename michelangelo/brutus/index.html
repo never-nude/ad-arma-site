@@ -427,9 +427,8 @@
             }
           }
 
-          // Brutus source mesh uses Z-up basis. Apply -90deg local X, then an additional -90deg local Z clockwise quarter-turn from current view to place truncation support at the bottom.
+          // Brutus source mesh uses Z-up basis; rotate -90deg about local X so the truncation block sits underneath and the bust is upright.
           geometry.rotateX(-Math.PI * 0.5);
-          geometry.rotateZ(-Math.PI * 0.5);
           const vertexCount = geometry.attributes.position?.count || 0;
           if (vertexCount < 1_800_000) {
             geometry = mergeVertices(geometry, 1e-4);
