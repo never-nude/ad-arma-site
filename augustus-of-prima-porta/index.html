@@ -426,10 +426,8 @@
             }
           }
 
-          // Source scan uses Z-up and is laid out sideways for printing.
-          // Rotate into Y-up, then stand the bust upright on its neck base.
-          geometry.rotateX(-Math.PI * 0.5);
-          geometry.rotateZ(Math.PI * 0.5);
+          // This source mesh is already authored upright with a flat neck base.
+          // Leave it in its native orientation so it rests naturally on the pedestal.
           // On very dense scans, skip mergeVertices to avoid mobile memory spikes.
           const vertexCount = geometry.attributes.position?.count || 0;
           if (vertexCount < 1_800_000) {
@@ -460,7 +458,6 @@
           const scale = targetHeight / size.y;
           sculpture.scale.setScalar(scale);
           sculpture.position.y = pedestalHeight;
-          sculpture.position.z = 0.04;
           sculpture.castShadow = true;
           sculpture.receiveShadow = true;
           scene.add(sculpture);
