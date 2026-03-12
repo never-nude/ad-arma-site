@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <title>Augustus of Prima Porta - Museum Viewer</title>
+    <title>Unknown Roman Workshop (lifespan unknown) Augustus of Prima Porta (early 1st century CE) - Museum Viewer</title>
     <style>
       :root {
         --bg0: #efe6d8;
@@ -199,7 +199,7 @@
   <body>
     <div class="app">
       <section class="panel">
-        <h1 class="title">Augustus of Prima Porta (early 1st century CE)</h1>
+        <h1 class="title">Unknown Roman workshop (lifespan unknown): Augustus of Prima Porta (early 1st century CE)</h1>
         <p id="stats" class="sub">Loading high-fidelity STL sculpture...</p>
 
         <div class="grid">
@@ -218,7 +218,6 @@
           <label><input id="wire" type="checkbox" /> Wireframe</label>
           <button id="frontBtn" class="btn" type="button">Front</button>
           <button id="resetBtn" class="btn" type="button">Reset</button>
-          <button id="museumBtn" class="btn" type="button">Museum</button>
           <span>Drag to rotate. Scroll/pinch to zoom. Shift+drag to pan.</span>
         </div>
       </section>
@@ -549,11 +548,6 @@
           camera.position.set(0.0, focusY + (isMobileLayout ? 0.35 : 0.2), zoomWithMobileOffset());
           controls.target.set(0, focusY + (isMobileLayout ? 0.22 : 0.0), 0);
           controls.update();
-        });
-
-        const museumBtn = document.getElementById("museumBtn");
-        museumBtn.addEventListener("click", () => {
-          window.location.href = "/museum/";
         });
 
         for (const id of rangeIds) {
