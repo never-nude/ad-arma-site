@@ -36,3 +36,4 @@ The lobby is generated from the same catalog, so adding or changing a piece now 
 - Piece pages now share one viewer shell and one source/attribution treatment.
 - The lobby can list every live museum piece from the catalog rather than hand-maintained HTML.
 - Future museum work should go through `museum/shared/catalog.js` first, not through one-off inline page edits.
+- The long-range sculpture queue now lives in `museum/BACKLOG.md`, so future additions can be tracked in batches instead of ad hoc.
