@@ -34,3 +34,5 @@ Institution-sourced 3D model pages in chronological order.
    - /michelangelo/lorenzo-duke-of-urbino/
 16. Michelangelo: Brutus (c.1540-1548)
    - /michelangelo/brutus/
+17. Michelangelo: Rondanini Pieta (c.1553-1564)
+   - /michelangelo/rondanini-pieta/
