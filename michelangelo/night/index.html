@@ -428,7 +428,8 @@
             }
           }
 
-          // Night source mesh is already Y-up with a horizontal base. Keep this orientation and only yaw for default facing.
+          // Night source mesh is Y-up but arrives side-resting; roll +90deg about local Z so the base lies flat on the floor.
+          geometry.rotateZ(Math.PI * 0.5);
           const vertexCount = geometry.attributes.position?.count || 0;
           if (vertexCount < 1_800_000) {
             geometry = mergeVertices(geometry, 1e-4);
