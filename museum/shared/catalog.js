@@ -774,8 +774,8 @@ function sectionItems(sectionId) {
 }
 
 export const museumLobby = {
-  pageTitle: "ad-arma Museum - Lobby",
-  title: "ad-arma Museum Lobby",
+  pageTitle: "Museum Lobby",
+  title: "Museum Lobby",
   subtitle: "Sculpture and 3D works from antiquity through the nineteenth century. Each piece page now carries a shared viewer shell plus source and attribution notes.",
   sections: museumSections
     .map((section) => ({
