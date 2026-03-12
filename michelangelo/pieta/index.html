@@ -228,7 +228,12 @@
     </div>
 
     <script type="module">
-      const MODEL_URL = "./pieta_source.stl";
+      const MODEL_URL_PRIMARY = "./pieta_source.stl";
+      const MODEL_URL_FALLBACK = "./pieta_source_small.stl";
+      const HAS_DISTINCT_FALLBACK = MODEL_URL_FALLBACK !== MODEL_URL_PRIMARY;
+      const PRIMARY_TIMEOUT_MS = 45000;
+      const FALLBACK_TIMEOUT_MS = 30000;
+      let modelUrlInUse = MODEL_URL_PRIMARY;
 
       const stage = document.getElementById("stage");
       const stats = document.getElementById("stats");
@@ -270,6 +275,42 @@
         refreshReadouts();
       }
 
+      function withTimeout(promise, timeoutMs, label) {
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            reject(new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`));
+          }, timeoutMs);
+
+          promise.then(
+            (value) => {
+              clearTimeout(timer);
+              resolve(value);
+            },
+            (error) => {
+              clearTimeout(timer);
+              reject(error);
+            }
+          );
+        });
+      }
+
+      async function fetchModelByteLength(url) {
+        try {
+          const head = await fetch(url, { method: "HEAD" });
+          if (!head.ok) return null;
+          const len = Number(head.headers.get("content-length"));
+          return Number.isFinite(len) && len > 0 ? len : null;
+        } catch {
+          return null;
+        }
+      }
+
+      function chooseInitialModelUrl() {
+        return window.matchMedia("(max-width: 820px)").matches && HAS_DISTINCT_FALLBACK
+          ? MODEL_URL_FALLBACK
+          : MODEL_URL_PRIMARY;
+      }
+
       async function init() {
         setDefaults();
 
@@ -291,20 +332,15 @@
           return;
         }
 
-        let stlByteLength = null;
-        try {
-          const head = await fetch(MODEL_URL, { method: "HEAD" });
-          if (head.ok) {
-            const len = Number(head.headers.get("content-length"));
-            if (Number.isFinite(len) && len > 0) {
-              stlByteLength = len;
-            }
-          }
-        } catch {
-          // No-op: HEAD may be unavailable in some static hosting setups.
-        }
-
         const isMobileRender = window.matchMedia("(max-width: 820px)").matches;
+        modelUrlInUse = chooseInitialModelUrl();
+        stats.textContent =
+          modelUrlInUse === MODEL_URL_PRIMARY
+            ? "Loading high-fidelity STL sculpture..."
+            : "Loading optimized STL sculpture...";
+
+        let stlByteLength = await fetchModelByteLength(modelUrlInUse);
+
         const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobileRender ? 1.15 : 1.8));
         renderer.setSize(stage.clientWidth, stage.clientHeight);
@@ -313,9 +349,6 @@
         renderer.toneMappingExposure = defaults.exposure;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-        loading.remove();
-        stage.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xe8dfd0);
@@ -376,11 +409,26 @@
 
         try {
           const loader = new STLLoader();
-          let geometry = await loader.loadAsync(MODEL_URL);
+          let geometry = null;
+          const startUrl = modelUrlInUse;
+          const startTimeout = startUrl === MODEL_URL_PRIMARY ? PRIMARY_TIMEOUT_MS : FALLBACK_TIMEOUT_MS;
+
+          try {
+            geometry = await withTimeout(loader.loadAsync(startUrl), startTimeout, "STL load");
+          } catch (error) {
+            if (HAS_DISTINCT_FALLBACK && startUrl !== MODEL_URL_FALLBACK) {
+              modelUrlInUse = MODEL_URL_FALLBACK;
+              stlByteLength = await fetchModelByteLength(modelUrlInUse);
+              stats.textContent = "Full-resolution mesh unavailable; switching to optimized STL...";
+              loading.textContent = "Switching to optimized STL mesh...";
+              geometry = await withTimeout(loader.loadAsync(modelUrlInUse), FALLBACK_TIMEOUT_MS, "Fallback STL load");
+            } else {
+              throw error;
+            }
+          }
 
           // Source scan uses Z-up. Rotate into Y-up so it stands upright by default.
           geometry.rotateX(-Math.PI * 0.5);
-          // On very dense scans, skip mergeVertices to avoid mobile memory spikes.
           const vertexCount = geometry.attributes.position?.count || 0;
           if (vertexCount < 1_800_000) {
             geometry = mergeVertices(geometry, 1e-4);
@@ -418,13 +466,14 @@
 
           const triCount = geometry.index ? geometry.index.count / 3 : geometry.attributes.position.count / 3;
           const sizeLabel = stlByteLength ? `${(stlByteLength / (1024 * 1024)).toFixed(1)} MB STL` : "High-fidelity STL";
-          stats.textContent = `${Math.round(triCount).toLocaleString()} triangles | ${sizeLabel}`;
+          const fidelityLabel = HAS_DISTINCT_FALLBACK && modelUrlInUse === MODEL_URL_FALLBACK ? " (fallback)" : "";
+          stats.textContent = `${Math.round(triCount).toLocaleString()} triangles | ${sizeLabel}${fidelityLabel}`;
+
+          loading.remove();
+          stage.appendChild(renderer.domElement);
         } catch (error) {
-          stats.textContent = "Failed to parse STL mesh.";
-          const fail = document.createElement("div");
-          fail.className = "loading";
-          fail.textContent = `Mesh load error: ${error.message}`;
-          stage.appendChild(fail);
+          stats.textContent = "Failed to load STL mesh.";
+          loading.textContent = `Mesh load error: ${error.message}`;
           return;
         }
 
