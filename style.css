@@ -1019,8 +1019,8 @@ body[data-mode="play"] #side{
 }
 
 .doctrinePreviewWrap{
-  margin:8px 10px 2px;
-  padding:8px 10px 10px;
+  margin:10px 12px 4px;
+  padding:10px 12px 12px;
   border:1px solid var(--line);
   border-radius:10px;
   background:rgba(255,255,255,0.02);
@@ -1028,7 +1028,7 @@ body[data-mode="play"] #side{
 
 #doctrinePreviewCanvas{
   width:100%;
-  height:180px;
+  height:clamp(220px, 31vh, 340px);
   border:1px dashed rgba(255,255,255,0.16);
   border-radius:10px;
   background:radial-gradient(circle at 50% 35%, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
@@ -1036,10 +1036,11 @@ body[data-mode="play"] #side{
 }
 
 .doctrinePreviewCaption{
-  margin-top:8px;
+  margin-top:9px;
+  min-height:2.4em;
   color:#cfd5e3;
-  font-size:12px;
-  line-height:1.35;
+  font-size:12.5px;
+  line-height:1.45;
 }
 
 #doctrineOpenTurnBtn.btnHero{
@@ -1160,6 +1161,37 @@ body[data-mode="play"] #side{
 
 #doctrineOverlay .doctrineCostCol{
   padding:11px;
+}
+
+html.mode-order-atlas #doctrineOverlay.rulesSideOverlay.open{
+  display:flex;
+}
+
+html.mode-order-atlas #doctrineOverlay .rulesSideCard.doctrineCard{
+  width:min(94vw, 1640px);
+  height:min(93vh, 1100px);
+}
+
+html.mode-order-atlas #doctrineOverlay .rulesSideHead h2{
+  font-size:18px;
+}
+
+html.mode-order-atlas #doctrineOverlay .doctrineIntroNote{
+  font-size:14px;
+  line-height:1.45;
+}
+
+html.mode-order-atlas #doctrineOverlay .doctrineBuilderGrid{
+  gap:14px;
+  padding:12px 16px;
+}
+
+html.mode-order-atlas #doctrineOverlay .doctrineCostCol{
+  padding:12px;
+}
+
+html.mode-order-atlas #doctrinePreviewCanvas{
+  height:clamp(280px, 39vh, 430px);
 }
 
 .rulesSideCard{

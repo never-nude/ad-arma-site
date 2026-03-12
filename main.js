@@ -7,6 +7,18 @@
 
   const GAME_NAME = 'Ad Arma';
   const BUILD_ID = (window.POLEMO_BUILD_ID || window.POLEMO_BUILD || 'DEV');
+  const URL_PARAMS = new URLSearchParams(window.location.search || '');
+  const ORDER_ATLAS_MODE = (() => {
+    const modeParam = String(URL_PARAMS.get('mode') || '').toLowerCase();
+    if (modeParam === 'order-atlas' || modeParam === 'warcouncil-atlas' || modeParam === 'directive-atlas') {
+      return true;
+    }
+    const p = String(window.location.pathname || '').toLowerCase();
+    return p.includes('/order-atlas/') || p.includes('/warcouncil-atlas/') || p.includes('/directive-atlas/');
+  })();
+  if (ORDER_ATLAS_MODE) {
+    document.documentElement.classList.add('mode-order-atlas');
+  }
 
   // --- Board shape (157-hex "island")
   // Rows are r=0..10, each row is a contiguous run of q.
@@ -7823,12 +7835,12 @@ function unitColors(side) {
           [
             { side: 'blue', type: 'skr', c: 2, r: 2 },
             { side: 'blue', type: 'arc', c: 3, r: 2 },
-            { side: 'red', type: 'inf', c: 5, r: 1 },
-            { side: 'red', type: 'inf', c: 6, r: 2 },
+            { side: 'red', type: 'inf', c: 4, r: 1 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
           ],
           [
-            { from: [2, 2], to: [5, 1], kind: 'ranged' },
-            { from: [3, 2], to: [6, 2], kind: 'ranged' },
+            { from: [2, 2], to: [4, 1], kind: 'ranged' },
+            { from: [3, 2], to: [5, 2], kind: 'ranged' },
           ]
         );
         break;
@@ -7836,11 +7848,11 @@ function unitColors(side) {
         setScene(
           'Quick Withdraw: an exposed skirmisher/archer steps back out of pressure.',
           [
-            { side: 'blue', type: 'skr', c: 3, r: 2, mc: 2, mr: 2 },
+            { side: 'blue', type: 'skr', c: 3, r: 2, mc: 2, mr: 1 },
             { side: 'blue', type: 'inf', c: 2, r: 2 },
             { side: 'red', type: 'inf', c: 4, r: 2 },
           ],
-          [{ from: [3, 2], to: [2, 2], kind: 'move' }]
+          [{ from: [3, 2], to: [2, 1], kind: 'move' }]
         );
         break;
       case 'close_ranks':
@@ -7849,10 +7861,10 @@ function unitColors(side) {
           [
             { side: 'blue', type: 'inf', c: 3, r: 2 },
             { side: 'blue', type: 'inf', c: 2, r: 2 },
-            { side: 'red', type: 'cav', c: 5, r: 2 },
+            { side: 'red', type: 'cav', c: 4, r: 2 },
           ],
           [
-            { from: [5, 2], to: [3, 2], kind: 'attack' },
+            { from: [4, 2], to: [3, 2], kind: 'attack' },
             { from: [2, 2], to: [3, 2], kind: 'hold' },
           ]
         );
@@ -7920,10 +7932,10 @@ function unitColors(side) {
           'Hold Fast: one unit resists retreat pressure and keeps local cohesion.',
           [
             { side: 'blue', type: 'inf', c: 3, r: 2 },
-            { side: 'red', type: 'inf', c: 5, r: 2 },
+            { side: 'red', type: 'inf', c: 4, r: 2 },
           ],
           [
-            { from: [5, 2], to: [3, 2], kind: 'attack' },
+            { from: [4, 2], to: [3, 2], kind: 'attack' },
             { from: [3, 2], to: [3, 2], kind: 'hold' },
           ]
         );
@@ -7950,11 +7962,11 @@ function unitColors(side) {
           [
             { side: 'blue', type: 'cav', c: 1, r: 2, mc: 4, mr: 1 },
             { side: 'blue', type: 'cav', c: 2, r: 3, mc: 5, mr: 2 },
-            { side: 'red', type: 'inf', c: 6, r: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
           ],
           [
             { from: [1, 2], to: [4, 1], kind: 'move' },
-            { from: [4, 1], to: [6, 2], kind: 'attack' },
+            { from: [4, 1], to: [5, 2], kind: 'attack' },
             { from: [2, 3], to: [5, 2], kind: 'move' },
           ],
           5
@@ -8011,10 +8023,10 @@ function unitColors(side) {
           [
             { side: 'blue', type: 'skr', c: 2, r: 3, mc: 3, mr: 2 },
             { side: 'blue', type: 'arc', c: 3, r: 3, mc: 4, mr: 2 },
-            { side: 'red', type: 'inf', c: 6, r: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
           ],
           [
-            { from: [2, 3], to: [6, 2], kind: 'ranged' },
+            { from: [2, 3], to: [5, 2], kind: 'ranged' },
             { from: [2, 3], to: [3, 2], kind: 'move' },
             { from: [3, 3], to: [4, 2], kind: 'move' },
           ]
@@ -8068,11 +8080,11 @@ function unitColors(side) {
           [
             { side: 'blue', type: 'inf', c: 2, r: 2 },
             { side: 'blue', type: 'inf', c: 3, r: 2 },
-            { side: 'red', type: 'inf', c: 5, r: 2 },
+            { side: 'red', type: 'inf', c: 4, r: 2 },
           ],
           [
-            { from: [2, 2], to: [5, 2], kind: 'attack' },
-            { from: [3, 2], to: [5, 2], kind: 'attack' },
+            { from: [2, 2], to: [4, 2], kind: 'attack' },
+            { from: [3, 2], to: [4, 2], kind: 'attack' },
           ]
         );
         break;
@@ -8119,13 +8131,13 @@ function unitColors(side) {
           [
             { side: 'blue', type: 'cav', c: 1, r: 3, mc: 4, mr: 2 },
             { side: 'blue', type: 'cav', c: 2, r: 3, mc: 5, mr: 1 },
-            { side: 'red', type: 'inf', c: 6, r: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
             { side: 'red', type: 'inf', c: 6, r: 1 },
           ],
           [
             { from: [1, 3], to: [4, 2], kind: 'move' },
             { from: [2, 3], to: [5, 1], kind: 'move' },
-            { from: [4, 2], to: [6, 2], kind: 'attack' },
+            { from: [4, 2], to: [5, 2], kind: 'attack' },
             { from: [5, 1], to: [6, 1], kind: 'attack' },
           ],
           5
@@ -8138,13 +8150,11 @@ function unitColors(side) {
             { side: 'blue', type: 'inf', c: 1, r: 4, mc: 2, mr: 3 },
             { side: 'blue', type: 'inf', c: 2, r: 4, mc: 3, mr: 3 },
             { side: 'blue', type: 'skr', c: 3, r: 4, mc: 4, mr: 3 },
-            { side: 'blue', type: 'cav', c: 4, r: 4, mc: 5, mr: 3 },
           ],
           [
             { from: [1, 4], to: [2, 3], kind: 'move' },
             { from: [2, 4], to: [3, 3], kind: 'move' },
             { from: [3, 4], to: [4, 3], kind: 'move' },
-            { from: [4, 4], to: [5, 3], kind: 'move' },
           ],
           5,
           9
@@ -8158,13 +8168,13 @@ function unitColors(side) {
             { side: 'blue', type: 'inf', c: 3, r: 2 },
             { side: 'blue', type: 'inf', c: 4, r: 1 },
             { side: 'blue', type: 'cav', c: 4, r: 3 },
-            { side: 'red', type: 'inf', c: 6, r: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
           ],
           [
             { from: [2, 2], to: [3, 2], kind: 'command' },
             { from: [2, 2], to: [4, 1], kind: 'command' },
             { from: [2, 2], to: [4, 3], kind: 'command' },
-            { from: [4, 1], to: [6, 2], kind: 'attack' },
+            { from: [4, 1], to: [5, 2], kind: 'attack' },
           ],
           5,
           9
@@ -8193,12 +8203,12 @@ function unitColors(side) {
           [
             { side: 'blue', type: 'inf', c: 2, r: 2 },
             { side: 'blue', type: 'cav', c: 3, r: 2 },
-            { side: 'red', type: 'inf', c: 5, r: 2 },
-            { side: 'red', type: 'inf', c: 5, r: 1 },
+            { side: 'red', type: 'inf', c: 4, r: 2 },
+            { side: 'red', type: 'inf', c: 4, r: 1 },
           ],
           [
-            { from: [2, 2], to: [5, 2], kind: 'attack' },
-            { from: [3, 2], to: [5, 1], kind: 'attack' },
+            { from: [2, 2], to: [4, 2], kind: 'attack' },
+            { from: [3, 2], to: [4, 1], kind: 'attack' },
           ]
         );
         break;
@@ -8272,24 +8282,70 @@ function unitColors(side) {
   }
 
 
-  function drawDoctrinePreviewCanvas(timeSec = 0) {
+    function drawDoctrinePreviewCanvas(timeSec = 0) {
     if (!elDoctrinePreviewCanvas) return;
-    const ctx = elDoctrinePreviewCanvas.getContext('2d');
-    if (!ctx) return;
+    const pctx = elDoctrinePreviewCanvas.getContext('2d');
+    if (!pctx) return;
+
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const cssW = Math.max(320, Math.round(elDoctrinePreviewCanvas.clientWidth || 520));
+    const cssH = Math.max(180, Math.round(elDoctrinePreviewCanvas.clientHeight || 180));
+    const pxW = Math.max(2, Math.round(cssW * dpr));
+    const pxH = Math.max(2, Math.round(cssH * dpr));
+    if (elDoctrinePreviewCanvas.width !== pxW || elDoctrinePreviewCanvas.height !== pxH) {
+      elDoctrinePreviewCanvas.width = pxW;
+      elDoctrinePreviewCanvas.height = pxH;
+    }
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
     const cmd = COMMAND_BY_ID.get(state.doctrine.builder.focusCommandId || '');
-    const scene = doctrinePreviewScene(cmd?.id || '');
-    const w = elDoctrinePreviewCanvas.width;
-    const h = elDoctrinePreviewCanvas.height;
-    const cols = Math.max(3, scene.cols || 8);
-    const rows = Math.max(2, scene.rows || 4);
-    const padX = 28;
-    const padY = 24;
-    const usableW = Math.max(100, w - padX * 2);
-    const usableH = Math.max(80, h - padY * 2);
-    const stepX = usableW / Math.max(1, cols - 1);
+    const scene = doctrinePreviewScene(cmd ? cmd.id : '');
+    const w = cssW;
+    const h = cssH;
+    const cols = Math.max(6, scene.cols || 8);
+    const rows = Math.max(4, scene.rows || 4);
+
+    const padX = Math.max(20, Math.round(w * 0.045));
+    const padY = Math.max(16, Math.round(h * 0.08));
+    const usableW = Math.max(120, w - (padX * 2));
+    const usableH = Math.max(90, h - (padY * 2));
+    const stepX = usableW / Math.max(1, (cols - 1) + 0.5);
     const stepY = usableH / Math.max(1, rows - 1);
-    const hexR = Math.max(8, Math.min(16, Math.floor(stepX * 0.28)));
-    const pulse = (Math.sin(timeSec * 2.1) + 1) * 0.5;
+    const hexR = Math.max(10, Math.min(22, Math.floor(Math.min(stepX / 1.78, stepY / 1.35))));
+
+    const offsetToAxial = (c, r) => ({ q: c - ((r - (r & 1)) / 2), r });
+    const axialToOffset = (q, r) => ({ c: q + ((r - (r & 1)) / 2), r });
+    const axialToCube = (a) => ({ x: a.q, z: a.r, y: -a.q - a.r });
+    const cubeToAxial = (c) => ({ q: c.x, r: c.z });
+    const cubeRound = (c) => {
+      let rx = Math.round(c.x);
+      let ry = Math.round(c.y);
+      let rz = Math.round(c.z);
+      const xDiff = Math.abs(rx - c.x);
+      const yDiff = Math.abs(ry - c.y);
+      const zDiff = Math.abs(rz - c.z);
+      if (xDiff > yDiff && xDiff > zDiff) rx = -ry - rz;
+      else if (yDiff > zDiff) ry = -rx - rz;
+      else rz = -rx - ry;
+      return { x: rx, y: ry, z: rz };
+    };
+    const hexLineOffset = (c1, r1, c2, r2) => {
+      const a = axialToCube(offsetToAxial(c1, r1));
+      const b = axialToCube(offsetToAxial(c2, r2));
+      const n = Math.max(1, Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.z - b.z)));
+      const out = [];
+      for (let i = 0; i <= n; i++) {
+        const t = i / n;
+        const c = cubeRound({
+          x: a.x + ((b.x - a.x) * t),
+          y: a.y + ((b.y - a.y) * t),
+          z: a.z + ((b.z - a.z) * t),
+        });
+        const off = axialToOffset(cubeToAxial(c).q, cubeToAxial(c).r);
+        if (!out.length || out[out.length - 1].c !== off.c || out[out.length - 1].r !== off.r) out.push(off);
+      }
+      return out;
+    };
 
     const toXY = (c, r) => {
       const x = padX + (c * stepX) + ((r % 2) ? (stepX * 0.5) : 0);
@@ -8297,109 +8353,342 @@ function unitColors(side) {
       return { x, y };
     };
 
-    const drawMiniHex = (x, y, r, stroke = 'rgba(255,255,255,0.14)') => {
-      ctx.beginPath();
+    const buildHexPath = (x, y, r) => {
+      const p = new Path2D();
       for (let i = 0; i < 6; i++) {
         const a = ((Math.PI / 180) * (60 * i - 30));
         const px = x + Math.cos(a) * r;
         const py = y + Math.sin(a) * r;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
+        if (i === 0) p.moveTo(px, py);
+        else p.lineTo(px, py);
       }
-      ctx.closePath();
-      ctx.strokeStyle = stroke;
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      p.closePath();
+      return p;
     };
 
-    ctx.clearRect(0, 0, w, h);
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, 'rgba(22,25,36,0.96)');
-    grad.addColorStop(1, 'rgba(13,15,22,0.96)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
+    const drawRunnerGlyphPreview = (x, y, size) => {
+      const halfW = size * 0.42;
+      const gap = size * 0.19;
+      const y0 = y - gap;
+      pctx.save();
+      pctx.strokeStyle = '#ffffff';
+      pctx.lineWidth = Math.max(1.8, size * 0.12);
+      pctx.lineCap = 'round';
+      pctx.beginPath();
+      pctx.moveTo(x - halfW, y0);
+      pctx.lineTo(x + halfW, y0);
+      pctx.moveTo(x - halfW, y0 + gap);
+      pctx.lineTo(x + halfW, y0 + gap);
+      pctx.moveTo(x - halfW, y0 + (gap * 2));
+      pctx.lineTo(x + halfW, y0 + (gap * 2));
+      pctx.stroke();
+      pctx.restore();
+    };
 
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const p = toXY(c, r);
-        drawMiniHex(p.x, p.y, hexR, 'rgba(255,255,255,0.11)');
+    const drawQualityRingPreview = (x, y, tokenR, quality) => {
+      const ringR = tokenR;
+      const ringW = Math.max(3, tokenR * 0.34);
+      const frameW = Math.max(1.4, ringW * 0.40);
+      const frameOffset = (ringW * 0.5) - (frameW * 0.5);
+
+      pctx.beginPath();
+      pctx.arc(x, y, ringR + frameOffset, 0, Math.PI * 2);
+      pctx.lineWidth = frameW;
+      pctx.strokeStyle = 'rgba(8, 10, 14, 0.95)';
+      pctx.stroke();
+
+      const qc = qualityRingColor(quality);
+      pctx.beginPath();
+      pctx.arc(x, y, ringR, 0, Math.PI * 2);
+      pctx.lineWidth = ringW;
+      pctx.strokeStyle = qc;
+      pctx.shadowColor = qc;
+      pctx.shadowBlur = Math.max(2, Math.round(tokenR * 0.18));
+      pctx.stroke();
+      pctx.shadowBlur = 0;
+
+      pctx.beginPath();
+      pctx.arc(x, y, ringR - frameOffset, 0, Math.PI * 2);
+      pctx.lineWidth = frameW;
+      pctx.strokeStyle = 'rgba(8, 10, 14, 0.95)';
+      pctx.stroke();
+    };
+
+    const drawTokenPreview = (tok, pt) => {
+      const side = tok.side === 'red' ? 'red' : 'blue';
+      const c = unitColors(side);
+      const tokenR = hexR * 0.55;
+      const discR = tokenR * 0.92;
+      const quality = tok.quality || 'regular';
+      const hp = Number.isFinite(tok.hp) ? tok.hp : unitMaxHp(tok.type, quality);
+      const hpMax = unitMaxHp(tok.type, quality);
+
+      pctx.save();
+      pctx.beginPath();
+      pctx.arc(pt.x, pt.y, discR, 0, Math.PI * 2);
+      pctx.fillStyle = c.fill;
+      pctx.fill();
+      pctx.lineWidth = Math.max(1.2, Math.round(hexR * 0.09));
+      pctx.strokeStyle = 'rgba(8,10,14,0.95)';
+      pctx.stroke();
+
+      drawQualityRingPreview(pt.x, pt.y, tokenR, quality);
+
+      const canIcon = (tok.type !== 'gen') && unitIconReady && unitIconReady(tok.type);
+      if (tok.type === 'run') {
+        drawRunnerGlyphPreview(pt.x, pt.y, hexR * 0.86);
+      } else if (canIcon) {
+        const img = UNIT_ICONS && UNIT_ICONS[tok.type];
+        if (img) {
+          const tune = (UNIT_ICON_TUNE && UNIT_ICON_TUNE[tok.type]) ? UNIT_ICON_TUNE[tok.type] : { scale: 0.95, y: 0 };
+          const s = Math.floor((hexR * 0.98) * (tune.scale || 0.95));
+          const yOff = Math.floor(hexR * (tune.y || 0));
+          const rot = (typeof tune.rot === 'number') ? tune.rot : 0;
+          if (rot) {
+            pctx.save();
+            pctx.translate(Math.floor(pt.x), Math.floor(pt.y + yOff));
+            pctx.rotate(rot);
+            pctx.drawImage(img, Math.floor(-s / 2), Math.floor(-s / 2), s, s);
+            pctx.restore();
+          } else {
+            pctx.drawImage(img, Math.floor(pt.x - s / 2), Math.floor(pt.y - s / 2 + yOff), s, s);
+          }
+        }
+      } else {
+        const def = UNIT_BY_ID.get(tok.type);
+        const symbol = def ? def.symbol : String(tok.type || '?').toUpperCase();
+        pctx.font = '700 ' + Math.max(10, Math.floor(hexR * 0.58)) + 'px "Source Sans 3", sans-serif';
+        pctx.textAlign = 'center';
+        pctx.textBaseline = 'middle';
+        pctx.fillStyle = c.text;
+        pctx.fillText(symbol, pt.x, pt.y + 1);
       }
+
+      const pipR = Math.max(1.8, Math.floor(hexR * 0.09));
+      const startX = pt.x - (pipR * 2) * (hpMax - 1) * 0.5;
+      const y = pt.y + (hexR * 0.82);
+      for (let i = 0; i < hpMax; i++) {
+        pctx.beginPath();
+        pctx.arc(startX + (i * (pipR * 2)), y, pipR, 0, Math.PI * 2);
+        pctx.fillStyle = (i < hp) ? '#fff' : 'rgba(255,255,255,0.28)';
+        pctx.fill();
+      }
+      pctx.restore();
+    };
+
+    const easeInOut = (v) => {
+      const t = Math.max(0, Math.min(1, v));
+      return (t < 0.5) ? (2 * t * t) : (1 - (Math.pow(-2 * t + 2, 2) / 2));
+    };
+
+    const tokenEntries = (scene.tokens || []).map((tok, idx) => {
+      let path = [];
+      if (Array.isArray(tok.path) && tok.path.length > 0) {
+        path = tok.path
+          .filter((p) => Array.isArray(p) && p.length >= 2)
+          .map((p) => ({ c: Number(p[0]), r: Number(p[1]) }))
+          .filter((p) => Number.isFinite(p.c) && Number.isFinite(p.r));
+      }
+      if (!path.length && Number.isFinite(tok.c) && Number.isFinite(tok.r)) {
+        path.push({ c: tok.c, r: tok.r });
+      }
+      if (Number.isFinite(tok.mc) && Number.isFinite(tok.mr) && path.length) {
+        const last = path[path.length - 1];
+        const line = hexLineOffset(last.c, last.r, tok.mc, tok.mr);
+        for (let i = 1; i < line.length; i++) path.push(line[i]);
+      }
+      if (!path.length) path = [{ c: 0, r: 0 }];
+      return {
+        ...tok,
+        __path: path,
+        __phase: Number.isFinite(tok.phase) ? tok.phase : (idx * 0.17),
+      };
+    });
+
+    const tokenPose = (entry, tSec) => {
+      const pts = entry.__path.map((p) => toXY(p.c, p.r));
+      if (pts.length <= 1) return pts[0];
+      const segDur = Number.isFinite(entry.segDur) ? entry.segDur : 0.68;
+      const holdDur = Number.isFinite(entry.holdDur) ? entry.holdDur : 0.22;
+      const segs = pts.length - 1;
+      const cycle = Math.max(0.1, segs * (segDur + holdDur));
+      let t = (tSec + entry.__phase) % cycle;
+      for (let i = 0; i < segs; i++) {
+        if (t <= segDur) {
+          const e = easeInOut(t / segDur);
+          return {
+            x: pts[i].x + ((pts[i + 1].x - pts[i].x) * e),
+            y: pts[i].y + ((pts[i + 1].y - pts[i].y) * e),
+          };
+        }
+        t -= segDur;
+        if (t <= holdDur) return pts[i + 1];
+        t -= holdDur;
+      }
+      return pts[pts.length - 1];
+    };
+
+    const pulse = (Math.sin(timeSec * 2.1) + 1) * 0.5;
+
+    pctx.clearRect(0, 0, w, h);
+    const grad = pctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(20,23,33,0.96)');
+    grad.addColorStop(1, 'rgba(12,14,21,0.97)');
+    pctx.fillStyle = grad;
+    pctx.fillRect(0, 0, w, h);
+
+    const boardCells = [];
+    const rowMid = (rows - 1) / 2;
+    for (let r = 0; r < rows; r++) {
+      const trim = Math.floor(Math.abs(r - rowMid) * 0.8);
+      const start = Math.max(0, trim);
+      const end = Math.min(cols - 1, (cols - 1) - trim);
+      for (let c = start; c <= end; c++) boardCells.push({ c, r });
+    }
+
+    const terrainMap = new Map();
+    for (const t of (scene.terrain || [])) {
+      if (!t) continue;
+      const key = String(t.c) + ',' + String(t.r);
+      terrainMap.set(key, t.t || 'clear');
+    }
+
+    for (const cell of boardCells) {
+      const p = toXY(cell.c, cell.r);
+      const path = buildHexPath(p.x, p.y, hexR);
+      pctx.fillStyle = '#d7d2bb';
+      pctx.fill(path);
+      const tt = terrainMap.get(cell.c + ',' + cell.r);
+      if (tt === 'woods') {
+        pctx.fillStyle = 'rgba(71, 142, 84, 0.24)';
+        pctx.fill(path);
+      } else if (tt === 'hills') {
+        pctx.fillStyle = 'rgba(184, 137, 66, 0.24)';
+        pctx.fill(path);
+      } else if (tt === 'rough') {
+        pctx.fillStyle = 'rgba(118, 95, 79, 0.22)';
+        pctx.fill(path);
+      } else if (tt === 'water') {
+        pctx.fillStyle = 'rgba(52, 111, 187, 0.28)';
+        pctx.fill(path);
+      }
+      pctx.strokeStyle = 'rgba(0,0,0,0.34)';
+      pctx.lineWidth = 1.2;
+      pctx.stroke(path);
+    }
+
+    for (const entry of tokenEntries) {
+      if (!entry.__path || entry.__path.length <= 1) continue;
+      pctx.save();
+      pctx.strokeStyle = entry.side === 'red' ? 'rgba(255, 140, 140, 0.58)' : 'rgba(126, 203, 255, 0.58)';
+      pctx.lineWidth = 1.8;
+      pctx.setLineDash([4, 5]);
+      pctx.beginPath();
+      entry.__path.forEach((step, i) => {
+        const pt = toXY(step.c, step.r);
+        if (i === 0) pctx.moveTo(pt.x, pt.y);
+        else pctx.lineTo(pt.x, pt.y);
+      });
+      pctx.stroke();
+      pctx.setLineDash([]);
+      pctx.restore();
     }
 
     const arrowColor = (kind) => {
-      if (kind === 'attack') return `rgba(231, 96, 96, ${0.45 + (pulse * 0.4)})`;
-      if (kind === 'ranged') return `rgba(244, 201, 96, ${0.45 + (pulse * 0.4)})`;
-      if (kind === 'command') return `rgba(178, 145, 255, ${0.45 + (pulse * 0.4)})`;
-      if (kind === 'hold') return `rgba(112, 213, 171, ${0.45 + (pulse * 0.4)})`;
-      return `rgba(110, 186, 255, ${0.45 + (pulse * 0.4)})`;
-    };
-    const drawArrow = (from, to, kind = 'move') => {
-      const a = toXY(from[0], from[1]);
-      const b = toXY(to[0], to[1]);
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const len = Math.max(1, Math.hypot(dx, dy));
-      const ux = dx / len;
-      const uy = dy / len;
-      const sx = a.x + (ux * (hexR + 4));
-      const sy = a.y + (uy * (hexR + 4));
-      const ex = b.x - (ux * (hexR + 6));
-      const ey = b.y - (uy * (hexR + 6));
-      const color = arrowColor(kind);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = kind === 'attack' ? 3 : 2.2;
-      ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      ctx.lineTo(ex, ey);
-      ctx.stroke();
-      const hx = ex - (ux * 8);
-      const hy = ey - (uy * 8);
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(ex, ey);
-      ctx.lineTo(hx - (uy * 5), hy + (ux * 5));
-      ctx.lineTo(hx + (uy * 5), hy - (ux * 5));
-      ctx.closePath();
-      ctx.fill();
+      if (kind === 'attack') return 'rgba(232, 96, 96,' + (0.48 + (pulse * 0.38)).toFixed(3) + ')';
+      if (kind === 'ranged') return 'rgba(245, 205, 110,' + (0.46 + (pulse * 0.35)).toFixed(3) + ')';
+      if (kind === 'command') return 'rgba(184, 148, 255,' + (0.46 + (pulse * 0.35)).toFixed(3) + ')';
+      if (kind === 'hold') return 'rgba(116, 218, 171,' + (0.46 + (pulse * 0.35)).toFixed(3) + ')';
+      return 'rgba(126, 203, 255,' + (0.46 + (pulse * 0.35)).toFixed(3) + ')';
     };
 
-    for (const arrow of (scene.arrows || [])) {
-      drawArrow(arrow.from, arrow.to, arrow.kind);
-    }
+    const drawEffect = (effect) => {
+      if (!effect || !effect.from || !effect.to) return;
+      if (effect.kind === 'move') return;
+      const a = toXY(effect.from[0], effect.from[1]);
+      const b = toXY(effect.to[0], effect.to[1]);
+      const color = arrowColor(effect.kind);
 
-    const typeLabel = (type) => (UNIT_BY_ID.get(type)?.abbrev || String(type || '').toUpperCase()).toUpperCase();
-    for (const tok of (scene.tokens || [])) {
-      const start = toXY(tok.c, tok.r);
-      const end = (Number.isFinite(tok.mc) && Number.isFinite(tok.mr)) ? toXY(tok.mc, tok.mr) : null;
-      const shift = end ? pulse : 0;
-      const x = end ? (start.x + ((end.x - start.x) * shift)) : start.x;
-      const y = end ? (start.y + ((end.y - start.y) * shift)) : start.y;
-      const ring = tok.side === 'blue' ? '#6eb6ff' : '#ef7d7d';
-      const fill = tok.side === 'blue' ? '#1d4e9b' : '#8a2020';
-      ctx.beginPath();
-      ctx.arc(x, y, hexR * 0.72, 0, Math.PI * 2);
-      ctx.fillStyle = fill;
-      ctx.fill();
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = ring;
-      ctx.stroke();
-      ctx.fillStyle = '#f2f5ff';
-      ctx.font = `700 ${Math.max(9, Math.round(hexR * 0.72))}px "Source Sans 3", sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(typeLabel(tok.type), x, y + 0.5);
+      if (effect.from[0] === effect.to[0] && effect.from[1] === effect.to[1]) {
+        pctx.save();
+        pctx.strokeStyle = color;
+        pctx.lineWidth = 2.3;
+        pctx.beginPath();
+        pctx.arc(a.x, a.y, Math.max(8, hexR * (0.58 + (pulse * 0.28))), 0, Math.PI * 2);
+        pctx.stroke();
+        pctx.restore();
+        return;
+      }
+
+      pctx.save();
+      pctx.strokeStyle = color;
+      pctx.lineWidth = effect.kind === 'attack' ? 2.8 : 2.2;
+
+      if (effect.kind === 'ranged') {
+        const midX = (a.x + b.x) * 0.5;
+        const arcLift = Math.max(hexR * 0.8, Math.abs(a.x - b.x) * 0.15);
+        const midY = Math.min(a.y, b.y) - arcLift;
+        pctx.setLineDash([7, 5]);
+        pctx.beginPath();
+        pctx.moveTo(a.x, a.y);
+        pctx.quadraticCurveTo(midX, midY, b.x, b.y);
+        pctx.stroke();
+        pctx.setLineDash([]);
+        const t = pulse;
+        const u = 1 - t;
+        const px = (u * u * a.x) + (2 * u * t * midX) + (t * t * b.x);
+        const py = (u * u * a.y) + (2 * u * t * midY) + (t * t * b.y);
+        pctx.beginPath();
+        pctx.arc(px, py, Math.max(2.2, hexR * 0.15), 0, Math.PI * 2);
+        pctx.fillStyle = color;
+        pctx.fill();
+      } else {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.max(1, Math.hypot(dx, dy));
+        const ux = dx / len;
+        const uy = dy / len;
+        const sx = a.x + (ux * (hexR + 4));
+        const sy = a.y + (uy * (hexR + 4));
+        const ex = b.x - (ux * (hexR + 6));
+        const ey = b.y - (uy * (hexR + 6));
+        if (effect.kind === 'command' || effect.kind === 'hold') pctx.setLineDash([3, 4]);
+        pctx.beginPath();
+        pctx.moveTo(sx, sy);
+        pctx.lineTo(ex, ey);
+        pctx.stroke();
+        pctx.setLineDash([]);
+        const hx = ex - (ux * 8);
+        const hy = ey - (uy * 8);
+        pctx.beginPath();
+        pctx.moveTo(ex, ey);
+        pctx.lineTo(hx - (uy * 5), hy + (ux * 5));
+        pctx.lineTo(hx + (uy * 5), hy - (ux * 5));
+        pctx.closePath();
+        pctx.fillStyle = color;
+        pctx.fill();
+      }
+
+      pctx.restore();
+    };
+
+    for (const effect of (scene.arrows || [])) drawEffect(effect);
+
+    for (const entry of tokenEntries) {
+      const pos = tokenPose(entry, timeSec);
+      drawTokenPreview(entry, pos);
     }
 
     if (elDoctrinePreviewCaption) {
       const head = cmd
-        ? `${cmd.name}: ${commandLaymanText(cmd)}`
-        : 'Select a directive to preview its intended movement/combat pattern.';
-      const tail = scene.caption ? ` ${scene.caption}` : '';
-      elDoctrinePreviewCaption.textContent = `${head}${tail}`;
+        ? (cmd.name + ': ' + commandLaymanText(cmd))
+        : 'Select a directive to preview its movement and combat pattern.';
+      const tail = scene.caption ? (' ' + scene.caption) : '';
+      elDoctrinePreviewCaption.textContent = head + tail;
     }
   }
 
-  function stopDoctrinePreviewLoop() {
+function stopDoctrinePreviewLoop() {
     if (doctrinePreviewRaf) {
       cancelAnimationFrame(doctrinePreviewRaf);
       doctrinePreviewRaf = 0;
@@ -17171,12 +17460,20 @@ function unitColors(side) {
     loadScenario(RANDOM_START_SCENARIO_NAME);
     enterEdit();
     setIntroTutorialOpen(false);
-    setIntroOverlayOpen(true);
+
+    if (ORDER_ATLAS_MODE) {
+      setIntroOverlayOpen(false);
+      openDoctrineBuilder('blue');
+    } else {
+      setIntroOverlayOpen(true);
+    }
 
     const biasLabel = (randomScenario.advantageSide === 'none')
       ? 'balanced'
       : `${randomScenario.advantageSide} flank bias`;
-    const bootModeLabel = 'Intro menu ready: choose Play Now, Game Setup, or Tutorial.';
+    const bootModeLabel = ORDER_ATLAS_MODE
+      ? 'Orders Atlas mode ready: War Council opens directly for directive preview review.'
+      : 'Intro menu ready: choose Play Now, Game Setup, or Tutorial.';
 
     log(
       `Booted ${GAME_NAME}. Randomized startup loaded ` +
