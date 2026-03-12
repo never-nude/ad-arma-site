@@ -169,6 +169,9 @@ export const museumPieces = {
     model: {
       primaryUrl: "./ludovisi_gaul_source_small.stl",
       fallbackUrl: "./ludovisi_gaul_source_small.stl"
+    },
+    scene: {
+      rotateX: 0
     }
   },
   "laocoon": {
