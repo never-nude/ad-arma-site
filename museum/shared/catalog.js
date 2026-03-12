@@ -94,6 +94,32 @@ export const museumPieces = {
       sourceBytes: 66185275
     }
   },
+  "venus-de-milo": {
+    kind: "stl",
+    path: "/venus-de-milo/",
+    sectionId: "antiquity",
+    sortOrder: 25,
+    viewerTitle: "Venus de Milo (late 2nd century BCE)",
+    subtitle: "Traditional attribution: Alexandros of Antioch (debated)",
+    lobbyMeta: "Source: SMK Open plaster-cast scan (KAS434)",
+    source: source(
+      "Rendered from SMK's public-domain plaster-cast scan of the Louvre's Venus de Milo.",
+      [
+        link("SMK API", "https://api.smk.dk/api/v1/art?object_number=KAS434"),
+        link("SMK Open record", "https://open.smk.dk/artwork/image/KAS434"),
+        link("Full STL", "https://api.smk.dk/api/v1/download-3d/w0892g669_smk-venus-de-milo.stl"),
+        link("Optimized STL", "https://api.smk.dk/api/v1/download-3d/h128nk52f_KAS434_small.stl")
+      ],
+      "Artist attribution follows the traditional Alexandros identification and remains debated."
+    ),
+    defaults: {
+      zoom: 3.35
+    },
+    model: {
+      primaryUrl: "./venus_de_milo_source_small.stl",
+      fallbackUrl: "./venus_de_milo_source_small.stl"
+    }
+  },
   "dying-gaul": {
     kind: "stl",
     path: "/dying-gaul/",
@@ -117,6 +143,32 @@ export const museumPieces = {
     },
     view: {
       fallbackLoadingText: "Loading STL sculpture..."
+    }
+  },
+  "ludovisi-gaul": {
+    kind: "stl",
+    path: "/ludovisi-gaul/",
+    sectionId: "antiquity",
+    sortOrder: 35,
+    viewerTitle: "Ludovisi Gaul (Roman copy after a Hellenistic original, c. 225 BCE)",
+    subtitle: "Artist: Unknown Roman workshop after a Hellenistic original",
+    lobbyMeta: "Source: SMK Open plaster-cast scan (KAS66)",
+    source: source(
+      "Rendered from SMK's public-domain plaster-cast scan of the Ludovisi Gaul group, catalogued by SMK as 'Galler draber sin hustru og sig selv, Paetus og Arria'.",
+      [
+        link("SMK API", "https://api.smk.dk/api/v1/art?object_number=KAS66"),
+        link("SMK Open record", "https://open.smk.dk/artwork/image/KAS66"),
+        link("Full STL", "https://api.smk.dk/api/v1/download-3d/dn39x612z_105-kas66.stl"),
+        link("Optimized STL", "https://api.smk.dk/api/v1/download-3d/d217qv67s_KAS66_small.stl")
+      ],
+      "The Ludovisi Gaul title is the modern identification; SMK's historical cast record also preserves the older Paetus and Arria naming."
+    ),
+    defaults: {
+      zoom: 3.75
+    },
+    model: {
+      primaryUrl: "./ludovisi_gaul_source_small.stl",
+      fallbackUrl: "./ludovisi_gaul_source_small.stl"
     }
   },
   "laocoon": {

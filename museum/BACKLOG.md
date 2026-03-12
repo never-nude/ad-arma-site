@@ -21,7 +21,9 @@ Long-range sculpture backlog for the ad-arma museum.
 
 - `36` Great Sphinx of Giza: `live`
 - `310` Charioteer of Delphi: `hidden`
+- `324` Venus de Milo: `live`
 - `325` Dying Gaul: `live`
+- `326` Ludovisi Gaul: `live`
 - `327` Laocoön and His Sons: `live`
 - `342` Augustus of Prima Porta: `live`
 - `395` Donatello Saint George: `hidden`
