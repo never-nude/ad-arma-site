@@ -13203,12 +13203,11 @@ function stopDoctrinePreviewLoop() {
         id: 'inf_move',
         title: 'Infantry Movement & Formation',
         text:
-          'Infantry move one hex and work best in connected ranks. Here you can see a two-unit front row with a three-unit support row behind it.',
-        focusKeys: [...blueInfBlock, ...redInfBlock],
-        destinationKeys: [bInfTo, rInfTo].filter(Boolean),
+          'Infantry move one hex and work best in connected ranks. In this drill, move the FRONT-LEFT Blue infantry (top line) to the marked destination.',
+        focusKeys: [...blueInfBlock],
+        destinationKeys: [bInfTo].filter(Boolean),
         paths: [
           { fromKey: k.blueInfFrontL, toKey: bInfTo, kind: 'move' },
-          { fromKey: k.redInfFrontR, toKey: rInfTo, kind: 'move' },
         ].filter((p) => p.toKey),
         unitProfile: {
           move: 'Move: 1 hex per activation. Entering woods, hills, or rough can slow momentum.',
@@ -13220,7 +13219,7 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'move',
-          text: 'Click the highlighted Blue infantry, then click the highlighted destination hex.',
+          text: 'Click the FRONT-LEFT highlighted Blue infantry, then click the highlighted destination hex.',
           sourceKeys: [k.blueInfFrontL],
           destinationKeys: [bInfTo].filter(Boolean),
         },
@@ -13229,11 +13228,11 @@ function stopDoctrinePreviewLoop() {
         id: 'inf_reinforce',
         title: 'Reinforced Infantry (Brace)',
         text:
-          'When linked infantry support a front unit from the proper rear arcs, the defender is reinforced and melee attackers lose a die.',
-        focusKeys: [...blueInfBlock, ...redInfBlock],
+          'Now inspect reinforcement on the SAME FRONT-LEFT Blue infantry from the prior step. No movement in this step: this is a brace/position check.',
+        focusKeys: [...blueInfBlock],
         selectedKey: k.blueInfFrontL,
         learn: [
-          'During this step, the cyan overlay marks front infantry and their linked support units.',
+          'During this step, cyan marks the front infantry and linked support infantry behind it.',
           'Brace is infantry-only and depends on adjacent geometry.',
         ],
         unitProfile: {
@@ -13246,7 +13245,7 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'select',
-          text: 'Click the selected Blue front infantry again to inspect reinforcement in Modifiers.',
+          text: 'Click the same FRONT-LEFT Blue infantry again (highlighted in cyan).',
           targetKeys: [k.blueInfFrontL],
         },
       },
@@ -13700,6 +13699,11 @@ function stopDoctrinePreviewLoop() {
         status = task.progress?.moved
           ? 'Pending: movement done. Now attack a highlighted enemy target.'
           : 'Pending: move the highlighted unit first, then attack the highlighted enemy.';
+      } else if (task.type === 'select') {
+        const count = Number(task.targetKeys?.length || 0);
+        status = count <= 1
+          ? 'Pending: click the highlighted unit.'
+          : `Pending: click a highlighted target (${count} available).`;
       } else {
         status = `Pending: ${task.targetKeys?.length ? `${task.targetKeys.length} target${task.targetKeys.length === 1 ? '' : 's'} highlighted.` : 'follow prompt.'}`;
       }
