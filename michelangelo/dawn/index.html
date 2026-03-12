@@ -233,6 +233,7 @@
       const HAS_DISTINCT_FALLBACK = MODEL_URL_FALLBACK !== MODEL_URL_PRIMARY;
       const PRIMARY_TIMEOUT_MS = 45000;
       const FALLBACK_TIMEOUT_MS = 30000;
+      const DEFAULT_MODEL_YAW = Math.PI * 0.5;
       let modelUrlInUse = MODEL_URL_PRIMARY;
 
       const stage = document.getElementById("stage");
@@ -457,6 +458,7 @@
           const targetHeight = 1.58;
           const scale = targetHeight / size.y;
           sculpture.scale.setScalar(scale);
+          sculpture.rotation.y = DEFAULT_MODEL_YAW;
           sculpture.position.y = pedestalHeight;
           sculpture.castShadow = true;
           sculpture.receiveShadow = true;
@@ -539,6 +541,9 @@
         const resetBtn = document.getElementById("resetBtn");
         resetBtn.addEventListener("click", () => {
           setDefaults();
+          if (sculpture) {
+            sculpture.rotation.y = DEFAULT_MODEL_YAW;
+          }
           applyDefaultView();
           updateLight();
           updateLook();
