@@ -899,6 +899,22 @@ body[data-mode="play"] #side{
   flex:1;
 }
 
+.doctrineModalBody{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:0 10px 8px;
+  flex:1;
+  min-height:0;
+}
+
+.doctrineModalAside{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-height:0;
+}
+
 .doctrineCostCol{
   border:1px solid var(--line);
   border-radius:10px;
@@ -1188,67 +1204,51 @@ body[data-mode="play"] #side{
 }
 
 #doctrineOverlay.play-lock .rulesSideCard.doctrineCard{
-  width:min(98vw, 1960px);
+  width:min(99vw, 2100px);
   height:min(96vh, 1280px);
+}
+
+#doctrineOverlay.play-lock .doctrineModalBody{
   display:grid;
-  grid-template-columns:minmax(360px, 0.82fr) minmax(840px, 1.58fr);
-  grid-template-rows:auto auto auto auto minmax(0, auto) minmax(0, 1fr) auto;
-  grid-template-areas:
-    "head head"
-    "intro intro"
-    "controls controls"
-    "counts counts"
-    "explain columns"
-    "preview columns"
-    "footer footer";
+  grid-template-columns:minmax(420px, 0.95fr) minmax(980px, 1.55fr);
+  gap:16px;
+  padding:0 16px 12px;
+  min-height:0;
+  align-items:stretch;
 }
 
-#doctrineOverlay.play-lock .rulesSideHead{
-  grid-area:head;
-}
-
-#doctrineOverlay.play-lock .doctrineIntroNote{
-  grid-area:intro;
-}
-
-#doctrineOverlay.play-lock .rulesSideCard.doctrineCard > .row:first-of-type{
-  grid-area:controls;
-  margin:0 14px 0;
+#doctrineOverlay.play-lock .doctrineModalAside{
+  min-height:0;
 }
 
 #doctrineOverlay.play-lock #doctrineBuilderCounts{
-  grid-area:counts;
   margin:8px 14px 0;
 }
 
 #doctrineOverlay.play-lock #doctrineExplain{
-  grid-area:explain;
-  margin:10px 10px 8px 14px;
-  align-self:start;
+  margin:0;
 }
 
 #doctrineOverlay.play-lock #doctrinePreviewWrap{
-  grid-area:preview;
-  margin:0 10px 10px 14px;
+  margin:0;
   min-height:0;
   display:flex;
   flex-direction:column;
+  flex:1 1 auto;
 }
 
 #doctrineOverlay.play-lock #doctrinePreviewCanvas{
-  flex:1 1 auto;
-  min-height:280px;
-  height:100%;
+  height:clamp(240px, 34vh, 360px);
 }
 
 #doctrineOverlay.play-lock .doctrineBuilderGrid{
-  grid-area:columns;
+  grid-template-columns:repeat(3, minmax(260px, 1fr));
   gap:14px;
-  padding:10px 16px 12px 6px;
+  padding:0;
   min-height:0;
   height:100%;
-  align-self:stretch;
-  overflow:hidden;
+  overflow:visible;
+  align-content:stretch;
 }
 
 #doctrineOverlay.play-lock .doctrineCostCol{
@@ -1259,16 +1259,12 @@ body[data-mode="play"] #side{
 #doctrineOverlay.play-lock .doctrineBuilderListReadOnly{
   overflow:auto;
   min-height:0;
+  flex:1 1 auto;
   padding-right:4px;
 }
 
 #doctrineOverlay.play-lock .doctrinePickLocked{
-  min-height:86px;
-}
-
-#doctrineOverlay.play-lock .rulesSideCard.doctrineCard > .row:last-of-type{
-  grid-area:footer;
-  margin:0 14px 12px;
+  min-height:92px;
 }
 
 #doctrineOverlay .rulesSideHead{
