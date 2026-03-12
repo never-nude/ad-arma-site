@@ -427,7 +427,8 @@
             }
           }
 
-          // Night source mesh is already Y-up; keep native orientation so the base rests on the pedestal.
+          // Night source mesh is already Y-up. Apply a 90-degree roll so it sits upright on its base.
+          geometry.rotateZ(Math.PI * 0.5);
           const vertexCount = geometry.attributes.position?.count || 0;
           if (vertexCount < 1_800_000) {
             geometry = mergeVertices(geometry, 1e-4);
