@@ -9,6 +9,9 @@ Interactive 3D page for **Michelangelo: Moses** in the canon ad-arma UI format.
 - Local files:
   - `moses_source.stl` (2,000,090 triangles, ~95.4 MB)
   - `moses_source_small.stl` (400,060 triangles, ~19.1 MB)
+- Viewer behavior:
+  - keeps the existing upright post-load orientation fix
+  - starts from the local optimized STL first for reliability
 
 Published path:
 

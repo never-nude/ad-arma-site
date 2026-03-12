@@ -231,8 +231,9 @@
       const MODEL_URL_PRIMARY = "./moses_source.stl";
       const MODEL_URL_FALLBACK = "./moses_source_small.stl";
       const HAS_DISTINCT_FALLBACK = MODEL_URL_FALLBACK !== MODEL_URL_PRIMARY;
-      const PRIMARY_TIMEOUT_MS = 45000;
-      const FALLBACK_TIMEOUT_MS = 30000;
+      const PRIMARY_TIMEOUT_MS = 60000;
+      const FALLBACK_TIMEOUT_MS = 60000;
+      const PREFER_LOCAL_FALLBACK = true;
       let modelUrlInUse = MODEL_URL_PRIMARY;
 
       const stage = document.getElementById("stage");
@@ -306,6 +307,9 @@
       }
 
       function chooseInitialModelUrl() {
+        if (PREFER_LOCAL_FALLBACK && HAS_DISTINCT_FALLBACK) {
+          return MODEL_URL_FALLBACK;
+        }
         return window.matchMedia("(max-width: 820px)").matches && HAS_DISTINCT_FALLBACK
           ? MODEL_URL_FALLBACK
           : MODEL_URL_PRIMARY;
