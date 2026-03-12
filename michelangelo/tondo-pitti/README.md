@@ -14,3 +14,4 @@ Source mesh metadata:
 Notes:
 - Preserves the same UI/controls, lighting controls, and iPhone panel layout as the canon pages.
 - Source mesh is already upright in this viewer basis; no post-load rotation is applied (camera unchanged).
+- Starts from the local optimized STL on all devices for reliability; the remote full-resolution STL remains referenced as the source primary.
