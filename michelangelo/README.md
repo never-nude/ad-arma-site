@@ -20,19 +20,21 @@ Institution-sourced 3D model pages in chronological order.
    - /michelangelo/rebellious-slave/
 9. Michelangelo: Prisoner (c.1519)
    - /michelangelo/prisoner/
-10. Michelangelo: Dawn (1524-1531)
+10. Michelangelo: Medici Madonna (c.1521-1534)
+   - /michelangelo/medici-madonna/
+11. Michelangelo: Dawn (1524-1531)
    - /michelangelo/dawn/
-11. Michelangelo: Dusk (1524-1531)
+12. Michelangelo: Dusk (1524-1531)
    - /michelangelo/dusk/
-12. Michelangelo: Night (Notte) (1526-1531)
+13. Michelangelo: Night (Notte) (1526-1531)
    - /michelangelo/night/
-13. Michelangelo: Day (1526-1531)
+14. Michelangelo: Day (1526-1531)
    - /michelangelo/day/ (raw STL not currently available from SMK)
-14. Michelangelo: Giuliano, Duke of Nemours (1526-1534)
+15. Michelangelo: Giuliano, Duke of Nemours (1526-1534)
    - /michelangelo/giuliano-duke-of-nemours/
-15. Michelangelo: Lorenzo, Duke of Urbino (1526-1534)
+16. Michelangelo: Lorenzo, Duke of Urbino (1526-1534)
    - /michelangelo/lorenzo-duke-of-urbino/
-16. Michelangelo: Brutus (c.1540-1548)
+17. Michelangelo: Brutus (c.1540-1548)
    - /michelangelo/brutus/
-17. Michelangelo: Rondanini Pieta (c.1553-1564)
+18. Michelangelo: Rondanini Pieta (c.1553-1564)
    - /michelangelo/rondanini-pieta/
