@@ -427,8 +427,8 @@
             }
           }
 
-          // Brutus import basis is rolled onto its side; rotate +90deg around local Z to align bust up-axis with world +Y.
-          geometry.rotateZ(Math.PI * 0.5);
+          // Brutus source mesh uses Z-up basis; rotate -90deg about local X so the bust base rests flat and the head aligns with world +Y.
+          geometry.rotateX(-Math.PI * 0.5);
           const vertexCount = geometry.attributes.position?.count || 0;
           if (vertexCount < 1_800_000) {
             geometry = mergeVertices(geometry, 1e-4);
