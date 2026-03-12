@@ -30,3 +30,5 @@ Institution-sourced 3D model pages in chronological order.
    - /michelangelo/day/ (raw STL not currently available from SMK)
 14. Michelangelo: Giuliano, Duke of Nemours (1526-1534)
    - /michelangelo/giuliano-duke-of-nemours/
+15. Michelangelo: Lorenzo, Duke of Urbino (1526-1534)
+   - /michelangelo/lorenzo-duke-of-urbino/
