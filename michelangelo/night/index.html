@@ -428,8 +428,8 @@
             }
           }
 
-          // Night source mesh is Y-up but arrives side-resting; roll +90deg about local Z so the base lies flat on the floor.
-          geometry.rotateZ(Math.PI * 0.5);
+          // Night mesh import basis is Z-up. Rotate -90deg about local X to align support plane with world XZ ground.
+          geometry.rotateX(-Math.PI * 0.5);
           const vertexCount = geometry.attributes.position?.count || 0;
           if (vertexCount < 1_800_000) {
             geometry = mergeVertices(geometry, 1e-4);
