@@ -228,8 +228,9 @@
     </div>
 
     <script type="module">
-      const MODEL_URL_PRIMARY = "https://api.smk.dk/api/v1/download-3d/h415pg24h_smk-kas455-battle-of-the-centaurs.stl";
-      const MODEL_URL_FALLBACK = "https://api.smk.dk/api/v1/download-3d/fq9780358_KAS455_small.stl";
+      const MODEL_URL_PRIMARY = "./battle_of_the_centaurs_source.stl";
+      const MODEL_URL_FALLBACK = "./battle_of_the_centaurs_source.stl";
+      const HAS_DISTINCT_FALLBACK = MODEL_URL_FALLBACK !== MODEL_URL_PRIMARY;
       const PRIMARY_TIMEOUT_MS = 45000;
       const FALLBACK_TIMEOUT_MS = 30000;
       let modelUrlInUse = MODEL_URL_PRIMARY;
@@ -304,21 +305,8 @@
         }
       }
 
-      function chooseInitialModelUrl(isMobileRender) {
-        const dm = Number(navigator.deviceMemory || 0);
-        const cores = Number(navigator.hardwareConcurrency || 0);
-        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-        const effectiveType = conn && typeof conn.effectiveType === "string" ? conn.effectiveType : "";
-        const saveData = Boolean(conn && conn.saveData);
-
-        const constrained =
-          isMobileRender ||
-          (Number.isFinite(dm) && dm > 0 && dm <= 6) ||
-          (Number.isFinite(cores) && cores > 0 && cores <= 6) ||
-          saveData ||
-          /(^|[^a-z])(2g|3g)([^a-z]|$)/i.test(effectiveType);
-
-        return constrained ? MODEL_URL_FALLBACK : MODEL_URL_PRIMARY;
+      function chooseInitialModelUrl() {
+        return MODEL_URL_PRIMARY;
       }
 
       async function init() {
@@ -343,11 +331,11 @@
         }
 
         const isMobileRender = window.matchMedia("(max-width: 820px)").matches;
-        modelUrlInUse = chooseInitialModelUrl(isMobileRender);
+        modelUrlInUse = chooseInitialModelUrl();
         stats.textContent =
           modelUrlInUse === MODEL_URL_PRIMARY
-            ? "Loading full-resolution STL sculpture..."
-            : "Loading optimized STL sculpture for reliability...";
+            ? "Loading high-fidelity STL sculpture..."
+            : "Loading STL sculpture...";
 
         let stlByteLength = await fetchModelByteLength(modelUrlInUse);
 
@@ -426,7 +414,7 @@
           try {
             geometry = await withTimeout(loader.loadAsync(startUrl), startTimeout, "STL load");
           } catch (error) {
-            if (startUrl !== MODEL_URL_FALLBACK) {
+            if (HAS_DISTINCT_FALLBACK && startUrl !== MODEL_URL_FALLBACK) {
               modelUrlInUse = MODEL_URL_FALLBACK;
               stlByteLength = await fetchModelByteLength(modelUrlInUse);
               stats.textContent = "Full-resolution mesh unavailable; switching to optimized STL...";
@@ -477,7 +465,7 @@
 
           const triCount = geometry.index ? geometry.index.count / 3 : geometry.attributes.position.count / 3;
           const sizeLabel = stlByteLength ? `${(stlByteLength / (1024 * 1024)).toFixed(1)} MB STL` : "High-fidelity STL";
-          const fidelityLabel = modelUrlInUse === MODEL_URL_FALLBACK ? " (fallback)" : "";
+          const fidelityLabel = HAS_DISTINCT_FALLBACK && modelUrlInUse === MODEL_URL_FALLBACK ? " (fallback)" : "";
           stats.textContent = `${Math.round(triCount).toLocaleString()} triangles | ${sizeLabel}${fidelityLabel}`;
 
           loading.remove();
