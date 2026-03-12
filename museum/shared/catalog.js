@@ -76,6 +76,7 @@ export const museumPieces = {
     path: "/charioteer-of-delphi/",
     sectionId: "antiquity",
     sortOrder: 20,
+    hiddenFromLobby: true,
     viewerTitle: "Charioteer of Delphi (c. 478-474 BCE)",
     subtitle: "Artist: Unknown Ancient Greek sculptor (lifespan unknown)",
     lobbyMeta: "Source: Sketchfab / Virtual Museums of Malopolska",
@@ -100,23 +101,19 @@ export const museumPieces = {
     sortOrder: 30,
     viewerTitle: "Dying Gaul (Roman copy after a Hellenistic original, c. 230-220 BCE)",
     subtitle: "Artist: Unknown Roman workshop after a Hellenistic original",
-    lobbyMeta: "Source: SMK Open (KAS1312)",
-    source: smkSource({
-      summary: "Viewer uses SMK Open's cast scan of the Dying Gaul / Dying Gladiator.",
-      recordUrl: "https://open.smk.dk/en/artwork/image/KAS1312",
-      fullUrl: "https://api.smk.dk/api/v1/download-3d/4f16c782s_smk-190-inv-dying-gladiator.stl",
-      fallbackUrl: "https://api.smk.dk/api/v1/download-3d/5t34sq60f_KAS1312_small.stl",
-      note: "This route starts from the optimized mesh for reliability. Append ?full=1 to attempt the full STL."
-    }),
+    lobbyMeta: "Source: SMK Open local mirror (KAS1312)",
+    source: source(
+      "Viewer uses a local mirrored STL derived from SMK Open's public Dying Gaul / Dying Gladiator scan.",
+      [
+        link("Record", "https://open.smk.dk/en/artwork/image/KAS1312"),
+        link("Full STL", "https://api.smk.dk/api/v1/download-3d/4f16c782s_smk-190-inv-dying-gladiator.stl"),
+        link("Optimized STL", "https://api.smk.dk/api/v1/download-3d/5t34sq60f_KAS1312_small.stl")
+      ],
+      "The ad-arma route now serves a local optimized mirror for reliability."
+    ),
     model: {
-      primaryUrl: "https://api.smk.dk/api/v1/download-3d/4f16c782s_smk-190-inv-dying-gladiator.stl",
-      fallbackUrl: "https://api.smk.dk/api/v1/download-3d/5t34sq60f_KAS1312_small.stl",
-      preferFallback: true,
-      fullQueryParam: "full"
-    },
-    timeouts: {
-      primaryMs: 120000,
-      fallbackMs: 60000
+      primaryUrl: "./dying_gaul_source_small.stl",
+      fallbackUrl: "./dying_gaul_source_small.stl"
     },
     view: {
       fallbackLoadingText: "Loading STL sculpture..."
@@ -175,6 +172,7 @@ export const museumPieces = {
     path: "/donatello/saint-george/",
     sectionId: "early-renaissance",
     sortOrder: 10,
+    hiddenFromLobby: true,
     viewerTitle: "Saint George (c. 1415-1417)",
     subtitle: "Artist: Donatello (c. 1386-1466)",
     lobbyMeta: "Source: Sketchfab model",
@@ -684,7 +682,7 @@ export const museumPieces = {
 
 function sectionItems(sectionId) {
   return Object.entries(museumPieces)
-    .filter(([, piece]) => piece.sectionId === sectionId)
+    .filter(([, piece]) => piece.sectionId === sectionId && !piece.hiddenFromLobby)
     .sort(([, a], [, b]) => {
       if (a.sortOrder !== b.sortOrder) {
         return a.sortOrder - b.sortOrder;
