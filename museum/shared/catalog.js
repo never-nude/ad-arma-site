@@ -172,6 +172,32 @@ export const museumPieces = {
       fallbackUrl: "./belvedere_torso_source_small.stl"
     }
   },
+  "apollo-belvedere": {
+    kind: "stl",
+    path: "/apollo-belvedere/",
+    sectionId: "antiquity",
+    sortOrder: 29,
+    viewerTitle: "Apollo Belvedere (Roman copy after a Greek original, c. 330 BCE)",
+    subtitle: "Artist: Unknown Roman workshop after a classical Greek original",
+    lobbyMeta: "Source: SMK Open plaster-cast scan (KAS353)",
+    source: source(
+      "Rendered from SMK's public-domain plaster-cast scan of the Apollo Belvedere in the Vatican collections.",
+      [
+        link("SMK API", "https://api.smk.dk/api/v1/art?object_number=KAS353"),
+        link("SMK Open record", "https://open.smk.dk/artwork/image/KAS353"),
+        link("Full STL", "https://api.smk.dk/api/v1/download-3d/wm117v118_smk-apollo-belvedere.stl"),
+        link("Optimized STL", "https://api.smk.dk/api/v1/download-3d/sb397d83g_KAS353_small.stl")
+      ],
+      "The traditional attribution to Leochares is historical rather than certain."
+    ),
+    defaults: {
+      zoom: 2.9
+    },
+    model: {
+      primaryUrl: "./apollo_belvedere_source_small.stl",
+      fallbackUrl: "./apollo_belvedere_source_small.stl"
+    }
+  },
   "dying-gaul": {
     kind: "stl",
     path: "/dying-gaul/",
@@ -224,6 +250,32 @@ export const museumPieces = {
     },
     scene: {
       rotateX: 0
+    }
+  },
+  "capitoline-venus": {
+    kind: "stl",
+    path: "/capitoline-venus/",
+    sectionId: "antiquity",
+    sortOrder: 36,
+    viewerTitle: "Capitoline Venus (Roman copy after a Hellenistic original, c. 2nd century BCE)",
+    subtitle: "Artist: Unknown Roman workshop after a Hellenistic original",
+    lobbyMeta: "Source: SMK Open plaster-cast scan (KAS493)",
+    source: source(
+      "Rendered from SMK's public-domain plaster-cast scan of the Capitoline Venus in the Capitoline Museums.",
+      [
+        link("SMK API", "https://api.smk.dk/api/v1/art?object_number=KAS493"),
+        link("SMK Open record", "https://open.smk.dk/artwork/image/KAS493"),
+        link("Full STL", "https://api.smk.dk/api/v1/download-3d/ff365988b_smk33-kas493-capitoline-venus-decimated.stl"),
+        link("Optimized STL", "https://api.smk.dk/api/v1/download-3d/pz50h153z_KAS493_small.stl")
+      ],
+      "SMK's cast record identifies this as the Capitoline Venus type, a Roman copy after a Hellenistic Greek original."
+    ),
+    defaults: {
+      zoom: 3.2
+    },
+    model: {
+      primaryUrl: "./capitoline_venus_source_small.stl",
+      fallbackUrl: "./capitoline_venus_source_small.stl"
     }
   },
   "laocoon": {

@@ -27,6 +27,8 @@ Long-range sculpture backlog for the ad-arma museum.
 - `326` Ludovisi Gaul: `live`
 - `329` Belvedere Torso: `live`
 - `327` Laocoön and His Sons: `live`
+- `355` Capitoline Venus: `live`
+- `366` Apollo Belvedere: `live`
 - `342` Augustus of Prima Porta: `live`
 - `395` Donatello Saint George: `hidden`
 - `405` Michelangelo Battle of the Centaurs: `live`
