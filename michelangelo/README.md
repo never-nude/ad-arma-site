@@ -24,7 +24,9 @@ Institution-sourced 3D model pages in chronological order.
    - /michelangelo/dawn/
 11. Michelangelo: Dusk (1524-1531)
    - /michelangelo/dusk/
-12. Michelangelo: Day (1526-1531)
-    - /michelangelo/day/
-13. Michelangelo: Giuliano, Duke of Nemours (1526-1534)
-    - /michelangelo/giuliano-duke-of-nemours/
+12. Michelangelo: Night (Notte) (1526-1531)
+   - /michelangelo/night/
+13. Michelangelo: Day (1526-1531)
+   - /michelangelo/day/ (raw STL not currently available from SMK)
+14. Michelangelo: Giuliano, Duke of Nemours (1526-1534)
+   - /michelangelo/giuliano-duke-of-nemours/
