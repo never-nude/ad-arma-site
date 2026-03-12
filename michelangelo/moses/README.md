@@ -1,10 +1,14 @@
 # Michelangelo: Moses - Museum Viewer
 
-Interactive 3D page for **Michelangelo: Moses**.
+Interactive 3D page for **Michelangelo: Moses** in the canon ad-arma UI format.
 
 - Period: 1513-1515
-- Source: Rmn-Grand Palais (museum institution)
-- Source model: https://sketchfab.com/3d-models/moise-assis-410e4f14fb91406682653d73fda256ff
+- Primary source: SMK Open (Statens Museum for Kunst)
+- Full STL: https://api.smk.dk/api/v1/download-3d/m900p022q_154-smk-inv-243-moses.stl
+- Fallback STL: https://api.smk.dk/api/v1/download-3d/pr76f835r_KAS243_small.stl
+- Local files:
+  - `moses_source.stl` (2,000,090 triangles, ~95.4 MB)
+  - `moses_source_small.stl` (400,060 triangles, ~19.1 MB)
 
 Published path:
 
