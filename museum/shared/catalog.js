@@ -146,6 +146,50 @@ export const museumPieces = {
       fallbackUrl: "./discobolus_source_small.stl"
     }
   },
+  "artemision-bronze": {
+    kind: "stl",
+    path: "/artemision-bronze/",
+    sectionId: "antiquity",
+    sortOrder: 27.5,
+    viewerTitle: "Zeus/Poseidon of Artemision (c. 460 BCE)",
+    subtitle: "Artist: Unknown Ancient Greek bronze sculptor",
+    lobbyMeta: "Source: SMK Open cast scan (KAS2100); bronze material pass",
+    source: source(
+      "Rendered from SMK's public-domain cast scan of the Artemision bronze type, with a bronze material pass in the ad-arma viewer to better evoke the surviving original.",
+      [
+        link("SMK API", "https://api.smk.dk/api/v1/art?object_number=KAS2100"),
+        link("SMK Open record", "https://open.smk.dk/artwork/image/KAS2100"),
+        link("Full STL", "https://api.smk.dk/api/v1/download-3d/7m01br55g_smk-poseidon.stl"),
+        link("Optimized STL", "https://api.smk.dk/api/v1/download-3d/028711697_KAS2100_small.stl")
+      ],
+      "The identification remains debated between Zeus and Poseidon, and the underlying mesh comes from an SMK cast scan rather than a direct scan of the Athens bronze."
+    ),
+    defaults: {
+      zoom: 3.05,
+      lightAngle: 30,
+      lightPower: 2.28,
+      exposure: 0.48,
+      rough: 0.34
+    },
+    model: {
+      primaryUrl: "./artemision_bronze_source_small.stl",
+      fallbackUrl: "./artemision_bronze_source_small.stl"
+    },
+    scene: {
+      rotateZ: -Math.PI * 0.5,
+      targetHeight: 1.82
+    },
+    material: {
+      color: "#72603d",
+      metalness: 0.88,
+      clearcoat: 0.08,
+      clearcoatRoughness: 0.44,
+      sheen: 0.0,
+      sheenRoughness: 1.0,
+      sheenColor: "#000000",
+      reflectivity: 0.86
+    }
+  },
   "belvedere-torso": {
     kind: "stl",
     path: "/belvedere-torso/",

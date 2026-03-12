@@ -132,6 +132,8 @@ export async function initStlMuseumPage(piece) {
   const fallbackTimeoutMs = piece.timeouts?.fallbackMs || DEFAULT_FALLBACK_TIMEOUT_MS;
   const defaultYaw = sceneConfig.defaultYaw ?? DEFAULT_MODEL_YAW;
   const rotateX = sceneConfig.rotateX ?? DEFAULT_ROTATE_X;
+  const rotateY = sceneConfig.rotateY ?? 0;
+  const rotateZ = sceneConfig.rotateZ ?? 0;
   const targetHeight = sceneConfig.targetHeight ?? DEFAULT_TARGET_HEIGHT;
   const materialConfig = { ...DEFAULT_MATERIAL, ...(piece.material || {}) };
   const stage = ui.stage;
@@ -241,6 +243,12 @@ export async function initStlMuseumPage(piece) {
 
       if (rotateX) {
         geometry.rotateX(rotateX);
+      }
+      if (rotateY) {
+        geometry.rotateY(rotateY);
+      }
+      if (rotateZ) {
+        geometry.rotateZ(rotateZ);
       }
 
       const vertexCount = geometry.attributes.position?.count || 0;

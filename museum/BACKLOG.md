@@ -14,14 +14,16 @@ Long-range sculpture backlog for the ad-arma museum.
 1. Take 5 to 10 pieces from one region, era, or sculptor.
 2. Search for a stable public-domain or open-license STL, OBJ, or glTF source.
 3. If a clean local viewer path exists, add the piece to `museum/shared/catalog.js`.
-4. If only a fragile embed exists, decide whether to hide it, defer it, or publish it as a temporary route.
-5. Update this file so the queue stays current.
+4. Tune the piece's material and finish so it reads like marble, bronze, terracotta, wood, gilding, or paint when that matters.
+5. If only a fragile embed exists, decide whether to hide it, defer it, or publish it as a temporary route.
+6. Update this file so the queue stays current.
 
 ## Current matches already in the repo
 
 - `36` Great Sphinx of Giza: `live`
 - `310` Charioteer of Delphi: `hidden`
 - `317` Discobolus: `live`
+- `313` Zeus/Poseidon of Artemision: `live`
 - `324` Venus de Milo: `live`
 - `325` Dying Gaul: `live`
 - `326` Ludovisi Gaul: `live`
@@ -357,7 +359,7 @@ Long-range sculpture backlog for the ad-arma museum.
 310. Charioteer of Delphi, c. 478–474 BCE
 311. Riace Warrior A, c. 460 BCE
 312. Riace Warrior B, c. 460 BCE
-313. Zeus/Poseidon of Artemision, c. 460 BCE
+313. Zeus/Poseidon of Artemision, c. 460 BCE: `live`
 314. Athena Parthenos (known through copies), c. 447 BCE
 315. Doryphoros, c. 440 BCE
 316. Diadumenos, c. 430 BCE
