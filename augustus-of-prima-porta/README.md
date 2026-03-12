@@ -8,7 +8,7 @@ Interactive 3D page for **Augustus of Prima Porta** in the same ad-arma viewer U
 - Source ZIP: https://archive.org/download/thingiverse-4973766/Augustus_of_Prima_Porta_4973766.zip
 - License from source item: CC BY 4.0
 - Local file:
-  - `augustus_of_prima_porta_source.stl` (~30.1 MB)
+  - `augustus_of_prima_porta_source.stl` (~15 MB)
 
 Published path:
 
