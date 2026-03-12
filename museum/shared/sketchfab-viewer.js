@@ -303,6 +303,7 @@ export async function initSketchfabMuseumPage(piece) {
       client.init(model.uid, {
         autostart: 1,
         transparent: 0,
+        cameraConstraints: false,
         ui_infos: 0,
         ui_controls: 0,
         ui_stop: 0,

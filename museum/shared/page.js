@@ -1,4 +1,4 @@
-const MODULE_VERSION = "20260312-2139";
+const MODULE_VERSION = "20260312-2148";
 
 let catalogPromise = null;
 

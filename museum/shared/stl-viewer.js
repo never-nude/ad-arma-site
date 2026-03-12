@@ -294,9 +294,9 @@ export async function initStlMuseumPage(piece) {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
-    controls.minDistance = 1.2;
+    controls.minDistance = 0.55;
     controls.maxDistance = 8.0;
-    controls.maxPolarAngle = Math.PI * 0.5 - 0.04;
+    controls.maxPolarAngle = Math.PI * 0.64;
     const mobileQuery = window.matchMedia("(max-width: 820px)");
     let isMobileLayout = mobileQuery.matches;
 
