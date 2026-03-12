@@ -7,6 +7,18 @@
 
   const GAME_NAME = 'Ad Arma';
   const BUILD_ID = (window.POLEMO_BUILD_ID || window.POLEMO_BUILD || 'DEV');
+  const URL_PARAMS = new URLSearchParams(window.location.search || '');
+  const ORDER_ATLAS_MODE = (() => {
+    const modeParam = String(URL_PARAMS.get('mode') || '').toLowerCase();
+    if (modeParam === 'order-atlas' || modeParam === 'warcouncil-atlas' || modeParam === 'directive-atlas') {
+      return true;
+    }
+    const p = String(window.location.pathname || '').toLowerCase();
+    return p.includes('/order-atlas/') || p.includes('/warcouncil-atlas/') || p.includes('/directive-atlas/');
+  })();
+  if (ORDER_ATLAS_MODE) {
+    document.documentElement.classList.add('mode-order-atlas');
+  }
 
   // --- Board shape (157-hex "island")
   // Rows are r=0..10, each row is a contiguous run of q.
@@ -94,8 +106,90 @@
     standard: { startMs: 680, stepMs: 980, intentMs: 430, movePauseMs: 520, combatPauseMs: 1360 },
     hard: { startMs: 460, stepMs: 760, intentMs: 320, movePauseMs: 420, combatPauseMs: 1180 },
   };
+  const FIRST_BATTLE_SCENARIO_NAME = 'Demo A — Line Clash';
   const RANDOM_START_SCENARIO_NAME = 'Randomized Opening (Auto)';
   const GUIDED_TUTORIAL_SCENARIO_NAME = 'Tutorial — Piece Walkthrough (Mirrored)';
+  const STARTER_BATTLE_PRESETS = [
+    {
+      id: 'first-battle',
+      scenarioName: FIRST_BATTLE_SCENARIO_NAME,
+      title: 'First Battle',
+      label: 'Starter Match',
+      summary: 'Compact 6v6 line clash with open ground and just enough variety to learn movement, attacks, and tempo.',
+      tags: ['Starter', '6v6', '10 min'],
+      focus: 'Line Basics',
+      victoryMode: 'annihilation',
+      tip: 'Open with infantry or cavalry. You can ignore directives on turn 1 and focus on movement and attacks.',
+    },
+    {
+      id: 'center-push',
+      scenarioName: 'Demo B — Center Push',
+      title: 'Center Push',
+      label: 'Recommended Battle',
+      summary: 'A short center duel about timing an infantry shove, protecting the general, and not overextending first.',
+      tags: ['Small', 'Center', 'Fast'],
+      focus: 'Center Pressure',
+      victoryMode: 'annihilation',
+      tip: 'Claim the middle with infantry, then use cavalry as a threat instead of charging too early.',
+    },
+    {
+      id: 'screen-clash',
+      scenarioName: 'Demo C — Skirmisher Screen',
+      title: 'Skirmisher Screen',
+      label: 'Recommended Battle',
+      summary: 'Learn how screens, ranged harassment, and delayed cavalry charges shape the opening before the lines collide.',
+      tags: ['Skirmishers', 'Ranged', 'Tempo'],
+      focus: 'Screening',
+      victoryMode: 'annihilation',
+      tip: 'Let skirmishers and archers soften the line before committing your cavalry.',
+    },
+    {
+      id: 'marathon',
+      scenarioName: 'Terrain K — Marathon (490 BCE)',
+      title: 'Marathon',
+      label: 'Historical Battle',
+      summary: 'A recognizable open-ground battle with stronger flanks and enough space to feel the full line once basics click.',
+      tags: ['History', 'Open Flanks', 'Longer'],
+      focus: 'Wing Play',
+      victoryMode: 'annihilation',
+      tip: 'Watch the wings and avoid letting the center pin you in place too early.',
+    },
+  ];
+  const INTRO_RECOMMENDED_PRESET_IDS = ['center-push', 'screen-clash', 'marathon'];
+  const SETUP_PINNED_PRESET_IDS = ['first-battle', 'center-push', 'screen-clash', 'marathon'];
+  const SCENARIO_GROUP_LABELS = {
+    tutorial: 'Tutorial',
+    demo: 'Demo',
+    grand: 'Grand Battle',
+    terrain: 'Terrain Pack',
+    berserker: 'Berserker',
+    history: 'Historical Battle',
+    other: 'Scenario',
+  };
+  const SCENARIO_LESSON_LABELS = {
+    lines: 'Line Discipline',
+    center: 'Center Pressure',
+    screen: 'Screening',
+    envelopment: 'Flanking',
+    corridor: 'Corridor Fight',
+    river: 'River Crossing',
+    terrain: 'Terrain Tactics',
+    general: 'General Practice',
+  };
+  const SCENARIO_SIZE_LABELS = {
+    small: 'Small',
+    medium: 'Medium',
+    large: 'Large',
+  };
+  const SCENARIO_TERRAIN_LABELS = {
+    open: 'Open Ground',
+    hills: 'Hills',
+    woods: 'Woods',
+    rough: 'Rough',
+    water: 'Water',
+    mountains: 'Mountains',
+    mixed: 'Mixed Terrain',
+  };
   const TUTORIAL_KEYS = {
     blueGen: '7,2',
     blueRun: '6,2',
@@ -842,6 +936,7 @@
   const elStatusLast = document.getElementById('statusLast');
 
   const elModeBtn = document.getElementById('modeBtn');
+  const elTurnOrdersSummary = document.getElementById('turnOrdersSummary');
   const elGameModeSel = document.getElementById('gameModeSel');
   const elAiDifficultyRow = document.getElementById('aiDifficultyRow');
   const elAiDifficultySel = document.getElementById('aiDifficultySel');
@@ -864,6 +959,8 @@
   const elTerrainBtns = document.getElementById('terrainBtns');
 
   const elScenarioSel = document.getElementById('scenarioSel');
+  const elScenarioQuickPicks = document.getElementById('scenarioQuickPicks');
+  const elScenarioDetails = document.getElementById('scenarioDetails');
   const elScenarioSides = document.getElementById('scenarioSides');
   const elScenarioGroupSel = document.getElementById('scenarioGroupSel');
   const elScenarioLessonSel = document.getElementById('scenarioLessonSel');
@@ -886,6 +983,7 @@
   const elCornerDiceRow = document.getElementById('cornerDiceRow');
   const elDiceTray = document.getElementById('diceTray');
   const elInspectorTitle = document.getElementById('inspectorTitle');
+  const elInspectorGrid = document.querySelector('#selectedUnitPanel .inspectorGrid');
   const elInspectorMeta = document.getElementById('inspectorMeta');
   const elInspectorSide = document.getElementById('inspectorSide');
   const elInspectorType = document.getElementById('inspectorType');
@@ -903,6 +1001,11 @@
   const elCombatHint = document.getElementById('combatHint');
   const elOpenQuickRulesBtn = document.getElementById('openQuickRulesBtn');
   const elOpenFullRulesBtn = document.getElementById('openFullRulesBtn');
+  const elBattleFocusLead = document.getElementById('battleFocusLead');
+  const elBattleFocusList = document.getElementById('battleFocusList');
+  const elBattleFocusAdvancedBtn = document.getElementById('battleFocusAdvancedBtn');
+  const elBattleFocusRulesBtn = document.getElementById('battleFocusRulesBtn');
+  const elBattleFocusOrdersBtn = document.getElementById('battleFocusOrdersBtn');
   const elDoctrineOpenHeroBtn = document.getElementById('doctrineOpenHeroBtn');
   const elOpenCommandRulesBtn = document.getElementById('openCommandRulesBtn');
   const elDoctrineOpenBtn = document.getElementById('doctrineOpenBtn');
@@ -936,6 +1039,7 @@
   const elDoctrineBuilderCounts = document.getElementById('doctrineBuilderCounts');
   const elDoctrineExplain = document.getElementById('doctrineExplain');
   const elDoctrinePreviewCanvas = document.getElementById('doctrinePreviewCanvas');
+  const elDoctrinePreviewTitle = document.getElementById('doctrinePreviewTitle');
   const elDoctrinePreviewCaption = document.getElementById('doctrinePreviewCaption');
   const elDoctrineCost1Col = document.getElementById('doctrineCost1Col');
   const elDoctrineCost2Col = document.getElementById('doctrineCost2Col');
@@ -989,6 +1093,7 @@
   const elOnlineStatus = document.getElementById('onlineStatus');
   const elIntroOverlay = document.getElementById('introOverlay');
   const elIntroActions = document.getElementById('introActions');
+  const elIntroRecommendedList = document.getElementById('introRecommendedList');
   const elIntroPlayNowBtn = document.getElementById('introPlayNowBtn');
   const elIntroSetupBtn = document.getElementById('introSetupBtn');
   const elIntroTutorialBtn = document.getElementById('introTutorialBtn');
@@ -1019,6 +1124,7 @@
   const state = {
     introOpen: true,
     introTutorialOpen: false,
+    starterAdvancedOpen: false,
     tutorial: {
       active: false,
       autoplay: false,
@@ -4245,9 +4351,26 @@ SCENARIOS['History A — Thermopylae Hot Gates (480 BCE)'] = {
     elCanvas.style.height = `${Math.floor(rect.height)}px`;
     ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
-    // Fit board.
-    const cols = (board.maxQ - board.minQ + 1);
-    const rows = (board.maxR - board.minR + 1);
+    // Fit board using ACTIVE hex geometry (not sparse q/r ranges),
+    // so large displays keep the board legible and centered.
+    const active = Array.isArray(board.active) ? board.active : [];
+    if (!active.length) return;
+
+    let minNormQ = Infinity;
+    let maxNormQ = -Infinity;
+    let minNormR = Infinity;
+    let maxNormR = -Infinity;
+    for (const h of active) {
+      const normQ = h.q + ((h.r & 1) ? 0.5 : 0);
+      minNormQ = Math.min(minNormQ, normQ);
+      maxNormQ = Math.max(maxNormQ, normQ);
+      minNormR = Math.min(minNormR, h.r);
+      maxNormR = Math.max(maxNormR, h.r);
+    }
+
+    const spanNormQ = Math.max(0, maxNormQ - minNormQ);
+    const spanNormR = Math.max(0, maxNormR - minNormR);
+
     const availW = rect.width;
     const availH = rect.height;
     const smallViewport = window.matchMedia('(max-width: 980px)').matches;
@@ -4255,31 +4378,50 @@ SCENARIOS['History A — Thermopylae Hot Gates (480 BCE)'] = {
     const fitW = Math.max(1, availW - (boardPad * 2));
     const fitH = Math.max(1, availH - (boardPad * 2));
 
-    // For pointy-top hexes with odd-r offset:
-    // width ≈ sqrt(3)*R*(cols + 0.5)
-    // height ≈ R*((rows-1)*1.5 + 2)
-    const rByW = fitW / (Math.sqrt(3) * (cols + 0.5));
-    const rByH = fitH / (((rows - 1) * 1.5) + 2);
-    const minRadius = smallViewport ? 6 : 18;
-    const maxRadius = smallViewport ? 36 : 52;
+    // For pointy-top odd-r offset coordinates:
+    // width units = sqrt(3) * (spanNormQ + 1)
+    // height units = (spanNormR * 1.5) + 2
+    const unitsW = Math.sqrt(3) * (spanNormQ + 1);
+    const unitsH = (spanNormR * 1.5) + 2;
+    const rByW = fitW / Math.max(1e-6, unitsW);
+    const rByH = fitH / Math.max(1e-6, unitsH);
+
+    const minRadius = smallViewport ? 8 : 20;
+    const maxRadius = smallViewport ? 58 : 120;
     R = Math.max(minRadius, Math.min(maxRadius, Math.floor(Math.min(rByW, rByH))));
+
+    let boardW = unitsW * R;
+    let boardH = unitsH * R;
+
+    // Keep the board visually dominant on large/wide displays.
+    const targetFillW = smallViewport ? 0.86 : 0.84;
+    const targetFillH = smallViewport ? 0.70 : 0.66;
+    if (boardW < (fitW * targetFillW) || boardH < (fitH * targetFillH)) {
+      const boostW = (fitW * targetFillW) / Math.max(1, boardW);
+      const boostH = (fitH * targetFillH) / Math.max(1, boardH);
+      const desiredBoost = Math.max(boostW, boostH, 1);
+      const hardCapBoost = Math.min(fitW / Math.max(1, boardW), fitH / Math.max(1, boardH));
+      const boostedR = Math.floor(R * Math.min(desiredBoost, hardCapBoost));
+      R = Math.max(R, Math.min(maxRadius, boostedR));
+      boardW = unitsW * R;
+      boardH = unitsH * R;
+    }
 
     HEX_W = Math.sqrt(3) * R;
     HEX_H = 2 * R;
     STEP_Y = 1.5 * R;
 
-    const boardW = HEX_W * (cols + 0.5);
-    const boardH = R * (((rows - 1) * 1.5) + 2);
+    const left = boardPad + ((fitW - boardW) / 2);
+    const top = boardPad + ((fitH - boardH) / 2) + (smallViewport ? 0 : 4);
 
-    ORIGIN_X = boardPad + ((fitW - boardW) / 2) + HEX_W / 2;
-    // Slight downward bias so the board sits more naturally under the title line.
-    ORIGIN_Y = boardPad + ((fitH - boardH) / 2) + R + (smallViewport ? 2 : 4);
+    ORIGIN_X = left + (HEX_W / 2);
+    ORIGIN_Y = top + R;
 
-    for (const h of board.active) {
-      const x = ORIGIN_X + (h.q - board.minQ) * HEX_W + ((h.r & 1) ? (HEX_W / 2) : 0);
-      const y = ORIGIN_Y + (h.r - board.minR) * STEP_Y;
-      h.cx = x;
-      h.cy = y;
+    for (const h of active) {
+      const normQ = (h.q + ((h.r & 1) ? 0.5 : 0)) - minNormQ;
+      const normR = h.r - minNormR;
+      h.cx = left + (normQ * HEX_W) + (HEX_W / 2);
+      h.cy = top + (normR * STEP_Y) + R;
     }
 
     draw();
@@ -5560,6 +5702,114 @@ function unitColors(side) {
     elRulesSideOverlay.setAttribute('aria-hidden', 'true');
   }
 
+  function turnOrdersSummaryText() {
+    const scenarioName = compactLabel(state.loadedScenarioName || '', 28);
+    if (state.gameMode === 'online') {
+      return `Online match • ${victoryModeLabel(state.victoryMode)} • ${scenarioName}`;
+    }
+    const playerSide = (state.humanSide === 'red') ? 'Red' : 'Blue';
+    const enemySide = (playerSide === 'Red') ? 'Blue' : 'Red';
+    const aiText = `You are ${playerSide} • ${enemySide} AI (${humanizeQuality(state.aiDifficulty).replace(/^./, c => c.toUpperCase())})`;
+    if (isFirstBattleScenario()) {
+      return `Starter match • ${aiText} • ${victoryModeLabel(state.victoryMode)}.`;
+    }
+    return `${aiText} • ${victoryModeLabel(state.victoryMode)} • ${scenarioName}`;
+  }
+
+  function battleFocusContent() {
+    const selected = state.selectedKey ? unitsByHex.get(state.selectedKey) : null;
+    const actionsLeft = Math.max(0, ACT_LIMIT - state.actsUsed);
+    const firstBattle = isFirstBattleScenario();
+
+    if (state.gameOver) {
+      return {
+        lead: `${String(state.winner || 'Battle').toUpperCase()} wins. Review the line, then rematch or return to setup.`,
+        items: [
+          'Use Back to Setup if you want a different scenario or victory goal.',
+          'Open the action log to see the last combat swing and final board state.',
+        ],
+      };
+    }
+
+    if (firstBattle) {
+      if (!selected) {
+        return {
+          lead: actionsLeft === ACT_LIMIT
+            ? 'Start by selecting a blue infantry or cavalry unit.'
+            : `Pick your next unit. You still have ${actionsLeft} action${actionsLeft === 1 ? '' : 's'} this turn.`,
+          items: [
+            'Most units can act once per turn. You have three actions before the turn passes.',
+            state.starterAdvancedOpen
+              ? 'Advanced orders are visible below. Ignore them if you want to stay focused on movement and attacks.'
+              : 'Use Show Advanced if you want War Council, directives, and line advance right away.',
+            'Annihilation is active: win by destroying the enemy force.',
+          ],
+        };
+      }
+      const def = UNIT_BY_ID.get(selected.type);
+      const unitLabel = def ? def.label : 'Unit';
+      const sameSide = selected.side === state.side;
+      return {
+        lead: sameSide
+          ? `${unitLabel} selected. Choose a highlighted move or attack hex.`
+          : `${unitLabel} selected. Pick one of your own units to act this turn.`,
+        items: [
+          `Actions left: ${actionsLeft}.`,
+          selected.type === 'gen'
+            ? 'Keep the general safe. Its main job is command, not frontline fighting.'
+            : 'If the options look bad, click another friendly unit instead of forcing the activation.',
+          state.starterAdvancedOpen
+            ? 'Advanced orders are visible in Turn & Orders when you want them.'
+            : 'Blocked retreats convert into damage, so crowded fights are more dangerous than they look.',
+        ],
+      };
+    }
+
+    if (!selected) {
+      return {
+        lead: 'Pick a friendly unit and spend your three actions where the line matters most.',
+        items: [
+          'Directives are optional once per turn. Use them when they clearly improve a sector.',
+          'Check objectives and force totals before committing cavalry or generals.',
+        ],
+      };
+    }
+
+    const def = UNIT_BY_ID.get(selected.type);
+    return {
+      lead: `${def ? def.label : 'Unit'} selected. Read the highlighted options before committing.`,
+      items: [
+        `Actions left: ${actionsLeft}.`,
+        'Use the modifiers and log panels to understand why attacks improve or worsen.',
+      ],
+    };
+  }
+
+  function renderBattleFocusPanel() {
+    if (!elBattleFocusLead || !elBattleFocusList) return;
+    const content = battleFocusContent();
+    elBattleFocusLead.textContent = content.lead;
+    elBattleFocusList.innerHTML = '';
+    for (const item of content.items || []) {
+      if (!item) continue;
+      const li = document.createElement('li');
+      li.textContent = item;
+      elBattleFocusList.appendChild(li);
+    }
+  }
+
+  function syncStarterBattleUi() {
+    const starterBattle = state.mode === 'play' && isFirstBattleScenario();
+    document.body.dataset.starterBattle = starterBattle ? 'on' : 'off';
+    document.body.dataset.starterAdvanced = (starterBattle && !state.starterAdvancedOpen) ? 'off' : 'on';
+    if (elBattleFocusAdvancedBtn) {
+      elBattleFocusAdvancedBtn.hidden = !starterBattle;
+      if (starterBattle) {
+        elBattleFocusAdvancedBtn.textContent = state.starterAdvancedOpen ? 'Hide Advanced' : 'Show Advanced';
+      }
+    }
+  }
+
   function resetInspector(message = '') {
     setInspectorValue(elInspectorTitle, 'No unit selected.');
     setInspectorValue(elInspectorMeta, message);
@@ -5571,6 +5821,9 @@ function unitColors(side) {
     setInspectorValue(elInspectorUp, '-');
     setInspectorValue(elInspectorCommand, '');
     setInspectorValue(elInspectorRadius, '');
+    const panel = document.getElementById('selectedUnitPanel');
+    if (panel) panel.classList.add('is-empty');
+    if (elInspectorGrid) elInspectorGrid.style.display = 'none';
   }
 
   function updateInspector() {
@@ -5605,6 +5858,9 @@ function unitColors(side) {
     setInspectorValue(elInspectorUp, up);
     setInspectorValue(elInspectorCommand, '');
     setInspectorValue(elInspectorRadius, '');
+    const panel = document.getElementById('selectedUnitPanel');
+    if (panel) panel.classList.remove('is-empty');
+    if (elInspectorGrid) elInspectorGrid.style.display = '';
     renderLiveModifierPreview();
   }
 
@@ -6360,6 +6616,188 @@ function unitColors(side) {
     };
   }
 
+  function starterBattlePresetById(id) {
+    return STARTER_BATTLE_PRESETS.find((preset) => preset.id === String(id || '')) || null;
+  }
+
+  function starterBattlePresetForScenario(name) {
+    return STARTER_BATTLE_PRESETS.find((preset) => preset.scenarioName === String(name || '')) || null;
+  }
+
+  function starterBattlePresetTags(preset) {
+    if (!preset) return [];
+    if (Array.isArray(preset.tags) && preset.tags.length > 0) return preset.tags.slice(0, 3);
+    const meta = scenarioMeta(preset.scenarioName);
+    const tags = [
+      SCENARIO_SIZE_LABELS[meta.size] || 'Scenario',
+      meta.historical || SCENARIO_TERRAIN_LABELS[meta.terrain] || 'Battlefield',
+      preset.focus || SCENARIO_LESSON_LABELS[meta.lesson] || 'Battle',
+    ];
+    return [...new Set(tags.filter(Boolean))].slice(0, 3);
+  }
+
+  function scenarioPickerSummaryText(name) {
+    const scenarioName = String(name || '').trim();
+    if (!scenarioName) return 'Choose a scenario to load its army labels and battle summary.';
+    const preset = starterBattlePresetForScenario(scenarioName);
+    if (preset) {
+      const presetTags = starterBattlePresetTags(preset);
+      return `${preset.summary} ${presetTags.join(' • ')}. Recommended start: ${victoryModeLabel(preset.victoryMode)}.`;
+    }
+    const meta = scenarioMeta(scenarioName);
+    const bits = [];
+    bits.push(SCENARIO_GROUP_LABELS[meta.group] || 'Scenario');
+    if (meta.historical) bits.push(meta.historical);
+    else bits.push(SCENARIO_SIZE_LABELS[meta.size] || 'Unknown Size');
+    if (meta.lesson && meta.lesson !== 'general') bits.push(SCENARIO_LESSON_LABELS[meta.lesson] || meta.lesson);
+    if (meta.terrain && meta.terrain !== 'open') bits.push(SCENARIO_TERRAIN_LABELS[meta.terrain] || meta.terrain);
+    const summaryLead = bits.filter(Boolean).join(' • ');
+    const summaryBody = meta.description || 'A custom battle from the scenario cabinet.';
+    return summaryLead ? `${summaryLead}. ${summaryBody}` : summaryBody;
+  }
+
+  function renderPresetTags(container, tags) {
+    if (!container) return;
+    container.innerHTML = '';
+    for (const tag of tags || []) {
+      if (!tag) continue;
+      const chip = document.createElement('span');
+      chip.className = 'presetTag';
+      chip.textContent = tag;
+      container.appendChild(chip);
+    }
+  }
+
+  function renderIntroRecommendedList() {
+    if (!elIntroRecommendedList) return;
+    elIntroRecommendedList.innerHTML = '';
+    for (const presetId of INTRO_RECOMMENDED_PRESET_IDS) {
+      const preset = starterBattlePresetById(presetId);
+      if (!preset) continue;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn introPresetCard';
+      btn.dataset.presetId = preset.id;
+
+      const eyebrow = document.createElement('span');
+      eyebrow.className = 'introPresetEyebrow';
+      eyebrow.textContent = preset.label || 'Recommended Battle';
+      btn.appendChild(eyebrow);
+
+      const title = document.createElement('span');
+      title.className = 'introPresetTitle';
+      title.textContent = preset.title;
+      btn.appendChild(title);
+
+      const summary = document.createElement('span');
+      summary.className = 'introPresetSummary';
+      summary.textContent = preset.summary;
+      btn.appendChild(summary);
+
+      const tags = document.createElement('span');
+      tags.className = 'presetTags';
+      renderPresetTags(tags, starterBattlePresetTags(preset));
+      btn.appendChild(tags);
+
+      const foot = document.createElement('span');
+      foot.className = 'introPresetFoot';
+      foot.textContent = `Launch with recommended doctrine • ${victoryModeLabel(preset.victoryMode)}`;
+      btn.appendChild(foot);
+
+      elIntroRecommendedList.appendChild(btn);
+    }
+  }
+
+  function renderScenarioQuickPicks(activeScenarioName = state.loadedScenarioName || elScenarioSel?.value || '') {
+    if (!elScenarioQuickPicks) return;
+    elScenarioQuickPicks.innerHTML = '';
+    for (const presetId of SETUP_PINNED_PRESET_IDS) {
+      const preset = starterBattlePresetById(presetId);
+      if (!preset) continue;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn scenarioPresetBtn';
+      btn.dataset.presetId = preset.id;
+      btn.classList.toggle('is-active', preset.scenarioName === activeScenarioName);
+
+      const top = document.createElement('span');
+      top.className = 'scenarioPresetTop';
+
+      const name = document.createElement('span');
+      name.className = 'scenarioPresetName';
+      name.textContent = preset.title;
+      top.appendChild(name);
+
+      const focus = document.createElement('span');
+      focus.className = 'scenarioPresetFocus';
+      focus.textContent = preset.focus || preset.label || 'Preset';
+      top.appendChild(focus);
+
+      btn.appendChild(top);
+
+      const summary = document.createElement('span');
+      summary.className = 'scenarioPresetSummary';
+      summary.textContent = preset.summary;
+      btn.appendChild(summary);
+
+      const tags = document.createElement('span');
+      tags.className = 'presetTags';
+      renderPresetTags(tags, starterBattlePresetTags(preset));
+      btn.appendChild(tags);
+
+      elScenarioQuickPicks.appendChild(btn);
+    }
+  }
+
+  function setVictoryModeSelection(nextMode) {
+    const mode = VICTORY_MODE_IDS.has(nextMode) ? nextMode : 'decapitation';
+    state.victoryMode = mode;
+    if (elVictorySel && [...elVictorySel.options].some((opt) => opt.value === mode)) {
+      elVictorySel.value = mode;
+    }
+  }
+
+  function stageStarterBattlePreset(preset) {
+    if (!preset) return false;
+    populateScenarioSelect();
+    if (elScenarioSel && [...elScenarioSel.options].some((opt) => opt.value === preset.scenarioName)) {
+      elScenarioSel.value = preset.scenarioName;
+    }
+    setVictoryModeSelection(preset.victoryMode || 'annihilation');
+    loadScenario(preset.scenarioName);
+    updateScenarioSidesLegend(preset.scenarioName);
+    return true;
+  }
+
+  function launchStarterBattlePreset(preset, sourceLabel = 'Recommended battle') {
+    state.gameMode = 'hvai';
+    state.humanSide = 'blue';
+    state.aiDifficulty = 'standard';
+    if (!preset || !stageStarterBattlePreset(preset)) return;
+    prepareQuickStartDoctrine();
+    state.starterAdvancedOpen = false;
+    setIntroOverlayOpen(false);
+    enterPlay();
+    log(`${sourceLabel} launched: ${preset.scenarioName} with recommended doctrine and ${victoryModeLabel(preset.victoryMode)} victory.`);
+    if (preset.tip) log(preset.tip);
+    updateHud();
+  }
+
+  function loadStarterBattlePresetIntoSetup(preset) {
+    state.gameMode = 'hvai';
+    state.humanSide = 'blue';
+    state.aiDifficulty = 'standard';
+    if (!preset || !stageStarterBattlePreset(preset)) return;
+    state.starterAdvancedOpen = false;
+    state.doctrine.builder.preBattleReady = false;
+    state.doctrine.builder.confirmed = { blue: false, red: false };
+    enterEdit();
+    log(`Advanced Setup loaded: ${preset.scenarioName}. Review the field, then open War Council when ready.`);
+    updateHud();
+  }
+
   function victoryModeLabel(id) {
     if (id === 'annihilation') return 'Annihilation';
     if (id === 'decapitation') return 'Decapitation';
@@ -6405,9 +6843,15 @@ function unitColors(side) {
   }
 
   function updateScenarioSidesLegend(name) {
-    if (!elScenarioSides) return;
-    const sides = scenarioSideLabels(name);
-    elScenarioSides.textContent = `Blue: ${sides.blue} • Red: ${sides.red}`;
+    const scenarioName = String(name || '');
+    if (elScenarioSides) {
+      const sides = scenarioSideLabels(scenarioName);
+      elScenarioSides.textContent = `Blue: ${sides.blue} • Red: ${sides.red}`;
+    }
+    if (elScenarioDetails) {
+      elScenarioDetails.textContent = scenarioPickerSummaryText(scenarioName);
+    }
+    renderScenarioQuickPicks(scenarioName);
   }
 
   function objectiveHexKeyFromPoint(pt) {
@@ -7740,297 +8184,971 @@ function unitColors(side) {
       tokens: [],
       arrows: [],
     };
+
+    const setScene = (caption, tokens, arrows, rows = 4, cols = 8) => {
+      s.caption = caption;
+      s.tokens = tokens;
+      s.arrows = arrows;
+      s.rows = rows;
+      s.cols = cols;
+    };
+
     switch (commandId) {
       case 'quick_dress':
-        s.caption = 'Quick Dress: infantry slide laterally while maintaining line integrity.';
-        s.tokens = [
-          { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
-          { side: 'blue', type: 'inf', c: 2, r: 2, mc: 3, mr: 2 },
-          { side: 'blue', type: 'inf', c: 3, r: 2, mc: 4, mr: 2 },
-          { side: 'red', type: 'inf', c: 3, r: 1 },
-        ];
-        s.arrows = [
-          { from: [1, 2], to: [2, 2], kind: 'move' },
-          { from: [2, 2], to: [3, 2], kind: 'move' },
-          { from: [3, 2], to: [4, 2], kind: 'move' },
-        ];
+        setScene(
+          'Quick Dress: adjacent infantry slide laterally in the same row while keeping formation.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
+            { side: 'blue', type: 'inf', c: 2, r: 2, mc: 3, mr: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2, mc: 4, mr: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+          ],
+          [
+            { from: [1, 2], to: [2, 2], kind: 'move' },
+            { from: [2, 2], to: [3, 2], kind: 'move' },
+            { from: [3, 2], to: [4, 2], kind: 'move' },
+          ]
+        );
         break;
       case 'runner_burst':
-        s.caption = 'Runner Burst: one runner surges forward and relays command to nearby units.';
-        s.tokens = [
-          { side: 'blue', type: 'run', c: 1, r: 3, mc: 4, mr: 2 },
-          { side: 'blue', type: 'inf', c: 3, r: 2 },
-          { side: 'blue', type: 'cav', c: 4, r: 1 },
-        ];
-        s.arrows = [
-          { from: [1, 3], to: [4, 2], kind: 'move' },
-          { from: [4, 2], to: [3, 2], kind: 'command' },
-          { from: [4, 2], to: [4, 1], kind: 'command' },
-        ];
+        setScene(
+          'Runner Burst: one runner surges and extends local command relay support.',
+          [
+            { side: 'blue', type: 'run', c: 1, r: 3, mc: 4, mr: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'cav', c: 4, r: 1 },
+          ],
+          [
+            { from: [1, 3], to: [4, 2], kind: 'move' },
+            { from: [4, 2], to: [3, 2], kind: 'command' },
+            { from: [4, 2], to: [4, 1], kind: 'command' },
+          ]
+        );
         break;
       case 'javelin_volley':
-      case 'covering_fire':
-      case 'wing_screen':
-        s.caption = 'Missile order: light troops project ranged pressure while preserving spacing.';
-        s.tokens = [
-          { side: 'blue', type: 'skr', c: 2, r: 2 },
-          { side: 'blue', type: 'arc', c: 3, r: 2 },
-          { side: 'red', type: 'inf', c: 5, r: 1 },
-          { side: 'red', type: 'inf', c: 6, r: 2 },
-        ];
-        s.arrows = [
-          { from: [2, 2], to: [5, 1], kind: 'ranged' },
-          { from: [3, 2], to: [6, 2], kind: 'ranged' },
-        ];
+        setScene(
+          'Javelin Volley: up to two light missile units throw with boosted ranged impact.',
+          [
+            { side: 'blue', type: 'skr', c: 2, r: 2 },
+            { side: 'blue', type: 'arc', c: 3, r: 2 },
+            { side: 'red', type: 'inf', c: 4, r: 1 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+          ],
+          [
+            { from: [2, 2], to: [4, 1], kind: 'ranged' },
+            { from: [3, 2], to: [5, 2], kind: 'ranged' },
+          ]
+        );
         break;
       case 'quick_withdraw':
-        s.caption = 'Quick Withdraw: pull an exposed missile unit out of contact.';
-        s.tokens = [
-          { side: 'blue', type: 'skr', c: 3, r: 2, mc: 2, mr: 2 },
-          { side: 'blue', type: 'inf', c: 2, r: 2 },
-          { side: 'red', type: 'inf', c: 4, r: 2 },
-        ];
-        s.arrows = [{ from: [3, 2], to: [2, 2], kind: 'move' }];
+        setScene(
+          'Quick Withdraw: an exposed skirmisher/archer steps back out of pressure.',
+          [
+            { side: 'blue', type: 'skr', c: 3, r: 2, mc: 2, mr: 1 },
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'red', type: 'inf', c: 4, r: 2 },
+          ],
+          [{ from: [3, 2], to: [2, 1], kind: 'move' }]
+        );
         break;
       case 'close_ranks':
-      case 'hold_fast':
-      case 'shield_wall':
-      case 'grand_shield_wall':
-      case 'stand_or_die':
-      case 'strengthen_center':
-        s.caption = 'Defensive order: infantry harden the line and absorb incoming pressure.';
-        s.tokens = [
-          { side: 'blue', type: 'inf', c: 2, r: 2 },
-          { side: 'blue', type: 'inf', c: 3, r: 2 },
-          { side: 'blue', type: 'inf', c: 4, r: 2 },
-          { side: 'red', type: 'cav', c: 5, r: 2 },
-        ];
-        s.arrows = [
-          { from: [5, 2], to: [4, 2], kind: 'attack' },
-          { from: [2, 2], to: [4, 2], kind: 'hold' },
-        ];
+        setScene(
+          'Close Ranks: one infantry unit braces and absorbs melee pressure.',
+          [
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'red', type: 'cav', c: 4, r: 2 },
+          ],
+          [
+            { from: [4, 2], to: [3, 2], kind: 'attack' },
+            { from: [2, 2], to: [3, 2], kind: 'hold' },
+          ]
+        );
         break;
       case 'spur_horses':
-      case 'cavalry_exploit':
-      case 'countercharge':
-      case 'all_out_cavalry_sweep':
-        s.caption = 'Cavalry order: ride for angle, hit exposed infantry, and disengage if needed.';
-        s.tokens = [
-          { side: 'blue', type: 'cav', c: 1, r: 2, mc: 4, mr: 1 },
-          { side: 'blue', type: 'inf', c: 3, r: 2 },
-          { side: 'red', type: 'inf', c: 5, r: 2 },
-          { side: 'red', type: 'inf', c: 5, r: 1 },
-        ];
-        s.arrows = [
-          { from: [1, 2], to: [4, 1], kind: 'move' },
-          { from: [4, 1], to: [5, 2], kind: 'attack' },
-        ];
+        setScene(
+          'Spur the Horses: one cavalry gains extra reach to claim better attack angles.',
+          [
+            { side: 'blue', type: 'cav', c: 1, r: 2, mc: 4, mr: 1 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+          ],
+          [
+            { from: [1, 2], to: [4, 1], kind: 'move' },
+            { from: [4, 1], to: [5, 2], kind: 'attack' },
+          ]
+        );
         break;
       case 'signal_call':
-      case 'command_surge':
-      case 'general_assault':
-        s.caption = 'Command order: generals extend influence and activate a local battle sector.';
-        s.tokens = [
-          { side: 'blue', type: 'gen', c: 2, r: 2 },
-          { side: 'blue', type: 'inf', c: 4, r: 1 },
-          { side: 'blue', type: 'inf', c: 5, r: 2 },
-          { side: 'red', type: 'inf', c: 6, r: 2 },
-        ];
-        s.arrows = [
-          { from: [2, 2], to: [4, 1], kind: 'command' },
-          { from: [2, 2], to: [5, 2], kind: 'command' },
-          { from: [5, 2], to: [6, 2], kind: 'attack' },
-        ];
+        setScene(
+          'Signal Call: a general briefly pulls nearby out-of-command units back into control.',
+          [
+            { side: 'blue', type: 'gen', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 1 },
+            { side: 'blue', type: 'inf', c: 5, r: 2 },
+          ],
+          [
+            { from: [2, 2], to: [4, 1], kind: 'command' },
+            { from: [2, 2], to: [5, 2], kind: 'command' },
+          ]
+        );
         break;
-      case 'forced_march':
-      case 'local_reserve':
-      case 'commit_reserves':
-        s.caption = 'Reserve order: rear units surge forward to reinforce the active front.';
-        s.tokens = [
-          { side: 'blue', type: 'inf', c: 2, r: 3, mc: 3, mr: 2 },
-          { side: 'blue', type: 'skr', c: 3, r: 3, mc: 4, mr: 2 },
-          { side: 'blue', type: 'inf', c: 4, r: 3, mc: 5, mr: 2 },
-        ];
-        s.arrows = [
-          { from: [2, 3], to: [3, 2], kind: 'move' },
-          { from: [3, 3], to: [4, 2], kind: 'move' },
-          { from: [4, 3], to: [5, 2], kind: 'move' },
-        ];
+      case 'loose_screen':
+        setScene(
+          'Loose Screen: light troops slip through adjacent infantry by one hex to reposition.',
+          [
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2 },
+            { side: 'blue', type: 'skr', c: 3, r: 3, mc: 4, mr: 2 },
+            { side: 'blue', type: 'arc', c: 2, r: 2, mc: 3, mr: 1 },
+            { side: 'red', type: 'inf', c: 6, r: 2 },
+          ],
+          [
+            { from: [3, 3], to: [4, 2], kind: 'move' },
+            { from: [2, 2], to: [3, 1], kind: 'move' },
+          ]
+        );
+        break;
+      case 'covering_fire':
+        setScene(
+          'Covering Fire: missile attacks ignore terrain firing penalties this turn.',
+          [
+            { side: 'blue', type: 'arc', c: 2, r: 2 },
+            { side: 'blue', type: 'skr', c: 3, r: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+            { side: 'red', type: 'inf', c: 6, r: 1 },
+          ],
+          [
+            { from: [2, 2], to: [5, 2], kind: 'ranged' },
+            { from: [3, 2], to: [6, 1], kind: 'ranged' },
+          ]
+        );
+        break;
+      case 'hold_fast':
+        setScene(
+          'Hold Fast: one unit resists retreat pressure and keeps local cohesion.',
+          [
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'red', type: 'inf', c: 4, r: 2 },
+          ],
+          [
+            { from: [4, 2], to: [3, 2], kind: 'attack' },
+            { from: [3, 2], to: [3, 2], kind: 'hold' },
+          ]
+        );
+        break;
+
+      case 'shield_wall':
+        setScene(
+          'Shield Wall: a contiguous infantry block hardens and becomes harder to break in melee.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2 },
+            { side: 'red', type: 'cav', c: 5, r: 2 },
+          ],
+          [
+            { from: [5, 2], to: [4, 2], kind: 'attack' },
+            { from: [2, 2], to: [4, 2], kind: 'hold' },
+          ]
+        );
+        break;
+      case 'cavalry_exploit':
+        setScene(
+          'Cavalry Exploit: a cavalry wing moves into open-ground attack lanes for stronger shock.',
+          [
+            { side: 'blue', type: 'cav', c: 1, r: 2, mc: 4, mr: 1 },
+            { side: 'blue', type: 'cav', c: 2, r: 3, mc: 5, mr: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+          ],
+          [
+            { from: [1, 2], to: [4, 1], kind: 'move' },
+            { from: [4, 1], to: [5, 2], kind: 'attack' },
+            { from: [2, 3], to: [5, 2], kind: 'move' },
+          ],
+          5
+        );
         break;
       case 'refuse_flank':
+        setScene(
+          'Refuse the Flank: wing infantry pull inward/back to avoid getting wrapped.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 2, mc: 1, mr: 3 },
+            { side: 'blue', type: 'inf', c: 2, r: 2, mc: 2, mr: 3 },
+            { side: 'blue', type: 'inf', c: 3, r: 2, mc: 3, mr: 2 },
+          ],
+          [
+            { from: [1, 2], to: [1, 3], kind: 'move' },
+            { from: [2, 2], to: [2, 3], kind: 'move' },
+          ]
+        );
+        break;
+      case 'forced_march':
+        setScene(
+          'Forced March: up to four infantry/skirmishers surge forward but cannot attack this turn.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 3, mc: 3, mr: 2 },
+            { side: 'blue', type: 'skr', c: 3, r: 3, mc: 4, mr: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 3, mc: 5, mr: 2 },
+          ],
+          [
+            { from: [2, 3], to: [3, 2], kind: 'move' },
+            { from: [3, 3], to: [4, 2], kind: 'move' },
+            { from: [4, 3], to: [5, 2], kind: 'move' },
+          ]
+        );
+        break;
+      case 'strengthen_center':
+        setScene(
+          'Strengthen the Center: infantry near the general anchor and resist retreat pressure.',
+          [
+            { side: 'blue', type: 'gen', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 1 },
+          ],
+          [
+            { from: [2, 2], to: [3, 2], kind: 'command' },
+            { from: [2, 2], to: [4, 2], kind: 'command' },
+            { from: [2, 2], to: [3, 1], kind: 'command' },
+          ]
+        );
+        break;
+      case 'wing_screen':
+        setScene(
+          'Wing Screen: flank missile units fire, then reposition 1 hex.',
+          [
+            { side: 'blue', type: 'skr', c: 2, r: 3, mc: 3, mr: 2 },
+            { side: 'blue', type: 'arc', c: 3, r: 3, mc: 4, mr: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+          ],
+          [
+            { from: [2, 3], to: [5, 2], kind: 'ranged' },
+            { from: [2, 3], to: [3, 2], kind: 'move' },
+            { from: [3, 3], to: [4, 2], kind: 'move' },
+          ]
+        );
+        break;
+      case 'countercharge':
+        setScene(
+          'Countercharge: cavalry react when enemies close, striking immediately.',
+          [
+            { side: 'blue', type: 'cav', c: 2, r: 2 },
+            { side: 'red', type: 'inf', c: 4, r: 2, mc: 3, mr: 2 },
+          ],
+          [
+            { from: [4, 2], to: [3, 2], kind: 'move' },
+            { from: [2, 2], to: [3, 2], kind: 'attack' },
+          ]
+        );
+        break;
       case 'jaws_inward':
-      case 'collapse_center':
-      case 'reforge_line':
-      case 'full_line_advance':
-        s.caption = 'Formation order: re-shape or advance linked infantry in a coordinated line action.';
-        s.tokens = [
-          { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
-          { side: 'blue', type: 'inf', c: 2, r: 2, mc: 3, mr: 2 },
-          { side: 'blue', type: 'inf', c: 3, r: 2, mc: 4, mr: 2 },
-          { side: 'blue', type: 'inf', c: 4, r: 2, mc: 5, mr: 2 },
-        ];
-        s.arrows = [
-          { from: [1, 2], to: [2, 2], kind: 'move' },
-          { from: [2, 2], to: [3, 2], kind: 'move' },
-          { from: [3, 2], to: [4, 2], kind: 'move' },
-          { from: [4, 2], to: [5, 2], kind: 'move' },
-        ];
+        setScene(
+          'Jaws Inward: experienced infantry close from both sides to compress an enemy pocket.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
+            { side: 'blue', type: 'inf', c: 5, r: 2, mc: 4, mr: 2 },
+            { side: 'red', type: 'inf', c: 3, r: 2 },
+          ],
+          [
+            { from: [1, 2], to: [2, 2], kind: 'move' },
+            { from: [5, 2], to: [4, 2], kind: 'move' },
+          ]
+        );
+        break;
+      case 'local_reserve':
+        setScene(
+          'Local Reserve: rear-line units are released to act immediately.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 3, mc: 3, mr: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 3, mc: 4, mr: 2 },
+            { side: 'blue', type: 'cav', c: 4, r: 3, mc: 5, mr: 2 },
+          ],
+          [
+            { from: [2, 3], to: [3, 2], kind: 'move' },
+            { from: [3, 3], to: [4, 2], kind: 'move' },
+            { from: [4, 3], to: [5, 2], kind: 'move' },
+          ]
+        );
         break;
       case 'drive_them_back':
-      case 'last_push':
-        s.caption = 'Pressure order: selected attackers spike output and force enemy cohesion checks.';
-        s.tokens = [
-          { side: 'blue', type: 'inf', c: 2, r: 2 },
-          { side: 'blue', type: 'inf', c: 3, r: 2 },
-          { side: 'red', type: 'inf', c: 5, r: 2 },
-          { side: 'red', type: 'inf', c: 5, r: 1 },
-        ];
-        s.arrows = [
-          { from: [2, 2], to: [5, 2], kind: 'attack' },
-          { from: [3, 2], to: [5, 1], kind: 'attack' },
-        ];
+        setScene(
+          'Drive Them Back: infantry attacks spike pressure to force disarray and retreats.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'red', type: 'inf', c: 4, r: 2 },
+          ],
+          [
+            { from: [2, 2], to: [4, 2], kind: 'attack' },
+            { from: [3, 2], to: [4, 2], kind: 'attack' },
+          ]
+        );
         break;
+
+      case 'full_line_advance':
+        setScene(
+          'Full Line Advance: one major row advances together; blocked units hold.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
+            { side: 'blue', type: 'inf', c: 2, r: 2, mc: 3, mr: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2, mc: 4, mr: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2, mc: 5, mr: 2 },
+          ],
+          [
+            { from: [1, 2], to: [2, 2], kind: 'move' },
+            { from: [2, 2], to: [3, 2], kind: 'move' },
+            { from: [3, 2], to: [4, 2], kind: 'move' },
+            { from: [4, 2], to: [5, 2], kind: 'move' },
+          ]
+        );
+        break;
+      case 'grand_shield_wall':
+        setScene(
+          'Grand Shield Wall: a larger infantry mass locks in, trading mobility for heavy staying power.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 2 },
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2 },
+            { side: 'blue', type: 'inf', c: 5, r: 2 },
+            { side: 'red', type: 'cav', c: 6, r: 2 },
+          ],
+          [
+            { from: [6, 2], to: [5, 2], kind: 'attack' },
+            { from: [1, 2], to: [5, 2], kind: 'hold' },
+          ],
+          4,
+          9
+        );
+        break;
+      case 'all_out_cavalry_sweep':
+        setScene(
+          'All-Out Cavalry Sweep: a wing cavalry package surges for decisive flank shock.',
+          [
+            { side: 'blue', type: 'cav', c: 1, r: 3, mc: 4, mr: 2 },
+            { side: 'blue', type: 'cav', c: 2, r: 3, mc: 5, mr: 1 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+            { side: 'red', type: 'inf', c: 6, r: 1 },
+          ],
+          [
+            { from: [1, 3], to: [4, 2], kind: 'move' },
+            { from: [2, 3], to: [5, 1], kind: 'move' },
+            { from: [4, 2], to: [5, 2], kind: 'attack' },
+            { from: [5, 1], to: [6, 1], kind: 'attack' },
+          ],
+          5
+        );
+        break;
+      case 'commit_reserves':
+        setScene(
+          'Commit Reserves: deep reserves push toward contact and receive a strong support package.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 4, mc: 2, mr: 3 },
+            { side: 'blue', type: 'inf', c: 2, r: 4, mc: 3, mr: 3 },
+            { side: 'blue', type: 'skr', c: 3, r: 4, mc: 4, mr: 3 },
+          ],
+          [
+            { from: [1, 4], to: [2, 3], kind: 'move' },
+            { from: [2, 4], to: [3, 3], kind: 'move' },
+            { from: [3, 4], to: [4, 3], kind: 'move' },
+          ],
+          5,
+          9
+        );
+        break;
+      case 'general_assault':
+        setScene(
+          'General Assault: units around a general execute one coordinated local strike package.',
+          [
+            { side: 'blue', type: 'gen', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 1 },
+            { side: 'blue', type: 'cav', c: 4, r: 3 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+          ],
+          [
+            { from: [2, 2], to: [3, 2], kind: 'command' },
+            { from: [2, 2], to: [4, 1], kind: 'command' },
+            { from: [2, 2], to: [4, 3], kind: 'command' },
+            { from: [4, 1], to: [5, 2], kind: 'attack' },
+          ],
+          5,
+          9
+        );
+        break;
+      case 'collapse_center':
+        setScene(
+          'Collapse the Center: center yields while wings fold inward to create a trap shape.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 2, mc: 2, mr: 3 },
+            { side: 'blue', type: 'inf', c: 3, r: 2, mc: 3, mr: 3 },
+            { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2, mc: 3, mr: 2 },
+          ],
+          [
+            { from: [2, 2], to: [2, 3], kind: 'move' },
+            { from: [3, 2], to: [3, 3], kind: 'move' },
+            { from: [1, 2], to: [2, 2], kind: 'move' },
+            { from: [4, 2], to: [3, 2], kind: 'move' },
+          ]
+        );
+        break;
+      case 'last_push':
+        setScene(
+          'Last Push: selected attackers commit for maximum short-term striking power.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'blue', type: 'cav', c: 3, r: 2 },
+            { side: 'red', type: 'inf', c: 4, r: 2 },
+            { side: 'red', type: 'inf', c: 4, r: 1 },
+          ],
+          [
+            { from: [2, 2], to: [4, 2], kind: 'attack' },
+            { from: [3, 2], to: [4, 1], kind: 'attack' },
+          ]
+        );
+        break;
+      case 'reforge_line':
+        setScene(
+          'Reforge the Line: connected infantry re-shape one hex each to rebuild structure.',
+          [
+            { side: 'blue', type: 'inf', c: 1, r: 2, mc: 2, mr: 2 },
+            { side: 'blue', type: 'inf', c: 2, r: 2, mc: 2, mr: 1 },
+            { side: 'blue', type: 'inf', c: 3, r: 2, mc: 4, mr: 2 },
+            { side: 'blue', type: 'inf', c: 4, r: 2, mc: 5, mr: 2 },
+          ],
+          [
+            { from: [1, 2], to: [2, 2], kind: 'move' },
+            { from: [2, 2], to: [2, 1], kind: 'move' },
+            { from: [3, 2], to: [4, 2], kind: 'move' },
+            { from: [4, 2], to: [5, 2], kind: 'move' },
+          ]
+        );
+        break;
+      case 'command_surge':
+        setScene(
+          'Command Surge: one general temporarily expands command radius and snaps units back in-control.',
+          [
+            { side: 'blue', type: 'gen', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 5, r: 1 },
+            { side: 'blue', type: 'inf', c: 5, r: 3 },
+            { side: 'blue', type: 'cav', c: 6, r: 2 },
+          ],
+          [
+            { from: [2, 2], to: [5, 1], kind: 'command' },
+            { from: [2, 2], to: [5, 3], kind: 'command' },
+            { from: [2, 2], to: [6, 2], kind: 'command' },
+          ],
+          5,
+          9
+        );
+        break;
+      case 'stand_or_die':
+        setScene(
+          'Stand or Die: infantry around a general hold ground and ignore retreat pressure.',
+          [
+            { side: 'blue', type: 'gen', c: 2, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 2 },
+            { side: 'blue', type: 'inf', c: 3, r: 1 },
+            { side: 'blue', type: 'inf', c: 3, r: 3 },
+            { side: 'red', type: 'cav', c: 5, r: 2 },
+          ],
+          [
+            { from: [5, 2], to: [3, 2], kind: 'attack' },
+            { from: [2, 2], to: [3, 2], kind: 'hold' },
+            { from: [2, 2], to: [3, 1], kind: 'hold' },
+            { from: [2, 2], to: [3, 3], kind: 'hold' },
+          ]
+        );
+        break;
+
       default:
-        s.caption = 'Select directives that match your current battlefield geometry and timing.';
-        s.tokens = [
-          { side: 'blue', type: 'inf', c: 2, r: 2 },
-          { side: 'blue', type: 'gen', c: 1, r: 2 },
-          { side: 'red', type: 'inf', c: 5, r: 2 },
-        ];
-        s.arrows = [{ from: [2, 2], to: [5, 2], kind: 'attack' }];
+        setScene(
+          'Select directives that match your current battlefield geometry and timing.',
+          [
+            { side: 'blue', type: 'inf', c: 2, r: 2 },
+            { side: 'blue', type: 'gen', c: 1, r: 2 },
+            { side: 'red', type: 'inf', c: 5, r: 2 },
+          ],
+          [{ from: [2, 2], to: [5, 2], kind: 'attack' }]
+        );
         break;
     }
     return s;
   }
 
-  function drawDoctrinePreviewCanvas(timeSec = 0) {
+
+    function drawDoctrinePreviewCanvas(timeSec = 0) {
     if (!elDoctrinePreviewCanvas) return;
-    const ctx = elDoctrinePreviewCanvas.getContext('2d');
-    if (!ctx) return;
+    const pctx = elDoctrinePreviewCanvas.getContext('2d');
+    if (!pctx) return;
+
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const cssW = Math.max(320, Math.round(elDoctrinePreviewCanvas.clientWidth || 520));
+    const cssH = Math.max(180, Math.round(elDoctrinePreviewCanvas.clientHeight || 180));
+    const pxW = Math.max(2, Math.round(cssW * dpr));
+    const pxH = Math.max(2, Math.round(cssH * dpr));
+    if (elDoctrinePreviewCanvas.width !== pxW || elDoctrinePreviewCanvas.height !== pxH) {
+      elDoctrinePreviewCanvas.width = pxW;
+      elDoctrinePreviewCanvas.height = pxH;
+    }
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
     const cmd = COMMAND_BY_ID.get(state.doctrine.builder.focusCommandId || '');
-    const scene = doctrinePreviewScene(cmd?.id || '');
-    const w = elDoctrinePreviewCanvas.width;
-    const h = elDoctrinePreviewCanvas.height;
-    const cols = Math.max(3, scene.cols || 8);
-    const rows = Math.max(2, scene.rows || 4);
-    const padX = 28;
-    const padY = 24;
-    const usableW = Math.max(100, w - padX * 2);
-    const usableH = Math.max(80, h - padY * 2);
-    const stepX = usableW / Math.max(1, cols - 1);
-    const stepY = usableH / Math.max(1, rows - 1);
-    const hexR = Math.max(8, Math.min(16, Math.floor(stepX * 0.28)));
-    const pulse = (Math.sin(timeSec * 2.1) + 1) * 0.5;
+    const scene = doctrinePreviewScene(cmd ? cmd.id : '');
+    const w = cssW;
+    const h = cssH;
+    const readCoord = (v) => (Number.isFinite(v) ? Number(v) : null);
+    const sceneCoords = [];
+    const pushCoord = (c, r) => {
+      if (!Number.isFinite(c) || !Number.isFinite(r)) return;
+      sceneCoords.push({ c: Number(c), r: Number(r) });
+    };
+
+    for (const tok of (scene.tokens || [])) {
+      if (!tok) continue;
+      pushCoord(readCoord(tok.c), readCoord(tok.r));
+      pushCoord(readCoord(tok.mc), readCoord(tok.mr));
+      if (Array.isArray(tok.path)) {
+        for (const step of tok.path) {
+          if (!Array.isArray(step) || step.length < 2) continue;
+          pushCoord(readCoord(step[0]), readCoord(step[1]));
+        }
+      }
+    }
+    for (const fx of (scene.arrows || [])) {
+      if (!fx) continue;
+      if (Array.isArray(fx.from) && fx.from.length >= 2) pushCoord(readCoord(fx.from[0]), readCoord(fx.from[1]));
+      if (Array.isArray(fx.to) && fx.to.length >= 2) pushCoord(readCoord(fx.to[0]), readCoord(fx.to[1]));
+    }
+    for (const t of (scene.terrain || [])) {
+      if (!t) continue;
+      pushCoord(readCoord(t.c), readCoord(t.r));
+    }
+    if (!sceneCoords.length) {
+      pushCoord(0, 0);
+      pushCoord(7, 3);
+    }
+
+    let minC = Infinity;
+    let maxC = -Infinity;
+    let minR = Infinity;
+    let maxR = -Infinity;
+    for (const hPos of sceneCoords) {
+      if (hPos.c < minC) minC = hPos.c;
+      if (hPos.c > maxC) maxC = hPos.c;
+      if (hPos.r < minR) minR = hPos.r;
+      if (hPos.r > maxR) maxR = hPos.r;
+    }
+
+    // Expand bounds slightly so preview geometry has breathing room,
+    // but keep units close enough to read movement and adjacency clearly.
+    minC -= 1;
+    maxC += 1;
+    minR -= 1;
+    maxR += 1;
+
+    const colsSpan = Math.max(2, (maxC - minC) + 1);
+    const rowsSpan = Math.max(2, (maxR - minR) + 1);
+
+    const padX = Math.max(16, Math.round(w * 0.035));
+    const padY = Math.max(12, Math.round(h * 0.05));
+    const usableW = Math.max(140, w - (padX * 2));
+    const usableH = Math.max(110, h - (padY * 2));
+
+    const sqrt3 = Math.sqrt(3);
+    const rFromW = usableW / ((sqrt3 * (colsSpan + 0.5)) + 2.0);
+    const rFromH = usableH / (((rowsSpan - 1) * 1.5) + 2.1);
+    const hexR = Math.max(13, Math.min(34, Math.floor(Math.min(rFromW, rFromH))));
+
+    const stepX = sqrt3 * hexR;
+    const stepY = 1.5 * hexR;
+    const boardW = (sqrt3 * hexR * (colsSpan + 0.5)) + (hexR * 2);
+    const boardH = (((rowsSpan - 1) * 1.5 * hexR) + (hexR * 2));
+    const originX = Math.max(4, Math.round((w - boardW) * 0.5));
+    const originY = Math.max(4, Math.round((h - boardH) * 0.5));
+
+    const offsetToAxial = (c, r) => ({ q: c - ((r - (r & 1)) / 2), r });
+    const axialToOffset = (q, r) => ({ c: q + ((r - (r & 1)) / 2), r });
+    const axialToCube = (a) => ({ x: a.q, z: a.r, y: -a.q - a.r });
+    const cubeToAxial = (c) => ({ q: c.x, r: c.z });
+    const cubeRound = (c) => {
+      let rx = Math.round(c.x);
+      let ry = Math.round(c.y);
+      let rz = Math.round(c.z);
+      const xDiff = Math.abs(rx - c.x);
+      const yDiff = Math.abs(ry - c.y);
+      const zDiff = Math.abs(rz - c.z);
+      if (xDiff > yDiff && xDiff > zDiff) rx = -ry - rz;
+      else if (yDiff > zDiff) ry = -rx - rz;
+      else rz = -rx - ry;
+      return { x: rx, y: ry, z: rz };
+    };
+    const hexLineOffset = (c1, r1, c2, r2) => {
+      const a = axialToCube(offsetToAxial(c1, r1));
+      const b = axialToCube(offsetToAxial(c2, r2));
+      const n = Math.max(1, Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.z - b.z)));
+      const out = [];
+      for (let i = 0; i <= n; i++) {
+        const t = i / n;
+        const c = cubeRound({
+          x: a.x + ((b.x - a.x) * t),
+          y: a.y + ((b.y - a.y) * t),
+          z: a.z + ((b.z - a.z) * t),
+        });
+        const ax = cubeToAxial(c);
+        const off = axialToOffset(ax.q, ax.r);
+        if (!out.length || out[out.length - 1].c !== off.c || out[out.length - 1].r !== off.r) out.push(off);
+      }
+      return out;
+    };
 
     const toXY = (c, r) => {
-      const x = padX + (c * stepX) + ((r % 2) ? (stepX * 0.5) : 0);
-      const y = padY + (r * stepY);
+      const x = originX + hexR + ((c - minC) * stepX) + ((r & 1) ? (stepX * 0.5) : 0);
+      const y = originY + hexR + ((r - minR) * stepY);
       return { x, y };
     };
 
-    const drawMiniHex = (x, y, r, stroke = 'rgba(255,255,255,0.14)') => {
-      ctx.beginPath();
+    const buildHexPath = (x, y, r) => {
+      const p = new Path2D();
       for (let i = 0; i < 6; i++) {
         const a = ((Math.PI / 180) * (60 * i - 30));
         const px = x + Math.cos(a) * r;
         const py = y + Math.sin(a) * r;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
+        if (i === 0) p.moveTo(px, py);
+        else p.lineTo(px, py);
       }
-      ctx.closePath();
-      ctx.strokeStyle = stroke;
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      p.closePath();
+      return p;
     };
 
-    ctx.clearRect(0, 0, w, h);
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, 'rgba(22,25,36,0.96)');
-    grad.addColorStop(1, 'rgba(13,15,22,0.96)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
+    const drawRunnerGlyphPreview = (x, y, size) => {
+      const halfW = size * 0.42;
+      const gap = size * 0.19;
+      const y0 = y - gap;
+      pctx.save();
+      pctx.strokeStyle = '#ffffff';
+      pctx.lineWidth = Math.max(1.8, size * 0.12);
+      pctx.lineCap = 'round';
+      pctx.beginPath();
+      pctx.moveTo(x - halfW, y0);
+      pctx.lineTo(x + halfW, y0);
+      pctx.moveTo(x - halfW, y0 + gap);
+      pctx.lineTo(x + halfW, y0 + gap);
+      pctx.moveTo(x - halfW, y0 + (gap * 2));
+      pctx.lineTo(x + halfW, y0 + (gap * 2));
+      pctx.stroke();
+      pctx.restore();
+    };
 
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const p = toXY(c, r);
-        drawMiniHex(p.x, p.y, hexR, 'rgba(255,255,255,0.11)');
+    const drawQualityRingPreview = (x, y, tokenR, quality) => {
+      const ringR = tokenR;
+      const ringW = Math.max(3, tokenR * 0.34);
+      const frameW = Math.max(1.4, ringW * 0.40);
+      const frameOffset = (ringW * 0.5) - (frameW * 0.5);
+
+      pctx.beginPath();
+      pctx.arc(x, y, ringR + frameOffset, 0, Math.PI * 2);
+      pctx.lineWidth = frameW;
+      pctx.strokeStyle = 'rgba(8, 10, 14, 0.95)';
+      pctx.stroke();
+
+      const qc = qualityRingColor(quality);
+      pctx.beginPath();
+      pctx.arc(x, y, ringR, 0, Math.PI * 2);
+      pctx.lineWidth = ringW;
+      pctx.strokeStyle = qc;
+      pctx.shadowColor = qc;
+      pctx.shadowBlur = Math.max(2, Math.round(tokenR * 0.18));
+      pctx.stroke();
+      pctx.shadowBlur = 0;
+
+      pctx.beginPath();
+      pctx.arc(x, y, ringR - frameOffset, 0, Math.PI * 2);
+      pctx.lineWidth = frameW;
+      pctx.strokeStyle = 'rgba(8, 10, 14, 0.95)';
+      pctx.stroke();
+    };
+
+    const drawTokenPreview = (tok, pt) => {
+      const side = tok.side === 'red' ? 'red' : 'blue';
+      const c = unitColors(side);
+      const tokenR = hexR * 0.55;
+      const discR = tokenR * 0.92;
+      const quality = tok.quality || 'regular';
+      const hp = Number.isFinite(tok.hp) ? tok.hp : unitMaxHp(tok.type, quality);
+      const hpMax = unitMaxHp(tok.type, quality);
+
+      pctx.save();
+      pctx.beginPath();
+      pctx.arc(pt.x, pt.y, discR, 0, Math.PI * 2);
+      pctx.fillStyle = c.fill;
+      pctx.fill();
+      pctx.lineWidth = Math.max(1.2, Math.round(hexR * 0.09));
+      pctx.strokeStyle = 'rgba(8,10,14,0.95)';
+      pctx.stroke();
+
+      drawQualityRingPreview(pt.x, pt.y, tokenR, quality);
+
+      const canIcon = (tok.type !== 'gen') && unitIconReady && unitIconReady(tok.type);
+      if (tok.type === 'run') {
+        drawRunnerGlyphPreview(pt.x, pt.y, hexR * 0.86);
+      } else if (canIcon) {
+        const img = UNIT_ICONS && UNIT_ICONS[tok.type];
+        if (img) {
+          const tune = (UNIT_ICON_TUNE && UNIT_ICON_TUNE[tok.type]) ? UNIT_ICON_TUNE[tok.type] : { scale: 0.95, y: 0 };
+          const s = Math.floor((hexR * 0.98) * (tune.scale || 0.95));
+          const yOff = Math.floor(hexR * (tune.y || 0));
+          const rot = (typeof tune.rot === 'number') ? tune.rot : 0;
+          if (rot) {
+            pctx.save();
+            pctx.translate(Math.floor(pt.x), Math.floor(pt.y + yOff));
+            pctx.rotate(rot);
+            pctx.drawImage(img, Math.floor(-s / 2), Math.floor(-s / 2), s, s);
+            pctx.restore();
+          } else {
+            pctx.drawImage(img, Math.floor(pt.x - s / 2), Math.floor(pt.y - s / 2 + yOff), s, s);
+          }
+        }
+      } else {
+        const def = UNIT_BY_ID.get(tok.type);
+        const symbol = def ? def.symbol : String(tok.type || '?').toUpperCase();
+        pctx.font = '700 ' + Math.max(10, Math.floor(hexR * 0.58)) + 'px "Source Sans 3", sans-serif';
+        pctx.textAlign = 'center';
+        pctx.textBaseline = 'middle';
+        pctx.fillStyle = c.text;
+        pctx.fillText(symbol, pt.x, pt.y + 1);
       }
+
+      const pipR = Math.max(1.8, Math.floor(hexR * 0.09));
+      const startX = pt.x - (pipR * 2) * (hpMax - 1) * 0.5;
+      const y = pt.y + (hexR * 0.82);
+      for (let i = 0; i < hpMax; i++) {
+        pctx.beginPath();
+        pctx.arc(startX + (i * (pipR * 2)), y, pipR, 0, Math.PI * 2);
+        pctx.fillStyle = (i < hp) ? '#fff' : 'rgba(255,255,255,0.28)';
+        pctx.fill();
+      }
+      pctx.restore();
+    };
+
+    const easeInOut = (v) => {
+      const t = Math.max(0, Math.min(1, v));
+      return (t < 0.5) ? (2 * t * t) : (1 - (Math.pow(-2 * t + 2, 2) / 2));
+    };
+
+    const tokenEntries = (scene.tokens || []).map((tok, idx) => {
+      let path = [];
+      if (Array.isArray(tok.path) && tok.path.length > 0) {
+        path = tok.path
+          .filter((p) => Array.isArray(p) && p.length >= 2)
+          .map((p) => ({ c: Number(p[0]), r: Number(p[1]) }))
+          .filter((p) => Number.isFinite(p.c) && Number.isFinite(p.r));
+      }
+      if (!path.length && Number.isFinite(tok.c) && Number.isFinite(tok.r)) {
+        path.push({ c: tok.c, r: tok.r });
+      }
+      if (Number.isFinite(tok.mc) && Number.isFinite(tok.mr) && path.length) {
+        const last = path[path.length - 1];
+        const line = hexLineOffset(last.c, last.r, tok.mc, tok.mr);
+        for (let i = 1; i < line.length; i++) path.push(line[i]);
+      }
+      if (!path.length) path = [{ c: 0, r: 0 }];
+      return {
+        ...tok,
+        __path: path,
+        __phase: Number.isFinite(tok.phase) ? tok.phase : (idx * 0.17),
+      };
+    });
+
+    const tokenPose = (entry, tSec) => {
+      const pts = entry.__path.map((p) => toXY(p.c, p.r));
+      if (pts.length <= 1) return pts[0];
+      const segDur = Number.isFinite(entry.segDur) ? entry.segDur : 0.68;
+      const holdDur = Number.isFinite(entry.holdDur) ? entry.holdDur : 0.22;
+      const segs = pts.length - 1;
+      const cycle = Math.max(0.1, segs * (segDur + holdDur));
+      let t = (tSec + entry.__phase) % cycle;
+      for (let i = 0; i < segs; i++) {
+        if (t <= segDur) {
+          const e = easeInOut(t / segDur);
+          return {
+            x: pts[i].x + ((pts[i + 1].x - pts[i].x) * e),
+            y: pts[i].y + ((pts[i + 1].y - pts[i].y) * e),
+          };
+        }
+        t -= segDur;
+        if (t <= holdDur) return pts[i + 1];
+        t -= holdDur;
+      }
+      return pts[pts.length - 1];
+    };
+
+    const pulse = (Math.sin(timeSec * 2.1) + 1) * 0.5;
+
+    pctx.clearRect(0, 0, w, h);
+    const grad = pctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(20,23,33,0.96)');
+    grad.addColorStop(1, 'rgba(12,14,21,0.97)');
+    pctx.fillStyle = grad;
+    pctx.fillRect(0, 0, w, h);
+
+    const boardCells = [];
+    for (let r = minR; r <= maxR; r++) {
+      for (let c = minC; c <= maxC; c++) {
+        boardCells.push({ c, r });
+      }
+    }
+
+    const terrainMap = new Map();
+    for (const t of (scene.terrain || [])) {
+      if (!t) continue;
+      const key = String(t.c) + ',' + String(t.r);
+      terrainMap.set(key, t.t || 'clear');
+    }
+
+    for (const cell of boardCells) {
+      const p = toXY(cell.c, cell.r);
+      const path = buildHexPath(p.x, p.y, hexR);
+      pctx.fillStyle = '#d7d2bb';
+      pctx.fill(path);
+      const tt = terrainMap.get(cell.c + ',' + cell.r);
+      if (tt === 'woods') {
+        pctx.fillStyle = 'rgba(71, 142, 84, 0.24)';
+        pctx.fill(path);
+      } else if (tt === 'hills') {
+        pctx.fillStyle = 'rgba(184, 137, 66, 0.24)';
+        pctx.fill(path);
+      } else if (tt === 'rough') {
+        pctx.fillStyle = 'rgba(118, 95, 79, 0.22)';
+        pctx.fill(path);
+      } else if (tt === 'water') {
+        pctx.fillStyle = 'rgba(52, 111, 187, 0.28)';
+        pctx.fill(path);
+      }
+      pctx.strokeStyle = 'rgba(0,0,0,0.34)';
+      pctx.lineWidth = 1.2;
+      pctx.stroke(path);
+    }
+
+    for (const entry of tokenEntries) {
+      if (!entry.__path || entry.__path.length <= 1) continue;
+      pctx.save();
+      pctx.strokeStyle = entry.side === 'red' ? 'rgba(255, 140, 140, 0.58)' : 'rgba(126, 203, 255, 0.58)';
+      pctx.lineWidth = 1.8;
+      pctx.setLineDash([4, 5]);
+      pctx.beginPath();
+      entry.__path.forEach((step, i) => {
+        const pt = toXY(step.c, step.r);
+        if (i === 0) pctx.moveTo(pt.x, pt.y);
+        else pctx.lineTo(pt.x, pt.y);
+      });
+      pctx.stroke();
+      pctx.setLineDash([]);
+      pctx.restore();
     }
 
     const arrowColor = (kind) => {
-      if (kind === 'attack') return `rgba(231, 96, 96, ${0.45 + (pulse * 0.4)})`;
-      if (kind === 'ranged') return `rgba(244, 201, 96, ${0.45 + (pulse * 0.4)})`;
-      if (kind === 'command') return `rgba(178, 145, 255, ${0.45 + (pulse * 0.4)})`;
-      if (kind === 'hold') return `rgba(112, 213, 171, ${0.45 + (pulse * 0.4)})`;
-      return `rgba(110, 186, 255, ${0.45 + (pulse * 0.4)})`;
-    };
-    const drawArrow = (from, to, kind = 'move') => {
-      const a = toXY(from[0], from[1]);
-      const b = toXY(to[0], to[1]);
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const len = Math.max(1, Math.hypot(dx, dy));
-      const ux = dx / len;
-      const uy = dy / len;
-      const sx = a.x + (ux * (hexR + 4));
-      const sy = a.y + (uy * (hexR + 4));
-      const ex = b.x - (ux * (hexR + 6));
-      const ey = b.y - (uy * (hexR + 6));
-      const color = arrowColor(kind);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = kind === 'attack' ? 3 : 2.2;
-      ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      ctx.lineTo(ex, ey);
-      ctx.stroke();
-      const hx = ex - (ux * 8);
-      const hy = ey - (uy * 8);
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(ex, ey);
-      ctx.lineTo(hx - (uy * 5), hy + (ux * 5));
-      ctx.lineTo(hx + (uy * 5), hy - (ux * 5));
-      ctx.closePath();
-      ctx.fill();
+      if (kind === 'attack') return 'rgba(232, 96, 96,' + (0.48 + (pulse * 0.38)).toFixed(3) + ')';
+      if (kind === 'ranged') return 'rgba(245, 205, 110,' + (0.46 + (pulse * 0.35)).toFixed(3) + ')';
+      if (kind === 'command') return 'rgba(184, 148, 255,' + (0.46 + (pulse * 0.35)).toFixed(3) + ')';
+      if (kind === 'hold') return 'rgba(116, 218, 171,' + (0.46 + (pulse * 0.35)).toFixed(3) + ')';
+      return 'rgba(126, 203, 255,' + (0.46 + (pulse * 0.35)).toFixed(3) + ')';
     };
 
-    for (const arrow of (scene.arrows || [])) {
-      drawArrow(arrow.from, arrow.to, arrow.kind);
+    const drawEffect = (effect) => {
+      if (!effect || !effect.from || !effect.to) return;
+      if (effect.kind === 'move') return;
+      const a = toXY(effect.from[0], effect.from[1]);
+      const b = toXY(effect.to[0], effect.to[1]);
+      const color = arrowColor(effect.kind);
+
+      if (effect.from[0] === effect.to[0] && effect.from[1] === effect.to[1]) {
+        pctx.save();
+        pctx.strokeStyle = color;
+        pctx.lineWidth = 2.3;
+        pctx.beginPath();
+        pctx.arc(a.x, a.y, Math.max(8, hexR * (0.58 + (pulse * 0.28))), 0, Math.PI * 2);
+        pctx.stroke();
+        pctx.restore();
+        return;
+      }
+
+      pctx.save();
+      pctx.strokeStyle = color;
+      pctx.lineWidth = effect.kind === 'attack' ? 2.8 : 2.2;
+
+      if (effect.kind === 'ranged') {
+        const midX = (a.x + b.x) * 0.5;
+        const arcLift = Math.max(hexR * 0.8, Math.abs(a.x - b.x) * 0.15);
+        const midY = Math.min(a.y, b.y) - arcLift;
+        pctx.setLineDash([7, 5]);
+        pctx.beginPath();
+        pctx.moveTo(a.x, a.y);
+        pctx.quadraticCurveTo(midX, midY, b.x, b.y);
+        pctx.stroke();
+        pctx.setLineDash([]);
+        const t = pulse;
+        const u = 1 - t;
+        const px = (u * u * a.x) + (2 * u * t * midX) + (t * t * b.x);
+        const py = (u * u * a.y) + (2 * u * t * midY) + (t * t * b.y);
+        pctx.beginPath();
+        pctx.arc(px, py, Math.max(2.2, hexR * 0.15), 0, Math.PI * 2);
+        pctx.fillStyle = color;
+        pctx.fill();
+      } else {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.max(1, Math.hypot(dx, dy));
+        const ux = dx / len;
+        const uy = dy / len;
+        const sx = a.x + (ux * (hexR + 4));
+        const sy = a.y + (uy * (hexR + 4));
+        const ex = b.x - (ux * (hexR + 6));
+        const ey = b.y - (uy * (hexR + 6));
+        if (effect.kind === 'command' || effect.kind === 'hold') pctx.setLineDash([3, 4]);
+        pctx.beginPath();
+        pctx.moveTo(sx, sy);
+        pctx.lineTo(ex, ey);
+        pctx.stroke();
+        pctx.setLineDash([]);
+        const hx = ex - (ux * 8);
+        const hy = ey - (uy * 8);
+        pctx.beginPath();
+        pctx.moveTo(ex, ey);
+        pctx.lineTo(hx - (uy * 5), hy + (ux * 5));
+        pctx.lineTo(hx + (uy * 5), hy - (ux * 5));
+        pctx.closePath();
+        pctx.fillStyle = color;
+        pctx.fill();
+      }
+
+      pctx.restore();
+    };
+
+    for (const effect of (scene.arrows || [])) drawEffect(effect);
+
+    for (const entry of tokenEntries) {
+      const pos = tokenPose(entry, timeSec);
+      drawTokenPreview(entry, pos);
     }
 
-    const typeLabel = (type) => (UNIT_BY_ID.get(type)?.abbrev || String(type || '').toUpperCase()).toUpperCase();
-    for (const tok of (scene.tokens || [])) {
-      const start = toXY(tok.c, tok.r);
-      const end = (Number.isFinite(tok.mc) && Number.isFinite(tok.mr)) ? toXY(tok.mc, tok.mr) : null;
-      const shift = end ? pulse : 0;
-      const x = end ? (start.x + ((end.x - start.x) * shift)) : start.x;
-      const y = end ? (start.y + ((end.y - start.y) * shift)) : start.y;
-      const ring = tok.side === 'blue' ? '#6eb6ff' : '#ef7d7d';
-      const fill = tok.side === 'blue' ? '#1d4e9b' : '#8a2020';
-      ctx.beginPath();
-      ctx.arc(x, y, hexR * 0.72, 0, Math.PI * 2);
-      ctx.fillStyle = fill;
-      ctx.fill();
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = ring;
-      ctx.stroke();
-      ctx.fillStyle = '#f2f5ff';
-      ctx.font = `700 ${Math.max(9, Math.round(hexR * 0.72))}px "Source Sans 3", sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(typeLabel(tok.type), x, y + 0.5);
+    if (elDoctrinePreviewTitle) {
+      elDoctrinePreviewTitle.textContent = cmd
+        ? `Previewing: ${cmd.name}`
+        : 'Previewing: Select an order';
     }
 
     if (elDoctrinePreviewCaption) {
       const head = cmd
-        ? `${cmd.name}: ${commandLaymanText(cmd)}`
-        : 'Select a directive to preview its intended movement/combat pattern.';
-      const tail = scene.caption ? ` ${scene.caption}` : '';
-      elDoctrinePreviewCaption.textContent = `${head}${tail}`;
+        ? (cmd.name + ': ' + commandLaymanText(cmd))
+        : 'Select a directive to preview its movement and combat pattern.';
+      const tail = scene.caption ? (' ' + scene.caption) : '';
+      elDoctrinePreviewCaption.textContent = head + tail;
     }
   }
 
-  function stopDoctrinePreviewLoop() {
+function stopDoctrinePreviewLoop() {
     if (doctrinePreviewRaf) {
       cancelAnimationFrame(doctrinePreviewRaf);
       doctrinePreviewRaf = 0;
@@ -8067,6 +9185,10 @@ function unitColors(side) {
     state.doctrine.builder.draft.red = cloneArray(doctrineStateForSide('red')?.loadout || makeRecommendedDoctrineLoadout());
     const seed = state.doctrine.builder.draft[editSide] || [];
     state.doctrine.builder.focusCommandId = (Array.isArray(seed) && seed.length) ? seed[0] : '';
+    if (state.mode === 'play') {
+      const legalSeed = (Array.isArray(seed) ? seed : []).filter((id) => !!COMMAND_BY_ID.get(id));
+      if (legalSeed.length) state.doctrine.builder.focusCommandId = legalSeed[0];
+    }
     if (elDoctrineSideSel) elDoctrineSideSel.value = editSide;
     renderDoctrineBuilder();
     elDoctrineOverlay.classList.add('open');
@@ -8113,18 +9235,31 @@ function unitColors(side) {
   function renderDoctrineBuilderList(el, side, cost, readOnly = false) {
     if (!el) return;
     const draft = new Set(currentDoctrineBuilderDraft(side));
+    const selectedOnly = !!readOnly;
     const cmds = COMMAND_POOL
-      .filter(c => c.cost === cost)
+      .filter((c) => c.cost === cost && (!selectedOnly || draft.has(c.id)))
       .sort((a, b) => {
         if (a.persistence !== b.persistence) return (a.persistence === 'spent') ? 1 : -1;
         return a.name.localeCompare(b.name);
       });
-    const disabledAttr = readOnly ? 'disabled' : '';
+
+    el.classList.toggle('doctrineBuilderListReadOnly', selectedOnly);
+
     const renderRows = (rows) => rows.map((cmd) => {
       const checked = draft.has(cmd.id) ? 'checked' : '';
       const activeCls = (state.doctrine.builder.focusCommandId === cmd.id) ? ' doctrinePickActive' : '';
+      if (selectedOnly) {
+        return `<div class="doctrinePick doctrinePickLocked${activeCls}" data-doctrine-item="1" data-doctrine-id="${cmd.id}">
+          <span class="doctrinePickLockDot" aria-hidden="true">●</span>
+          <span>
+            <span class="doctrinePickName">${cmd.name}</span>
+            <span class="doctrinePickMeta">Cost ${cmd.cost} · ${commandUsageLabel(cmd.persistence)}</span>
+            <span class="doctrinePickExplain">${commandDictionaryText(cmd)}</span>
+          </span>
+        </div>`;
+      }
       return `<label class="doctrinePick${activeCls}" data-doctrine-item="1" data-doctrine-id="${cmd.id}">
-        <input type="checkbox" data-doctrine-id="${cmd.id}" data-cost="${cost}" ${checked} ${disabledAttr}>
+        <input type="checkbox" data-doctrine-id="${cmd.id}" data-cost="${cost}" ${checked}>
         <span>
           <span class="doctrinePickName">${cmd.name}</span>
           <span class="doctrinePickMeta">Cost ${cmd.cost} · ${commandUsageLabel(cmd.persistence)}</span>
@@ -8132,6 +9267,7 @@ function unitColors(side) {
         </span>
       </label>`;
     }).join('');
+
     const reusable = cmds.filter(c => c.persistence !== 'spent');
     const singleUse = cmds.filter(c => c.persistence === 'spent');
     const html = `${reusable.length ? `<div class="doctrinePickGroup">Reusable Orders</div>${renderRows(reusable)}` : ''}${singleUse.length ? `<div class="doctrinePickGroup">Single-Use Orders</div>${renderRows(singleUse)}` : ''}`;
@@ -8186,12 +9322,15 @@ function unitColors(side) {
     const redOk = !!state.doctrine.builder.confirmed.red;
     if (elDoctrineBuilderCounts) {
       if (readOnly) {
-        elDoctrineBuilderCounts.textContent = `${side.toUpperCase()} picks: cost1 ${count1}/3 · cost2 ${count2}/3 · cost3 ${count3}/3 · Locked during Play mode`;
+        elDoctrineBuilderCounts.textContent = `${side.toUpperCase()} doctrine loaded · Cost 1: ${count1}/3 · Cost 2: ${count2}/3 · Cost 3: ${count3}/3`;
       } else {
         elDoctrineBuilderCounts.textContent =
           `${side.toUpperCase()} picks: cost1 ${count1}/3 · cost2 ${count2}/3 · cost3 ${count3}/3 · ` +
           `Pick exactly 3 in each cost tier. Confirmed: Blue ${blueOk ? 'yes' : 'no'} · Red ${redOk ? 'yes' : 'no'}.`;
       }
+    }
+    if (elDoctrineOverlay) {
+      elDoctrineOverlay.classList.toggle('play-lock', readOnly);
     }
     if (elDoctrineSideSel) elDoctrineSideSel.disabled = readOnly;
     if (elDoctrineRandomizeBtn) elDoctrineRandomizeBtn.disabled = readOnly;
@@ -8403,6 +9542,13 @@ function unitColors(side) {
     if (elStatusLast) {
       elStatusLast.textContent = state.last || '-';
     }
+    if (elTurnOrdersSummary) {
+      const showSummary = state.mode === 'play';
+      elTurnOrdersSummary.hidden = !showSummary;
+      if (showSummary) elTurnOrdersSummary.textContent = turnOrdersSummaryText();
+    }
+    renderBattleFocusPanel();
+    syncStarterBattleUi();
 
     if (elCombatForces) {
       elCombatForces.textContent = `Forces: Blue ${blue.up} UP / ${blue.hp} HP • Red ${red.up} UP / ${red.hp} HP`;
@@ -12545,12 +13691,11 @@ function unitColors(side) {
         id: 'inf_move',
         title: 'Infantry Movement & Formation',
         text:
-          'Infantry move one hex and work best in connected ranks. Here you can see a two-unit front row with a three-unit support row behind it.',
-        focusKeys: [...blueInfBlock, ...redInfBlock],
-        destinationKeys: [bInfTo, rInfTo].filter(Boolean),
+          'Infantry move one hex and work best in connected ranks. In this drill, move the FRONT-LEFT Blue infantry (top line) to the marked destination.',
+        focusKeys: [...blueInfBlock],
+        destinationKeys: [bInfTo].filter(Boolean),
         paths: [
           { fromKey: k.blueInfFrontL, toKey: bInfTo, kind: 'move' },
-          { fromKey: k.redInfFrontR, toKey: rInfTo, kind: 'move' },
         ].filter((p) => p.toKey),
         unitProfile: {
           move: 'Move: 1 hex per activation. Entering woods, hills, or rough can slow momentum.',
@@ -12562,7 +13707,7 @@ function unitColors(side) {
         },
         task: {
           type: 'move',
-          text: 'Click the highlighted Blue infantry, then click the highlighted destination hex.',
+          text: 'Click the FRONT-LEFT highlighted Blue infantry, then click the highlighted destination hex.',
           sourceKeys: [k.blueInfFrontL],
           destinationKeys: [bInfTo].filter(Boolean),
         },
@@ -12571,11 +13716,11 @@ function unitColors(side) {
         id: 'inf_reinforce',
         title: 'Reinforced Infantry (Brace)',
         text:
-          'When linked infantry support a front unit from the proper rear arcs, the defender is reinforced and melee attackers lose a die.',
-        focusKeys: [...blueInfBlock, ...redInfBlock],
+          'Now inspect reinforcement on the SAME FRONT-LEFT Blue infantry from the prior step. No movement in this step: this is a brace/position check.',
+        focusKeys: [...blueInfBlock],
         selectedKey: k.blueInfFrontL,
         learn: [
-          'During this step, the cyan overlay marks front infantry and their linked support units.',
+          'During this step, cyan marks the front infantry and linked support infantry behind it.',
           'Brace is infantry-only and depends on adjacent geometry.',
         ],
         unitProfile: {
@@ -12588,7 +13733,7 @@ function unitColors(side) {
         },
         task: {
           type: 'select',
-          text: 'Click the selected Blue front infantry again to inspect reinforcement in Modifiers.',
+          text: 'Click the same FRONT-LEFT Blue infantry again (highlighted in cyan).',
           targetKeys: [k.blueInfFrontL],
         },
       },
@@ -12975,7 +14120,7 @@ function unitColors(side) {
         id: 'ready',
         title: 'Tutorial Complete',
         text:
-          'You now have movement, combat, and command basics for each unit type. Exit tutorial to play this position, or return to intro for Play Now or full setup.',
+          'You now have movement, combat, and command basics for each unit type. Exit tutorial to play this position, or return to intro for First Battle, another recommended battle, or Advanced Setup.',
         focusKeys: [k.blueGen, k.redGen, k.blueInfFrontL, k.redInfFrontR],
         learn: [
           'Replay tutorial anytime from the intro screen.',
@@ -13042,6 +14187,11 @@ function unitColors(side) {
         status = task.progress?.moved
           ? 'Pending: movement done. Now attack a highlighted enemy target.'
           : 'Pending: move the highlighted unit first, then attack the highlighted enemy.';
+      } else if (task.type === 'select') {
+        const count = Number(task.targetKeys?.length || 0);
+        status = count <= 1
+          ? 'Pending: click the highlighted unit.'
+          : `Pending: click a highlighted target (${count} available).`;
       } else {
         status = `Pending: ${task.targetKeys?.length ? `${task.targetKeys.length} target${task.targetKeys.length === 1 ? '' : 's'} highlighted.` : 'follow prompt.'}`;
       }
@@ -13148,6 +14298,7 @@ function unitColors(side) {
     loadScenario(GUIDED_TUTORIAL_SCENARIO_NAME);
     cacheTutorialUnitIds();
     prepareQuickStartDoctrine();
+    state.starterAdvancedOpen = false;
     setIntroOverlayOpen(false);
     enterPlay();
     setTutorialGuideOpen(true);
@@ -13170,40 +14321,30 @@ function unitColors(side) {
     document.body.classList.toggle('intro-open', show);
   }
 
+  function isFirstBattleScenario(name = state.loadedScenarioName) {
+    return String(name || '') === FIRST_BATTLE_SCENARIO_NAME;
+  }
+
   function prepareQuickStartDoctrine() {
-    const blueRandom = makeRandomDoctrineLoadout();
-    const redRandom = makeRandomDoctrineLoadout();
-    setDoctrineLoadoutForSide('blue', blueRandom, 'random');
-    setDoctrineLoadoutForSide('red', redRandom, 'random');
+    setDoctrineLoadoutForSide('blue', makeRecommendedDoctrineLoadout(), 'recommended');
+    setDoctrineLoadoutForSide('red', makeRecommendedDoctrineLoadout(), 'recommended');
     state.doctrine.builder.confirmed = { blue: true, red: true };
     state.doctrine.builder.preBattleReady = true;
   }
 
   function startPlayNowFromIntro() {
     if (state.tutorial.active) stopGuidedTutorial();
-    const randomScenario = installRandomStartupScenario();
-    populateScenarioSelect();
-    if (elScenarioSel && [...elScenarioSel.options].some((o) => o.value === RANDOM_START_SCENARIO_NAME)) {
-      elScenarioSel.value = RANDOM_START_SCENARIO_NAME;
-    }
-    loadScenario(RANDOM_START_SCENARIO_NAME);
-    prepareQuickStartDoctrine();
-    setIntroOverlayOpen(false);
-    enterPlay();
-    log(
-      `Play Now launched: randomized battlefield loaded ` +
-      `(B:${randomScenario.blueArchetype || 'line'} / R:${randomScenario.redArchetype || 'line'}).`
-    );
-    updateHud();
+    launchStarterBattlePreset(starterBattlePresetById('first-battle'), 'First Battle');
   }
 
   function startSetupFromIntro() {
     if (state.tutorial.active) stopGuidedTutorial();
+    state.starterAdvancedOpen = false;
     state.doctrine.builder.preBattleReady = false;
     state.doctrine.builder.confirmed = { blue: false, red: false };
     setIntroOverlayOpen(false);
     enterEdit();
-    log('Game Setup opened: edit the field and confirm War Council when ready.');
+    log('Advanced Setup opened: pick a scenario, then confirm War Council when ready.');
     updateHud();
   }
 
@@ -13220,6 +14361,7 @@ function unitColors(side) {
     stopAiLoop();
     state.mode = 'edit';
     state.tool = 'units';
+    state.starterAdvancedOpen = false;
     state.doctrine.builder.preBattleReady = false;
     state.doctrine.builder.confirmed = { blue: false, red: false };
     const sideEl = document.getElementById('side');
@@ -15846,6 +16988,16 @@ function unitColors(side) {
       startPlayNowFromIntro();
     });
   }
+  if (elIntroRecommendedList) {
+    elIntroRecommendedList.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-preset-id]');
+      if (!btn) return;
+      launchStarterBattlePreset(
+        starterBattlePresetById(btn.dataset.presetId),
+        'Recommended battle'
+      );
+    });
+  }
   if (elIntroSetupBtn) {
     elIntroSetupBtn.addEventListener('click', () => {
       startSetupFromIntro();
@@ -16001,6 +17153,28 @@ function unitColors(side) {
   if (elOpenFullRulesBtn) {
     elOpenFullRulesBtn.addEventListener('click', () => {
       openRulesOverlay('full');
+    });
+  }
+  if (elBattleFocusRulesBtn) {
+    elBattleFocusRulesBtn.addEventListener('click', () => {
+      openRulesOverlay('quick');
+    });
+  }
+  if (elBattleFocusAdvancedBtn) {
+    elBattleFocusAdvancedBtn.addEventListener('click', () => {
+      state.starterAdvancedOpen = !state.starterAdvancedOpen;
+      log(
+        state.starterAdvancedOpen
+          ? 'Advanced starter controls revealed: War Council, directives, and line advance are now visible.'
+          : 'Starter view restored: advanced orders are hidden again.'
+      );
+      updateHud();
+    });
+  }
+  if (elBattleFocusOrdersBtn) {
+    elBattleFocusOrdersBtn.addEventListener('click', () => {
+      const side = (state.side === 'red') ? 'red' : 'blue';
+      openRulesOverlay('commands', { mode: 'selected', side });
     });
   }
   if (elDoctrineOpenHeroBtn) {
@@ -16515,6 +17689,14 @@ function unitColors(side) {
     });
   }
 
+  if (elScenarioQuickPicks) {
+    elScenarioQuickPicks.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-preset-id]');
+      if (!btn) return;
+      loadStarterBattlePresetIntoSetup(starterBattlePresetById(btn.dataset.presetId));
+    });
+  }
+
   if (elLoadScenarioBtn) {
     elLoadScenarioBtn.addEventListener('click', () => { loadScenario(elScenarioSel.value); });
   }
@@ -16790,30 +17972,33 @@ function unitColors(side) {
     populateVictorySelect();
     renderRulesCommandsGuide();
     pruneLegacyUiSurface();
-    const randomScenario = installRandomStartupScenario();
+    installRandomStartupScenario();
     populateScenarioSelect();
+    renderIntroRecommendedList();
     if (elDraftModeSel) elDraftModeSel.value = 'off';
     if (elDraftBudgetInput) elDraftBudgetInput.value = String(state.draft.budget);
 
-    if ([...elScenarioSel.options].some(o => o.value === RANDOM_START_SCENARIO_NAME)) {
-      elScenarioSel.value = RANDOM_START_SCENARIO_NAME;
+    if ([...elScenarioSel.options].some(o => o.value === FIRST_BATTLE_SCENARIO_NAME)) {
+      elScenarioSel.value = FIRST_BATTLE_SCENARIO_NAME;
     }
 
-    loadScenario(RANDOM_START_SCENARIO_NAME);
+    loadScenario(FIRST_BATTLE_SCENARIO_NAME);
     enterEdit();
     setIntroTutorialOpen(false);
-    setIntroOverlayOpen(true);
 
-    const biasLabel = (randomScenario.advantageSide === 'none')
-      ? 'balanced'
-      : `${randomScenario.advantageSide} flank bias`;
-    const bootModeLabel = 'Intro menu ready: choose Play Now, Game Setup, or Tutorial.';
+    if (ORDER_ATLAS_MODE) {
+      setIntroOverlayOpen(false);
+      openDoctrineBuilder('blue');
+    } else {
+      setIntroOverlayOpen(true);
+    }
+
+    const bootModeLabel = ORDER_ATLAS_MODE
+      ? 'Orders Atlas mode ready: War Council opens directly for directive preview review.'
+      : 'Intro menu ready: choose First Battle, Tutorial, a recommended battle, or Advanced Setup.';
 
     log(
-      `Booted ${GAME_NAME}. Randomized startup loaded ` +
-      `(units=${randomScenario.units.length}, perSide=${randomScenario.unitsPerSide || Math.floor(randomScenario.units.length / 2)}, terrain=${randomScenario.terrain.length}, ` +
-      `axis=${forwardAxisLabel(randomScenario.axis)}, ${biasLabel}, ` +
-      `formations=B:${randomScenario.blueArchetype || 'line'} / R:${randomScenario.redArchetype || 'line'}). ` +
+      `Booted ${GAME_NAME}. Starter scenario loaded (${FIRST_BATTLE_SCENARIO_NAME}). ` +
       bootModeLabel
     );
     updateHud();
