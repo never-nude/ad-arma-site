@@ -428,8 +428,7 @@
             }
           }
 
-          // Source scan uses Z-up. Rotate into Y-up so it stands upright by default.
-          geometry.rotateX(-Math.PI * 0.5);
+          // Dawn source mesh is already Y-up; keep native orientation so the base rests on the pedestal.
           const vertexCount = geometry.attributes.position?.count || 0;
           if (vertexCount < 1_800_000) {
             geometry = mergeVertices(geometry, 1e-4);
