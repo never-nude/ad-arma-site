@@ -32,3 +32,5 @@ Institution-sourced 3D model pages in chronological order.
    - /michelangelo/giuliano-duke-of-nemours/
 15. Michelangelo: Lorenzo, Duke of Urbino (1526-1534)
    - /michelangelo/lorenzo-duke-of-urbino/
+16. Michelangelo: Brutus (c.1540-1548)
+   - /michelangelo/brutus/
