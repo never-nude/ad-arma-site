@@ -427,8 +427,8 @@
             }
           }
 
-          // Night source mesh is already Y-up. Apply a 90-degree roll so it sits upright on its base.
-          geometry.rotateZ(Math.PI * 0.5);
+          // Night source mesh is already Y-up. Apply a 180-degree roll (90 more from prior state) so it sits upright on its base.
+          geometry.rotateZ(Math.PI);
           const vertexCount = geometry.attributes.position?.count || 0;
           if (vertexCount < 1_800_000) {
             geometry = mergeVertices(geometry, 1e-4);
