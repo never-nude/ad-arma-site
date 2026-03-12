@@ -8,7 +8,7 @@
   --btn2:#1a1c22;
   --focus:#79a7ff;
   --accent:#d8bd7e;
-  --combat-h:132px;
+  --combat-h:176px;
   --hud-h:72px;
   --side-w:336px;
   --safe-top: env(safe-area-inset-top, 0px);
@@ -96,7 +96,7 @@ body.intro-open #combatRail{
 .introActionBtn{
   width:100%;
   padding:12px 14px;
-  min-height:64px;
+  min-height:72px;
   text-align:left;
   border-color:rgba(216,189,126,0.24);
   background:linear-gradient(180deg, rgba(24,27,36,0.94), rgba(16,18,25,0.94));
@@ -323,7 +323,7 @@ body.intro-open #combatRail{
   margin-top:12px;
   display:grid;
   grid-template-columns:repeat(4, minmax(0, 1fr));
-  gap:8px;
+  gap:10px;
 }
 
 .tutorialGuideFooter{
@@ -379,7 +379,7 @@ body.intro-open #combatRail{
   font-family:'Cinzel','Trajan Pro','Times New Roman',serif;
   font-weight:700;
   letter-spacing:0.09em;
-  font-size:clamp(40px, 2.2vw + 8px, 62px);
+  font-size:clamp(48px, 2.6vw + 10px, 74px);
   text-transform:uppercase;
   text-align:center;
   width:calc(100% - var(--side-w));
@@ -491,7 +491,7 @@ body.tutorial-active.tutorial-show-side #canvasWrap{
 #boardDiceDock{
   position:relative;
   z-index:5;
-  width:min(92%, 620px);
+  width:min(90%, 700px);
   margin:0 auto 4px;
   display:flex;
   flex-direction:column;
@@ -502,8 +502,8 @@ body.tutorial-active.tutorial-show-side #canvasWrap{
 
 #boardDiceDock .physicalDiceRow{
   width:100%;
-  min-height:64px;
-  padding:9px 11px;
+  min-height:72px;
+  padding:10px 12px;
   border-color:rgba(216,189,126,0.28);
   background:rgba(8,10,14,0.62);
   backdrop-filter:blur(2px);
@@ -518,8 +518,8 @@ body.tutorial-active.tutorial-show-side #canvasWrap{
 }
 
 #boardDiceDock .physicalDie{
-  width:60px;
-  height:60px;
+  width:66px;
+  height:66px;
 }
 
 #cornerDiceHud.combat-active{
@@ -618,7 +618,7 @@ body[data-mode="play"] #side{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:8px;
+  gap:10px;
 }
 
 .panelToggleBtn{
@@ -831,7 +831,7 @@ body[data-mode="play"] #side{
   display:flex;
   align-items:baseline;
   justify-content:space-between;
-  gap:8px;
+  gap:10px;
 }
 
 .ordersExplainName{
@@ -893,7 +893,7 @@ body[data-mode="play"] #side{
 .doctrineBuilderGrid{
   display:grid;
   grid-template-columns:repeat(3, minmax(0, 1fr));
-  gap:8px;
+  gap:10px;
   padding:8px 10px;
   overflow:auto;
   flex:1;
@@ -1176,7 +1176,7 @@ body[data-mode="play"] #side{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:8px;
+  gap:10px;
   padding:10px 10px 8px;
   border-bottom:1px solid var(--line);
 }
@@ -1288,7 +1288,7 @@ body[data-mode="play"] #side{
 .rulesCommandScopeRow{
   display:grid;
   grid-template-columns:1fr 1fr;
-  gap:8px;
+  gap:10px;
   margin:8px 0 6px;
 }
 
@@ -1385,14 +1385,14 @@ body[data-mode="play"] #side{
 .diceTray{
   display:grid;
   grid-template-columns:repeat(auto-fill, minmax(40px, 1fr));
-  gap:8px;
+  gap:10px;
   margin-top:6px;
 }
 
 .physicalDiceRow{
   display:flex;
   flex-wrap:wrap;
-  gap:8px;
+  gap:10px;
   min-height:58px;
   align-items:center;
   justify-content:center;
@@ -1529,7 +1529,7 @@ body[data-mode="play"] #side{
   max-height:var(--combat-h);
   border-top:1px solid var(--line);
   background:#0f1116;
-  padding:7px 10px 8px;
+  padding:10px 12px 11px;
   display:grid;
   grid-template-columns:
     minmax(0, 1.15fr)
@@ -1538,7 +1538,7 @@ body[data-mode="play"] #side{
     minmax(0, 1fr)
     minmax(0, 0.85fr)
     minmax(0, 1.05fr);
-  gap:8px;
+  gap:10px;
   align-items:stretch;
   overflow:hidden;
 }
@@ -1547,10 +1547,10 @@ body[data-mode="play"] #side{
   border:1px solid rgba(255,255,255,0.12);
   border-radius:10px;
   background:#12151d;
-  padding:6px 8px;
+  padding:9px 10px;
   display:flex;
   flex-direction:column;
-  gap:4px;
+  gap:6px;
   min-width:0;
   overflow:hidden;
 }
@@ -1566,7 +1566,7 @@ body[data-mode="play"] #side{
 }
 
 .combatColTitle{
-  font-size:12px;
+  font-size:13px;
   letter-spacing:0.08em;
   text-transform:uppercase;
   color:var(--accent);
@@ -1574,15 +1574,15 @@ body[data-mode="play"] #side{
 }
 
 .combatSummary{
-  font-size:13px;
+  font-size:14px;
   font-weight:650;
-  line-height:1.3;
+  line-height:1.35;
 }
 
 .combatMeta{
-  font-size:13px;
+  font-size:14px;
   color:#cfd3de;
-  line-height:1.3;
+  line-height:1.35;
 }
 
 .combatHint{
@@ -1591,14 +1591,14 @@ body[data-mode="play"] #side{
 
 .combatColDice .physicalDiceRow{
   width:100%;
-  min-height:54px;
-  padding:8px;
-  gap:8px;
+  min-height:66px;
+  padding:10px;
+  gap:10px;
 }
 
 .combatColDice .physicalDie{
-  width:38px;
-  height:38px;
+  width:46px;
+  height:46px;
 }
 
 .doctrineConfirmBtn{
@@ -1621,9 +1621,9 @@ body[data-mode="play"] #side{
 .combatColOnline .btn,
 .combatColOnline .input,
 .combatColOnline .select{
-  min-height:24px;
-  padding:3px 6px;
-  font-size:11px;
+  min-height:26px;
+  padding:4px 7px;
+  font-size:12px;
 }
 
 .combatColOnline .btn{
@@ -1636,7 +1636,7 @@ body[data-mode="play"] #side{
 }
 
 .combatColOnline .roomCode{
-  font-size:11px;
+  font-size:12px;
   letter-spacing:0.14em;
   min-height:24px;
   padding:2px 6px;
@@ -1672,7 +1672,7 @@ body[data-mode="play"] #side{
 
 .onlineStatusLine{
   color:var(--muted);
-  font-size:11px;
+  font-size:12px;
   line-height:1.2;
   min-height:1.2em;
 }
@@ -1740,7 +1740,7 @@ body[data-mode="play"] #side{
     height:auto;
     max-height:min(38dvh, 340px);
     grid-template-columns:1fr;
-    gap:8px;
+    gap:10px;
   }
   body.tutorial-active #canvasWrap{
     padding-left:0;

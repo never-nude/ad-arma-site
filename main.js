@@ -4245,41 +4245,77 @@ SCENARIOS['History A — Thermopylae Hot Gates (480 BCE)'] = {
     elCanvas.style.height = `${Math.floor(rect.height)}px`;
     ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
-    // Fit board.
-    const cols = (board.maxQ - board.minQ + 1);
-    const rows = (board.maxR - board.minR + 1);
+    // Fit board using ACTIVE hex geometry (not sparse q/r ranges),
+    // so large displays keep the board legible and centered.
+    const active = Array.isArray(board.active) ? board.active : [];
+    if (!active.length) return;
+
+    let minNormQ = Infinity;
+    let maxNormQ = -Infinity;
+    let minNormR = Infinity;
+    let maxNormR = -Infinity;
+    for (const h of active) {
+      const normQ = h.q + ((h.r & 1) ? 0.5 : 0);
+      minNormQ = Math.min(minNormQ, normQ);
+      maxNormQ = Math.max(maxNormQ, normQ);
+      minNormR = Math.min(minNormR, h.r);
+      maxNormR = Math.max(maxNormR, h.r);
+    }
+
+    const spanNormQ = Math.max(0, maxNormQ - minNormQ);
+    const spanNormR = Math.max(0, maxNormR - minNormR);
+
     const availW = rect.width;
     const availH = rect.height;
     const smallViewport = window.matchMedia('(max-width: 980px)').matches;
-    const boardPad = smallViewport ? 8 : 8;
+    const boardPad = smallViewport ? 8 : 10;
     const fitW = Math.max(1, availW - (boardPad * 2));
     const fitH = Math.max(1, availH - (boardPad * 2));
 
-    // For pointy-top hexes with odd-r offset:
-    // width ≈ sqrt(3)*R*(cols + 0.5)
-    // height ≈ R*((rows-1)*1.5 + 2)
-    const rByW = fitW / (Math.sqrt(3) * (cols + 0.5));
-    const rByH = fitH / (((rows - 1) * 1.5) + 2);
-    const minRadius = smallViewport ? 6 : 18;
-    const maxRadius = smallViewport ? 38 : 58;
+    // For pointy-top odd-r offset coordinates:
+    // width units = sqrt(3) * (spanNormQ + 1)
+    // height units = (spanNormR * 1.5) + 2
+    const unitsW = Math.sqrt(3) * (spanNormQ + 1);
+    const unitsH = (spanNormR * 1.5) + 2;
+    const rByW = fitW / Math.max(1e-6, unitsW);
+    const rByH = fitH / Math.max(1e-6, unitsH);
+
+    const minRadius = smallViewport ? 8 : 20;
+    const maxRadius = smallViewport ? 58 : 120;
     R = Math.max(minRadius, Math.min(maxRadius, Math.floor(Math.min(rByW, rByH))));
+
+    let boardW = unitsW * R;
+    let boardH = unitsH * R;
+
+    // Keep the board visually dominant on large/wide displays.
+    const targetFillW = smallViewport ? 0.86 : 0.84;
+    const targetFillH = smallViewport ? 0.70 : 0.66;
+    if (boardW < (fitW * targetFillW) || boardH < (fitH * targetFillH)) {
+      const boostW = (fitW * targetFillW) / Math.max(1, boardW);
+      const boostH = (fitH * targetFillH) / Math.max(1, boardH);
+      const desiredBoost = Math.max(boostW, boostH, 1);
+      const hardCapBoost = Math.min(fitW / Math.max(1, boardW), fitH / Math.max(1, boardH));
+      const boostedR = Math.floor(R * Math.min(desiredBoost, hardCapBoost));
+      R = Math.max(R, Math.min(maxRadius, boostedR));
+      boardW = unitsW * R;
+      boardH = unitsH * R;
+    }
 
     HEX_W = Math.sqrt(3) * R;
     HEX_H = 2 * R;
     STEP_Y = 1.5 * R;
 
-    const boardW = HEX_W * (cols + 0.5);
-    const boardH = R * (((rows - 1) * 1.5) + 2);
+    const left = boardPad + ((fitW - boardW) / 2);
+    const top = boardPad + ((fitH - boardH) / 2) + (smallViewport ? 0 : 4);
 
-    ORIGIN_X = boardPad + ((fitW - boardW) / 2) + HEX_W / 2;
-    // Keep the board vertically centered with only a small top bias so it fills stage area cleanly.
-    ORIGIN_Y = boardPad + ((fitH - boardH) / 2) + (smallViewport ? 2 : 6);
+    ORIGIN_X = left + (HEX_W / 2);
+    ORIGIN_Y = top + R;
 
-    for (const h of board.active) {
-      const x = ORIGIN_X + (h.q - board.minQ) * HEX_W + ((h.r & 1) ? (HEX_W / 2) : 0);
-      const y = ORIGIN_Y + (h.r - board.minR) * STEP_Y;
-      h.cx = x;
-      h.cy = y;
+    for (const h of active) {
+      const normQ = (h.q + ((h.r & 1) ? 0.5 : 0)) - minNormQ;
+      const normR = h.r - minNormR;
+      h.cx = left + (normQ * HEX_W) + (HEX_W / 2);
+      h.cy = top + (normR * STEP_Y) + R;
     }
 
     draw();
