@@ -120,6 +120,32 @@ export const museumPieces = {
       fallbackUrl: "./venus_de_milo_source_small.stl"
     }
   },
+  "discobolus": {
+    kind: "stl",
+    path: "/discobolus/",
+    sectionId: "antiquity",
+    sortOrder: 27,
+    viewerTitle: "Discobolus (Roman copy after Myron, c. 460-450 BCE)",
+    subtitle: "Artist: Unknown Roman workshop after Myron of Eleutherae",
+    lobbyMeta: "Source: SMK Open plaster-cast scan (KAS1549)",
+    source: source(
+      "Rendered from SMK's public-domain plaster-cast scan of the Discobolus type with a modern restored head.",
+      [
+        link("SMK API", "https://api.smk.dk/api/v1/art?object_number=KAS1549"),
+        link("SMK Open record", "https://open.smk.dk/artwork/image/KAS1549"),
+        link("Full STL", "https://api.smk.dk/api/v1/download-3d/n583z0576_smk-discobolus.stl"),
+        link("Optimized STL", "https://api.smk.dk/api/v1/download-3d/ww72bg964_KAS1549_small.stl")
+      ],
+      "This SMK cast record is the Discobolus variant with a modern restored head."
+    ),
+    defaults: {
+      zoom: 2.95
+    },
+    model: {
+      primaryUrl: "./discobolus_source_small.stl",
+      fallbackUrl: "./discobolus_source_small.stl"
+    }
+  },
   "dying-gaul": {
     kind: "stl",
     path: "/dying-gaul/",
