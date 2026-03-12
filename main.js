@@ -948,6 +948,7 @@
   const elDoctrineBuilderCounts = document.getElementById('doctrineBuilderCounts');
   const elDoctrineExplain = document.getElementById('doctrineExplain');
   const elDoctrinePreviewCanvas = document.getElementById('doctrinePreviewCanvas');
+  const elDoctrinePreviewTitle = document.getElementById('doctrinePreviewTitle');
   const elDoctrinePreviewCaption = document.getElementById('doctrinePreviewCaption');
   const elDoctrineCost1Col = document.getElementById('doctrineCost1Col');
   const elDoctrineCost2Col = document.getElementById('doctrineCost2Col');
@@ -8302,16 +8303,75 @@ function unitColors(side) {
     const scene = doctrinePreviewScene(cmd ? cmd.id : '');
     const w = cssW;
     const h = cssH;
-    const cols = Math.max(6, scene.cols || 8);
-    const rows = Math.max(4, scene.rows || 4);
+    const readCoord = (v) => (Number.isFinite(v) ? Number(v) : null);
+    const sceneCoords = [];
+    const pushCoord = (c, r) => {
+      if (!Number.isFinite(c) || !Number.isFinite(r)) return;
+      sceneCoords.push({ c: Number(c), r: Number(r) });
+    };
 
-    const padX = Math.max(20, Math.round(w * 0.045));
-    const padY = Math.max(16, Math.round(h * 0.08));
-    const usableW = Math.max(120, w - (padX * 2));
-    const usableH = Math.max(90, h - (padY * 2));
-    const stepX = usableW / Math.max(1, (cols - 1) + 0.5);
-    const stepY = usableH / Math.max(1, rows - 1);
-    const hexR = Math.max(10, Math.min(22, Math.floor(Math.min(stepX / 1.78, stepY / 1.35))));
+    for (const tok of (scene.tokens || [])) {
+      if (!tok) continue;
+      pushCoord(readCoord(tok.c), readCoord(tok.r));
+      pushCoord(readCoord(tok.mc), readCoord(tok.mr));
+      if (Array.isArray(tok.path)) {
+        for (const step of tok.path) {
+          if (!Array.isArray(step) || step.length < 2) continue;
+          pushCoord(readCoord(step[0]), readCoord(step[1]));
+        }
+      }
+    }
+    for (const fx of (scene.arrows || [])) {
+      if (!fx) continue;
+      if (Array.isArray(fx.from) && fx.from.length >= 2) pushCoord(readCoord(fx.from[0]), readCoord(fx.from[1]));
+      if (Array.isArray(fx.to) && fx.to.length >= 2) pushCoord(readCoord(fx.to[0]), readCoord(fx.to[1]));
+    }
+    for (const t of (scene.terrain || [])) {
+      if (!t) continue;
+      pushCoord(readCoord(t.c), readCoord(t.r));
+    }
+    if (!sceneCoords.length) {
+      pushCoord(0, 0);
+      pushCoord(7, 3);
+    }
+
+    let minC = Infinity;
+    let maxC = -Infinity;
+    let minR = Infinity;
+    let maxR = -Infinity;
+    for (const hPos of sceneCoords) {
+      if (hPos.c < minC) minC = hPos.c;
+      if (hPos.c > maxC) maxC = hPos.c;
+      if (hPos.r < minR) minR = hPos.r;
+      if (hPos.r > maxR) maxR = hPos.r;
+    }
+
+    // Expand bounds slightly so preview geometry has breathing room,
+    // but keep units close enough to read movement and adjacency clearly.
+    minC -= 1;
+    maxC += 1;
+    minR -= 1;
+    maxR += 1;
+
+    const colsSpan = Math.max(2, (maxC - minC) + 1);
+    const rowsSpan = Math.max(2, (maxR - minR) + 1);
+
+    const padX = Math.max(16, Math.round(w * 0.035));
+    const padY = Math.max(12, Math.round(h * 0.05));
+    const usableW = Math.max(140, w - (padX * 2));
+    const usableH = Math.max(110, h - (padY * 2));
+
+    const sqrt3 = Math.sqrt(3);
+    const rFromW = usableW / ((sqrt3 * (colsSpan + 0.5)) + 2.0);
+    const rFromH = usableH / (((rowsSpan - 1) * 1.5) + 2.1);
+    const hexR = Math.max(13, Math.min(34, Math.floor(Math.min(rFromW, rFromH))));
+
+    const stepX = sqrt3 * hexR;
+    const stepY = 1.5 * hexR;
+    const boardW = (sqrt3 * hexR * (colsSpan + 0.5)) + (hexR * 2);
+    const boardH = (((rowsSpan - 1) * 1.5 * hexR) + (hexR * 2));
+    const originX = Math.max(4, Math.round((w - boardW) * 0.5));
+    const originY = Math.max(4, Math.round((h - boardH) * 0.5));
 
     const offsetToAxial = (c, r) => ({ q: c - ((r - (r & 1)) / 2), r });
     const axialToOffset = (q, r) => ({ c: q + ((r - (r & 1)) / 2), r });
@@ -8341,15 +8401,16 @@ function unitColors(side) {
           y: a.y + ((b.y - a.y) * t),
           z: a.z + ((b.z - a.z) * t),
         });
-        const off = axialToOffset(cubeToAxial(c).q, cubeToAxial(c).r);
+        const ax = cubeToAxial(c);
+        const off = axialToOffset(ax.q, ax.r);
         if (!out.length || out[out.length - 1].c !== off.c || out[out.length - 1].r !== off.r) out.push(off);
       }
       return out;
     };
 
     const toXY = (c, r) => {
-      const x = padX + (c * stepX) + ((r % 2) ? (stepX * 0.5) : 0);
-      const y = padY + (r * stepY);
+      const x = originX + hexR + ((c - minC) * stepX) + ((r & 1) ? (stepX * 0.5) : 0);
+      const y = originY + hexR + ((r - minR) * stepY);
       return { x, y };
     };
 
@@ -8538,12 +8599,10 @@ function unitColors(side) {
     pctx.fillRect(0, 0, w, h);
 
     const boardCells = [];
-    const rowMid = (rows - 1) / 2;
-    for (let r = 0; r < rows; r++) {
-      const trim = Math.floor(Math.abs(r - rowMid) * 0.8);
-      const start = Math.max(0, trim);
-      const end = Math.min(cols - 1, (cols - 1) - trim);
-      for (let c = start; c <= end; c++) boardCells.push({ c, r });
+    for (let r = minR; r <= maxR; r++) {
+      for (let c = minC; c <= maxC; c++) {
+        boardCells.push({ c, r });
+      }
     }
 
     const terrainMap = new Map();
@@ -8677,6 +8736,12 @@ function unitColors(side) {
     for (const entry of tokenEntries) {
       const pos = tokenPose(entry, timeSec);
       drawTokenPreview(entry, pos);
+    }
+
+    if (elDoctrinePreviewTitle) {
+      elDoctrinePreviewTitle.textContent = cmd
+        ? `Previewing: ${cmd.name}`
+        : 'Previewing: Select an order';
     }
 
     if (elDoctrinePreviewCaption) {

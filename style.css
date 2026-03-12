@@ -942,19 +942,39 @@ body[data-mode="play"] #side{
 }
 
 .doctrinePick{
+  position:relative;
   display:flex;
   align-items:flex-start;
-  gap:6px;
+  gap:8px;
   border:1px solid var(--line);
-  border-radius:8px;
-  padding:7px;
+  border-radius:10px;
+  padding:8px 10px;
   background:rgba(255,255,255,0.02);
 }
 
 .doctrinePickActive{
-  border-color:rgba(121,167,255,0.65);
-  box-shadow:0 0 0 1px rgba(121,167,255,0.26) inset;
-  background:rgba(121,167,255,0.08);
+  border-color:rgba(121,167,255,0.95);
+  box-shadow:0 0 0 2px rgba(121,167,255,0.44) inset, 0 0 0 1px rgba(121,167,255,0.30);
+  background:rgba(121,167,255,0.16);
+}
+
+.doctrinePickActive .doctrinePickName{
+  color:#ffffff;
+}
+
+.doctrinePickActive::after{
+  content:"PREVIEW";
+  position:absolute;
+  top:8px;
+  right:10px;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:0.08em;
+  color:#d8ebff;
+  background:rgba(73,126,224,0.30);
+  border:1px solid rgba(140,190,255,0.65);
+  border-radius:999px;
+  padding:2px 7px;
 }
 
 .doctrinePick input{
@@ -1019,28 +1039,37 @@ body[data-mode="play"] #side{
 }
 
 .doctrinePreviewWrap{
-  margin:10px 12px 4px;
-  padding:10px 12px 12px;
+  margin:12px 14px 6px;
+  padding:12px 14px 14px;
   border:1px solid var(--line);
-  border-radius:10px;
-  background:rgba(255,255,255,0.02);
+  border-radius:12px;
+  background:rgba(255,255,255,0.03);
+}
+
+.doctrinePreviewTitle{
+  margin:0 0 10px;
+  color:#f0ddae;
+  font-size:13px;
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+  font-weight:800;
 }
 
 #doctrinePreviewCanvas{
   width:100%;
-  height:clamp(220px, 31vh, 340px);
-  border:1px dashed rgba(255,255,255,0.16);
-  border-radius:10px;
-  background:radial-gradient(circle at 50% 35%, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+  height:clamp(320px, 42vh, 520px);
+  border:1px dashed rgba(255,255,255,0.18);
+  border-radius:12px;
+  background:radial-gradient(circle at 50% 35%, rgba(255,255,255,0.06), rgba(255,255,255,0.015));
   display:block;
 }
 
 .doctrinePreviewCaption{
-  margin-top:9px;
-  min-height:2.4em;
-  color:#cfd5e3;
-  font-size:12.5px;
-  line-height:1.45;
+  margin-top:10px;
+  min-height:2.6em;
+  color:#d8deea;
+  font-size:13.5px;
+  line-height:1.5;
 }
 
 #doctrineOpenTurnBtn.btnHero{
@@ -1128,9 +1157,9 @@ body[data-mode="play"] #side{
 }
 
 #doctrineOverlay .rulesSideCard.doctrineCard{
-  width:min(82vw, 1420px);
-  height:min(88vh, 980px);
-  max-height:calc(100dvh - 26px);
+  width:min(92vw, 1700px);
+  height:min(94vh, 1160px);
+  max-height:calc(100dvh - 18px);
   border-radius:14px;
   box-shadow:0 24px 64px rgba(0,0,0,0.58);
 }
@@ -1168,8 +1197,8 @@ html.mode-order-atlas #doctrineOverlay.rulesSideOverlay.open{
 }
 
 html.mode-order-atlas #doctrineOverlay .rulesSideCard.doctrineCard{
-  width:min(94vw, 1640px);
-  height:min(93vh, 1100px);
+  width:min(96vw, 1820px);
+  height:min(95vh, 1200px);
 }
 
 html.mode-order-atlas #doctrineOverlay .rulesSideHead h2{
@@ -1191,7 +1220,7 @@ html.mode-order-atlas #doctrineOverlay .doctrineCostCol{
 }
 
 html.mode-order-atlas #doctrinePreviewCanvas{
-  height:clamp(280px, 39vh, 430px);
+  height:clamp(360px, 50vh, 620px);
 }
 
 .rulesSideCard{
