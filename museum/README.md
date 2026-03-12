@@ -6,6 +6,9 @@ Landing page for the sculpture series spanning antiquity through the nineteenth 
 - Sections:
   - Antiquity
   - Michelangelo (1475-1564)
+- Linked Antiquity works currently in section:
+  - `/sphinx/` (c. 2558-2532 BCE)
+  - `/augustus-of-prima-porta/` (early 1st century CE)
 - Linked Michelangelo works currently in section:
   - `/michelangelo/david/` (1501-1504)
   - `/michelangelo/pieta/` (1497-1500)
