@@ -233,6 +233,7 @@
       const HAS_DISTINCT_FALLBACK = MODEL_URL_FALLBACK !== MODEL_URL_PRIMARY;
       const PRIMARY_TIMEOUT_MS = 45000;
       const FALLBACK_TIMEOUT_MS = 30000;
+      const DEFAULT_MODEL_YAW = Math.PI * 0.5;
       let modelUrlInUse = MODEL_URL_PRIMARY;
 
       const stage = document.getElementById("stage");
@@ -427,8 +428,7 @@
             }
           }
 
-          // Night source mesh is already Y-up. Apply a 90-degree roll so it sits upright on its base.
-          geometry.rotateZ(Math.PI * 0.5);
+          // Night source mesh is already Y-up with a horizontal base. Keep this orientation and only yaw for default facing.
           const vertexCount = geometry.attributes.position?.count || 0;
           if (vertexCount < 1_800_000) {
             geometry = mergeVertices(geometry, 1e-4);
@@ -457,6 +457,7 @@
           const targetHeight = 1.58;
           const scale = targetHeight / size.y;
           sculpture.scale.setScalar(scale);
+          sculpture.rotation.y = DEFAULT_MODEL_YAW;
           sculpture.position.y = pedestalHeight;
           sculpture.castShadow = true;
           sculpture.receiveShadow = true;
@@ -539,6 +540,9 @@
         const resetBtn = document.getElementById("resetBtn");
         resetBtn.addEventListener("click", () => {
           setDefaults();
+          if (sculpture) {
+            sculpture.rotation.y = DEFAULT_MODEL_YAW;
+          }
           applyDefaultView();
           updateLight();
           updateLook();
