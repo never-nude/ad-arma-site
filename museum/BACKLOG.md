@@ -25,6 +25,7 @@ Long-range sculpture backlog for the ad-arma museum.
 - `324` Venus de Milo: `live`
 - `325` Dying Gaul: `live`
 - `326` Ludovisi Gaul: `live`
+- `329` Belvedere Torso: `live`
 - `327` Laocoön and His Sons: `live`
 - `342` Augustus of Prima Porta: `live`
 - `395` Donatello Saint George: `hidden`

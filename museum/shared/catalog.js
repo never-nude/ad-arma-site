@@ -146,6 +146,32 @@ export const museumPieces = {
       fallbackUrl: "./discobolus_source_small.stl"
     }
   },
+  "belvedere-torso": {
+    kind: "stl",
+    path: "/belvedere-torso/",
+    sectionId: "antiquity",
+    sortOrder: 28,
+    viewerTitle: "Belvedere Torso (1st century BCE)",
+    subtitle: "Artist: Unknown Hellenistic sculptor",
+    lobbyMeta: "Source: SMK Open plaster-cast scan (KAS402)",
+    source: source(
+      "Rendered from SMK's public-domain plaster-cast scan of the Belvedere Torso in the Vatican collections.",
+      [
+        link("SMK API", "https://api.smk.dk/api/v1/art?object_number=KAS402"),
+        link("SMK Open record", "https://open.smk.dk/artwork/image/KAS402"),
+        link("Full STL", "https://api.smk.dk/api/v1/download-3d/gq67jw94x_smk1-kas402-belvedere-torso.stl"),
+        link("Optimized STL", "https://api.smk.dk/api/v1/download-3d/zs25xf26x_KAS402_small.stl")
+      ],
+      "SMK's cast record identifies the figure as Ajax(?) and notes the missing lower base with signature."
+    ),
+    defaults: {
+      zoom: 2.85
+    },
+    model: {
+      primaryUrl: "./belvedere_torso_source_small.stl",
+      fallbackUrl: "./belvedere_torso_source_small.stl"
+    }
+  },
   "dying-gaul": {
     kind: "stl",
     path: "/dying-gaul/",
