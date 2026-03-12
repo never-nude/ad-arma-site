@@ -8790,6 +8790,10 @@ function stopDoctrinePreviewLoop() {
     state.doctrine.builder.draft.red = cloneArray(doctrineStateForSide('red')?.loadout || makeRecommendedDoctrineLoadout());
     const seed = state.doctrine.builder.draft[editSide] || [];
     state.doctrine.builder.focusCommandId = (Array.isArray(seed) && seed.length) ? seed[0] : '';
+    if (state.mode === 'play') {
+      const legalSeed = (Array.isArray(seed) ? seed : []).filter((id) => !!COMMAND_BY_ID.get(id));
+      if (legalSeed.length) state.doctrine.builder.focusCommandId = legalSeed[0];
+    }
     if (elDoctrineSideSel) elDoctrineSideSel.value = editSide;
     renderDoctrineBuilder();
     elDoctrineOverlay.classList.add('open');
@@ -8836,18 +8840,31 @@ function stopDoctrinePreviewLoop() {
   function renderDoctrineBuilderList(el, side, cost, readOnly = false) {
     if (!el) return;
     const draft = new Set(currentDoctrineBuilderDraft(side));
+    const selectedOnly = !!readOnly;
     const cmds = COMMAND_POOL
-      .filter(c => c.cost === cost)
+      .filter((c) => c.cost === cost && (!selectedOnly || draft.has(c.id)))
       .sort((a, b) => {
         if (a.persistence !== b.persistence) return (a.persistence === 'spent') ? 1 : -1;
         return a.name.localeCompare(b.name);
       });
-    const disabledAttr = readOnly ? 'disabled' : '';
+
+    el.classList.toggle('doctrineBuilderListReadOnly', selectedOnly);
+
     const renderRows = (rows) => rows.map((cmd) => {
       const checked = draft.has(cmd.id) ? 'checked' : '';
       const activeCls = (state.doctrine.builder.focusCommandId === cmd.id) ? ' doctrinePickActive' : '';
+      if (selectedOnly) {
+        return `<div class="doctrinePick doctrinePickLocked${activeCls}" data-doctrine-item="1" data-doctrine-id="${cmd.id}">
+          <span class="doctrinePickLockDot" aria-hidden="true">●</span>
+          <span>
+            <span class="doctrinePickName">${cmd.name}</span>
+            <span class="doctrinePickMeta">Cost ${cmd.cost} · ${commandUsageLabel(cmd.persistence)}</span>
+            <span class="doctrinePickExplain">${commandDictionaryText(cmd)}</span>
+          </span>
+        </div>`;
+      }
       return `<label class="doctrinePick${activeCls}" data-doctrine-item="1" data-doctrine-id="${cmd.id}">
-        <input type="checkbox" data-doctrine-id="${cmd.id}" data-cost="${cost}" ${checked} ${disabledAttr}>
+        <input type="checkbox" data-doctrine-id="${cmd.id}" data-cost="${cost}" ${checked}>
         <span>
           <span class="doctrinePickName">${cmd.name}</span>
           <span class="doctrinePickMeta">Cost ${cmd.cost} · ${commandUsageLabel(cmd.persistence)}</span>
@@ -8855,6 +8872,7 @@ function stopDoctrinePreviewLoop() {
         </span>
       </label>`;
     }).join('');
+
     const reusable = cmds.filter(c => c.persistence !== 'spent');
     const singleUse = cmds.filter(c => c.persistence === 'spent');
     const html = `${reusable.length ? `<div class="doctrinePickGroup">Reusable Orders</div>${renderRows(reusable)}` : ''}${singleUse.length ? `<div class="doctrinePickGroup">Single-Use Orders</div>${renderRows(singleUse)}` : ''}`;
@@ -8909,12 +8927,15 @@ function stopDoctrinePreviewLoop() {
     const redOk = !!state.doctrine.builder.confirmed.red;
     if (elDoctrineBuilderCounts) {
       if (readOnly) {
-        elDoctrineBuilderCounts.textContent = `${side.toUpperCase()} picks: cost1 ${count1}/3 · cost2 ${count2}/3 · cost3 ${count3}/3 · Locked during Play mode`;
+        elDoctrineBuilderCounts.textContent = `${side.toUpperCase()} doctrine loaded · Cost 1: ${count1}/3 · Cost 2: ${count2}/3 · Cost 3: ${count3}/3`;
       } else {
         elDoctrineBuilderCounts.textContent =
           `${side.toUpperCase()} picks: cost1 ${count1}/3 · cost2 ${count2}/3 · cost3 ${count3}/3 · ` +
           `Pick exactly 3 in each cost tier. Confirmed: Blue ${blueOk ? 'yes' : 'no'} · Red ${redOk ? 'yes' : 'no'}.`;
       }
+    }
+    if (elDoctrineOverlay) {
+      elDoctrineOverlay.classList.toggle('play-lock', readOnly);
     }
     if (elDoctrineSideSel) elDoctrineSideSel.disabled = readOnly;
     if (elDoctrineRandomizeBtn) elDoctrineRandomizeBtn.disabled = readOnly;
