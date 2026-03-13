@@ -190,6 +190,49 @@ export const museumPieces = {
       reflectivity: 0.86
     }
   },
+  "athena-lemnia": {
+    kind: "stl",
+    path: "/athena-lemnia/",
+    sectionId: "antiquity",
+    sortOrder: 27.75,
+    hiddenFromLobby: true,
+    viewerTitle: "Athena Lemnia (copy tradition, c. 450 BCE type)",
+    subtitle: "Traditional attribution: Pheidias; current mesh from SMK's Furtwangler reconstruction",
+    lobbyMeta: "Source: SMK Open reconstruction scan (KAS40); bronze material pass",
+    source: source(
+      "Rendered from SMK's public-domain plaster-cast scan of Furtwangler's reconstruction of the Athena Lemnia type, with a bronze material pass in the ad-arma viewer to better evoke the lost original bronze.",
+      [
+        link("SMK Open record", "https://open.smk.dk/artwork/image/KAS40"),
+        link("Full STL", "https://api.smk.dk/api/v1/download-3d/cz30pz12n_20-smk-lemniam-athena-deci.stl"),
+        link("Optimized STL", "https://api.smk.dk/api/v1/download-3d/p5547x350_KAS40_small.stl")
+      ],
+      "The underlying mesh is SMK's reconstruction record rather than a direct scan of an extant ancient bronze; the catalog links the type to the Dresden torso and the Palagi head in Bologna."
+    ),
+    defaults: {
+      zoom: 2.95,
+      lightAngle: 30,
+      lightPower: 2.26,
+      exposure: 0.47,
+      rough: 0.4
+    },
+    model: {
+      primaryUrl: "./athena_lemnia_source_small.stl",
+      fallbackUrl: "./athena_lemnia_source_small.stl"
+    },
+    scene: {
+      targetHeight: 2.08
+    },
+    material: {
+      color: "#786748",
+      metalness: 0.84,
+      clearcoat: 0.06,
+      clearcoatRoughness: 0.5,
+      sheen: 0.0,
+      sheenRoughness: 1.0,
+      sheenColor: "#000000",
+      reflectivity: 0.82
+    }
+  },
   "belvedere-torso": {
     kind: "stl",
     path: "/belvedere-torso/",

@@ -24,6 +24,7 @@ Long-range sculpture backlog for the ad-arma museum.
 - `310` Charioteer of Delphi: `hidden`
 - `317` Discobolus: `live`
 - `313` Zeus/Poseidon of Artemision: `live`
+- `318` Athena Lemnia (copy tradition): `hidden`
 - `324` Venus de Milo: `live`
 - `325` Dying Gaul: `live`
 - `326` Ludovisi Gaul: `live`
@@ -364,7 +365,7 @@ Long-range sculpture backlog for the ad-arma museum.
 315. Doryphoros, c. 440 BCE
 316. Diadumenos, c. 430 BCE
 317. Discobolus, c. 450 BCE
-318. Athena Lemnia (copy tradition), c. 450 BCE
+318. Athena Lemnia (copy tradition), c. 450 BCE: `hidden`
 319. Hermes by Praxiteles, c. 340 BCE
 320. Aphrodite of Knidos, c. 350 BCE
 321. Apollo Sauroktonos, c. 350 BCE
