@@ -71,6 +71,96 @@ export const museumPieces = {
       fallbackUrl: "./sphinx_source.stl"
     }
   },
+  "ashurnasirpal-lion-hunt": {
+    kind: "stl",
+    path: "/assyrian/ashurnasirpal-lion-hunt/",
+    sectionId: "antiquity",
+    sortOrder: 12,
+    hiddenFromLobby: true,
+    viewerTitle: "Ashurnasirpal II on Lion Hunt (Assyrian palace relief, c. 883-859 BCE)",
+    subtitle: "Northwest Palace, Nimrud; British Museum original",
+    lobbyMeta: "Source: SMK Open plaster-cast scan (KAS1994)",
+    source: source(
+      "Rendered from SMK's public-domain plaster-cast scan of Ashurnasirpal II on lion hunt from the Northwest Palace at Nimrud.",
+      [
+        link("SMK Open record", "https://open.smk.dk/artwork/image/KAS1994"),
+        link("Full STL", "https://api.smk.dk/api/v1/download-3d/r207tt80w_smk-kas1994-ashurnasipal-ii-on-a-lion-hunt-decimated.stl"),
+        link("Optimized STL", "https://api.smk.dk/api/v1/download-3d/r494vq871_KAS1994_small.stl")
+      ],
+      "SMK's linked original record places the alabaster relief in the British Museum and dates it to the reign of Ashurnasirpal II."
+    ),
+    defaults: {
+      zoom: 2.85,
+      exposure: 0.43,
+      rough: 0.62
+    },
+    model: {
+      primaryUrl: "./ashurnasirpal_lion_hunt_source_small.stl",
+      fallbackUrl: "./ashurnasirpal_lion_hunt_source_small.stl"
+    },
+    scene: {
+      rotateX: 0,
+      targetHeight: 0.92,
+      showPedestal: false,
+      focusYRatio: 0.5,
+      defaultViewVector: [1.0, 0.28, 2.65],
+      mobileViewVector: [0.7, 0.22, 2.25]
+    },
+    material: {
+      color: "#ddd2be",
+      clearcoat: 0.12,
+      clearcoatRoughness: 0.48,
+      sheen: 0.16,
+      sheenRoughness: 0.92,
+      sheenColor: "#efe2cf",
+      reflectivity: 0.3
+    }
+  },
+  "lion-released-from-cage": {
+    kind: "stl",
+    path: "/assyrian/lion-released-from-cage/",
+    sectionId: "antiquity",
+    sortOrder: 12.5,
+    hiddenFromLobby: true,
+    viewerTitle: "Lion Released from Cage (Assyrian palace relief, c. 668-631 BCE)",
+    subtitle: "North Palace, Nineveh; British Museum original",
+    lobbyMeta: "Source: SMK Open plaster-cast scan (KAS1996)",
+    source: source(
+      "Rendered from SMK's public-domain plaster-cast scan of the Assyrian relief showing a lion released from a cage in Ashurbanipal's palace hunt cycle.",
+      [
+        link("SMK Open record", "https://open.smk.dk/artwork/image/KAS1996"),
+        link("Full STL", "https://api.smk.dk/api/v1/download-3d/3197xs00g_smk-kas1996-assyrian-relief.stl"),
+        link("Optimized STL", "https://api.smk.dk/api/v1/download-3d/xk81jq803_KAS1996_small.stl")
+      ],
+      "SMK's linked original record places the alabaster relief in the British Museum and identifies it as part of the North Palace lion-hunt program at Nineveh."
+    ),
+    defaults: {
+      zoom: 2.55,
+      exposure: 0.43,
+      rough: 0.62
+    },
+    model: {
+      primaryUrl: "./lion_released_from_cage_source_small.stl",
+      fallbackUrl: "./lion_released_from_cage_source_small.stl"
+    },
+    scene: {
+      rotateX: 0,
+      targetHeight: 0.92,
+      showPedestal: false,
+      focusYRatio: 0.5,
+      defaultViewVector: [1.0, 0.28, 2.45],
+      mobileViewVector: [0.68, 0.22, 2.05]
+    },
+    material: {
+      color: "#ddd2be",
+      clearcoat: 0.12,
+      clearcoatRoughness: 0.48,
+      sheen: 0.16,
+      sheenRoughness: 0.92,
+      sheenColor: "#efe2cf",
+      reflectivity: 0.3
+    }
+  },
   "charioteer-of-delphi": {
     kind: "sketchfab",
     path: "/charioteer-of-delphi/",

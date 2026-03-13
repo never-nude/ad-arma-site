@@ -21,6 +21,7 @@ Long-range sculpture backlog for the ad-arma museum.
 ## Current matches already in the repo
 
 - `36` Great Sphinx of Giza: `live`
+- `57` Assyrian lion hunt relief: `hidden`
 - `310` Charioteer of Delphi: `hidden`
 - `317` Discobolus: `live`
 - `313` Zeus/Poseidon of Artemision: `live`
@@ -105,7 +106,7 @@ Long-range sculpture backlog for the ad-arma museum.
 54. Block statue of Hor, c. 700 BCE
 55. Assyrian lamassu from Dur-Sharrukin, c. 720 BCE
 56. Assyrian winged bull from Nimrud, c. 883–859 BCE
-57. Assyrian lion hunt relief, c. 645 BCE
+57. Assyrian lion hunt relief, c. 645 BCE: `hidden`
 58. Ashurnasirpal II guardian figure, c. 875 BCE
 59. Human-headed winged lion from Nineveh, c. 700 BCE
 60. Neo-Hittite lion orthostat, c. 900 BCE

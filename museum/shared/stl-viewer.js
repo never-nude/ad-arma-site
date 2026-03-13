@@ -135,6 +135,9 @@ export async function initStlMuseumPage(piece) {
   const rotateY = sceneConfig.rotateY ?? 0;
   const rotateZ = sceneConfig.rotateZ ?? 0;
   const targetHeight = sceneConfig.targetHeight ?? DEFAULT_TARGET_HEIGHT;
+  const showPedestal = sceneConfig.showPedestal ?? true;
+  const baseHeight = sceneConfig.baseHeight ?? (showPedestal ? 0.3 : 0.02);
+  const focusYRatio = sceneConfig.focusYRatio ?? 0.57;
   const materialConfig = { ...DEFAULT_MATERIAL, ...(piece.material || {}) };
   const stage = ui.stage;
   const stats = ui.stats;
@@ -208,15 +211,17 @@ export async function initStlMuseumPage(piece) {
     floor.receiveShadow = true;
     scene.add(floor);
 
-    const pedestalHeight = 0.3;
-    const pedestal = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.46, 0.56, pedestalHeight, 80),
-      new THREE.MeshStandardMaterial({ color: 0xc5b7a4, roughness: 0.82, metalness: 0.02 })
-    );
-    pedestal.position.y = pedestalHeight * 0.5;
-    pedestal.castShadow = true;
-    pedestal.receiveShadow = true;
-    scene.add(pedestal);
+    const pedestalHeight = baseHeight;
+    if (showPedestal) {
+      const pedestal = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.46, 0.56, pedestalHeight, 80),
+        new THREE.MeshStandardMaterial({ color: 0xc5b7a4, roughness: 0.82, metalness: 0.02 })
+      );
+      pedestal.position.y = pedestalHeight * 0.5;
+      pedestal.castShadow = true;
+      pedestal.receiveShadow = true;
+      scene.add(pedestal);
+    }
 
     let sculptureMaterial = null;
     let sculpture = null;
@@ -284,7 +289,7 @@ export async function initStlMuseumPage(piece) {
       sculpture.receiveShadow = true;
       scene.add(sculpture);
 
-      focusY = pedestalHeight + targetHeight * 0.57;
+      focusY = pedestalHeight + targetHeight * focusYRatio;
 
       const triCount = geometry.index ? geometry.index.count / 3 : geometry.attributes.position.count / 3;
       const sizeLabel = stlByteLength ? `${(stlByteLength / (1024 * 1024)).toFixed(1)} MB STL` : "High-fidelity STL";
@@ -315,7 +320,9 @@ export async function initStlMuseumPage(piece) {
     function applyDefaultView() {
       const mobileTargetLift = isMobileLayout ? 0.22 : 0.0;
       controls.target.set(0, focusY + mobileTargetLift, 0);
-      const viewVector = isMobileLayout ? new THREE.Vector3(1.1, 0.45, 2.2) : new THREE.Vector3(1.8, 0.72, 1.85);
+      const viewVector = isMobileLayout
+        ? new THREE.Vector3(...(sceneConfig.mobileViewVector || [1.1, 0.45, 2.2]))
+        : new THREE.Vector3(...(sceneConfig.defaultViewVector || [1.8, 0.72, 1.85]));
       camera.position.copy(controls.target.clone().add(viewVector.normalize().multiplyScalar(defaults.zoom + (isMobileLayout ? 0.85 : 0.0))));
       controls.update();
     }
