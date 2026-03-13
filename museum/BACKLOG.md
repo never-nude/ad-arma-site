@@ -24,7 +24,7 @@ Long-range sculpture backlog for the ad-arma museum.
 - `310` Charioteer of Delphi: `hidden`
 - `317` Discobolus: `live`
 - `313` Zeus/Poseidon of Artemision: `live`
-- `318` Athena Lemnia (copy tradition): `hidden`
+- `318` Athena Lemnia (copy tradition): `live`
 - `324` Venus de Milo: `live`
 - `325` Dying Gaul: `live`
 - `326` Ludovisi Gaul: `live`
@@ -32,6 +32,7 @@ Long-range sculpture backlog for the ad-arma museum.
 - `327` Laocoön and His Sons: `live`
 - `355` Capitoline Venus: `live`
 - `366` Apollo Belvedere: `live`
+- `369` Statue of Germanicus: `hidden`
 - `342` Augustus of Prima Porta: `live`
 - `395` Donatello Saint George: `hidden`
 - `405` Michelangelo Battle of the Centaurs: `live`
@@ -365,7 +366,7 @@ Long-range sculpture backlog for the ad-arma museum.
 315. Doryphoros, c. 440 BCE
 316. Diadumenos, c. 430 BCE
 317. Discobolus, c. 450 BCE
-318. Athena Lemnia (copy tradition), c. 450 BCE: `hidden`
+318. Athena Lemnia (copy tradition), c. 450 BCE: `live`
 319. Hermes by Praxiteles, c. 340 BCE
 320. Aphrodite of Knidos, c. 350 BCE
 321. Apollo Sauroktonos, c. 350 BCE
@@ -416,7 +417,7 @@ Long-range sculpture backlog for the ad-arma museum.
 366. Apollo Belvedere, Roman copy
 367. Farnese Bull, Roman copy group
 368. Nile god statue, Roman period
-369. Statue of Germanicus, Roman period
+369. Statue of Germanicus, Roman period: `hidden`
 370. Severan tondo imperial figure group in relief, c. 200 CE
 371. Good Shepherd sculpture, c. 300 CE
 372. Ravenna ivory throne panel figure, c. 6th century CE

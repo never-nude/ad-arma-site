@@ -195,7 +195,6 @@ export const museumPieces = {
     path: "/athena-lemnia/",
     sectionId: "antiquity",
     sortOrder: 27.75,
-    hiddenFromLobby: true,
     viewerTitle: "Athena Lemnia (copy tradition, c. 450 BCE type)",
     subtitle: "Traditional attribution: Pheidias; current mesh from SMK's Furtwangler reconstruction",
     lobbyMeta: "Source: SMK Open reconstruction scan (KAS40); bronze material pass",
@@ -231,6 +230,35 @@ export const museumPieces = {
       sheenRoughness: 1.0,
       sheenColor: "#000000",
       reflectivity: 0.82
+    }
+  },
+  "germanicus": {
+    kind: "stl",
+    path: "/germanicus/",
+    sectionId: "antiquity",
+    sortOrder: 52,
+    hiddenFromLobby: true,
+    viewerTitle: "Statue of Germanicus (Roman period, c. 30 BCE)",
+    subtitle: "Artist: Unknown Roman workshop; identification between Germanicus and Octavian remains debated",
+    lobbyMeta: "Source: SMK Open plaster-cast scan (KAS644)",
+    source: source(
+      "Rendered from SMK's public-domain plaster-cast scan of the standing Germanicus / Octavian type in the Louvre collections.",
+      [
+        link("SMK Open record", "https://open.smk.dk/artwork/image/KAS644"),
+        link("Full STL", "https://api.smk.dk/api/v1/download-3d/0p096c25s_smk41-kas644-germanicus.stl"),
+        link("Optimized STL", "https://api.smk.dk/api/v1/download-3d/nv935743t_KAS644_small.stl")
+      ],
+      "SMK's cast title preserves the uncertainty between Germanicus and Octavian; the Louvre provenance and c. 30 BCE dating come from the linked cast record."
+    ),
+    defaults: {
+      zoom: 2.9
+    },
+    model: {
+      primaryUrl: "./germanicus_source_small.stl",
+      fallbackUrl: "./germanicus_source_small.stl"
+    },
+    scene: {
+      targetHeight: 1.92
     }
   },
   "belvedere-torso": {
