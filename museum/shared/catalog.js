@@ -76,7 +76,6 @@ export const museumPieces = {
     path: "/assyrian/ashurnasirpal-lion-hunt/",
     sectionId: "antiquity",
     sortOrder: 12,
-    hiddenFromLobby: true,
     viewerTitle: "Ashurnasirpal II on Lion Hunt (Assyrian palace relief, c. 883-859 BCE)",
     subtitle: "Northwest Palace, Nimrud; British Museum original",
     lobbyMeta: "Source: SMK Open plaster-cast scan (KAS1994)",
@@ -121,7 +120,6 @@ export const museumPieces = {
     path: "/assyrian/lion-released-from-cage/",
     sectionId: "antiquity",
     sortOrder: 12.5,
-    hiddenFromLobby: true,
     viewerTitle: "Lion Released from Cage (Assyrian palace relief, c. 668-631 BCE)",
     subtitle: "North Palace, Nineveh; British Museum original",
     lobbyMeta: "Source: SMK Open plaster-cast scan (KAS1996)",
@@ -182,6 +180,96 @@ export const museumPieces = {
       uid: "0d55b629f1334200ab8efa7195e1450f",
       triangles: 508203,
       sourceBytes: 66185275
+    }
+  },
+  "karnak-column-relief": {
+    kind: "sketchfab",
+    path: "/egyptian/karnak-column-relief/",
+    sectionId: "antiquity",
+    sortOrder: 14,
+    hiddenFromLobby: true,
+    viewerTitle: "Karnak Column Relief (Great Hypostyle Hall, c. 1290-1224 BCE)",
+    subtitle: "Temple of Amun-Re, Karnak; public Sketchfab photogrammetry by SirCharlesWilson",
+    lobbyMeta: "Source: Sketchfab / Karnak Hypostyle Hall detail",
+    source: source(
+      "Sketchfab model of a carved column relief detail from the Great Hypostyle Hall at Karnak, presented inside the ad-arma museum shell as a sandbox preview.",
+      [
+        link("Sketchfab model", "https://sketchfab.com/3d-models/column-relief-from-the-karnak-hypostyle-hall-5737fb6bf5594b6282625bce545776d7"),
+        link("Karnak Great Hypostyle Hall Project", "https://www.memphis.edu/hypostyle/")
+      ],
+      "Sketchfab metadata lists the model under CC BY 4.0 and describes it as a Karnak Hypostyle Hall column-relief detail."
+    ),
+    defaults: {
+      zoom: 2.55,
+      lightPower: 2.45,
+      exposure: 0.62,
+      rough: 0.74
+    },
+    model: {
+      uid: "5737fb6bf5594b6282625bce545776d7",
+      triangles: 1339267,
+      sourceBytes: 0,
+      transparent: true
+    }
+  },
+  "bubastis-bastet-relief": {
+    kind: "sketchfab",
+    path: "/egyptian/bubastis-bastet-relief/",
+    sectionId: "antiquity",
+    sortOrder: 14.5,
+    hiddenFromLobby: true,
+    viewerTitle: "Bas-Relief from the Great Temple of Bastet at Bubastis (c. 360-343 BCE)",
+    subtitle: "Reign of Nectanebo II; public Sketchfab model by The Watt Institution",
+    lobbyMeta: "Source: Sketchfab / The Watt Institution",
+    source: source(
+      "Sketchfab model of a red-granite bas-relief block from the Great Hall of Nekhthoreb in the Great Temple of Bastet at Bubastis, presented as a museum-shell sandbox preview.",
+      [
+        link("Sketchfab model", "https://sketchfab.com/3d-models/bas-relief-great-temple-of-bastet-at-bubastis-6e9a86721f6942038072f269dea459ef"),
+        link("Watt Institution collection context", "https://www.inverclyde.gov.uk/community-life-and-leisure/museums/watt-institution/")
+      ],
+      "Sketchfab metadata lists the model under CC BY 4.0 and attributes the object to the Watt Institution's Egyptian holdings."
+    ),
+    defaults: {
+      zoom: 2.3,
+      lightPower: 2.52,
+      exposure: 0.66,
+      rough: 0.78
+    },
+    model: {
+      uid: "6e9a86721f6942038072f269dea459ef",
+      triangles: 1508064,
+      sourceBytes: 0,
+      transparent: true
+    }
+  },
+  "neferure-temple-relief": {
+    kind: "sketchfab",
+    path: "/egyptian/neferure-temple-relief/",
+    sectionId: "antiquity",
+    sortOrder: 15,
+    hiddenFromLobby: true,
+    viewerTitle: "Temple Relief of Neferure (Deir el-Bahari, New Kingdom)",
+    subtitle: "Associated with Hatshepsut's temple complex; public Sketchfab model by The Egypt Centre",
+    lobbyMeta: "Source: Sketchfab / The Egypt Centre",
+    source: source(
+      "Sketchfab model of The Egypt Centre's temple relief fragment W1376, tagged to Deir el-Bahari and Neferure, presented as a museum-shell sandbox preview.",
+      [
+        link("Sketchfab model", "https://sketchfab.com/3d-models/temple-relief-w1376-09d24dcf80a14461b1695539ef334d9b"),
+        link("The Egypt Centre", "https://egyptcentre.swan.ac.uk/")
+      ],
+      "Sketchfab metadata lists the model under CC BY 4.0 and tags it to the New Kingdom, Hatshepsut, Deir el-Bahari, and Neferure."
+    ),
+    defaults: {
+      zoom: 2.45,
+      lightPower: 2.48,
+      exposure: 0.68,
+      rough: 0.8
+    },
+    model: {
+      uid: "09d24dcf80a14461b1695539ef334d9b",
+      triangles: 602876,
+      sourceBytes: 0,
+      transparent: true
     }
   },
   "venus-de-milo": {

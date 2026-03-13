@@ -302,7 +302,7 @@ export async function initSketchfabMuseumPage(piece) {
     await new Promise((resolve, reject) => {
       client.init(model.uid, {
         autostart: 1,
-        transparent: 0,
+        transparent: model.transparent ? 1 : 0,
         cameraConstraints: false,
         ui_infos: 0,
         ui_controls: 0,
