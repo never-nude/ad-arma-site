@@ -31,6 +31,7 @@ Long-range sculpture backlog for the ad-arma museum.
 - `327` Laocoön and His Sons: `live`
 - `355` Capitoline Venus: `live`
 - `366` Apollo Belvedere: `live`
+- `435` Bernini Ecstasy of Saint Teresa: `hidden`
 - `342` Augustus of Prima Porta: `live`
 - `395` Donatello Saint George: `hidden`
 - `405` Michelangelo Battle of the Centaurs: `live`
@@ -481,7 +482,7 @@ Long-range sculpture backlog for the ad-arma museum.
 432. Bernini Bust of Scipione Borghese, 1632 CE
 433. Bernini Bust of Costanza Bonarelli, c. 1637 CE
 434. Bernini Saint Longinus, 1629–1638 CE
-435. Bernini Ecstasy of Saint Teresa, 1647–1652 CE
+435. Bernini Ecstasy of Saint Teresa, 1647–1652 CE: `hidden`
 436. Bernini Damned Soul, c. 1619 CE
 437. Bernini Blessed Soul, c. 1619 CE
 438. Bernini Elephant and Obelisk, 1667 CE
