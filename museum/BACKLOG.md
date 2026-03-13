@@ -23,9 +23,6 @@ Long-range sculpture backlog for the ad-arma museum.
 - `36` Great Sphinx of Giza: `live`
 - `57` Assyrian lion hunt relief: `live`
 - `Assyrian lion released from cage`: `live`
-- `Egyptian Karnak column relief`: `hidden`
-- `Egyptian bas-relief from the Great Temple of Bastet at Bubastis`: `hidden`
-- `Egyptian temple relief of Neferure`: `hidden`
 - `310` Charioteer of Delphi: `hidden`
 - `317` Discobolus: `live`
 - `313` Zeus/Poseidon of Artemision: `live`
