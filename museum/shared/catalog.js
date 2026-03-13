@@ -38,11 +38,6 @@ export const museumSections = [
     subtitle: "Michelangelo Buonarroti (1475-1564)"
   },
   {
-    id: "bernini",
-    title: "Bernini",
-    subtitle: "Gian Lorenzo Bernini (1598-1680)"
-  },
-  {
     id: "bouchardon",
     title: "Bouchardon",
     subtitle: "Edme Bouchardon (1698-1762)"
@@ -181,7 +176,6 @@ export const museumPieces = {
       fallbackUrl: "./artemision_bronze_source_small.stl"
     },
     scene: {
-      rotateZ: -Math.PI * 0.5,
       targetHeight: 1.82
     },
     material: {
@@ -401,38 +395,6 @@ export const museumPieces = {
       uid: "b637727d39544f6d998ab996ded86f0c",
       triangles: 2000012,
       sourceBytes: 100000824
-    }
-  },
-  "bernini-ecstasy-of-saint-teresa": {
-    kind: "sketchfab",
-    path: "/bernini/ecstasy-of-saint-teresa/",
-    sectionId: "bernini",
-    sortOrder: 10,
-    hiddenFromLobby: true,
-    viewerTitle: "Ecstasy of Saint Teresa (Cornaro Chapel, 1647-1652)",
-    subtitle: "Artist: Gian Lorenzo Bernini (1598-1680)",
-    lobbyMeta: "Source: Sketchfab sandbox preview / Matthew Brennan",
-    source: source(
-      "Sandbox preview uses a public Sketchfab embed of Matthew Brennan's Cornaro Chapel model, focused on Bernini's Ecstasy of Saint Teresa group.",
-      [
-        link("Sketchfab model", "https://sketchfab.com/3d-models/cornaro-chapel-a2c95c1afe2c494a948c1a08785e1057"),
-        link("Author profile", "https://sketchfab.com/matthewbrennan")
-      ],
-      "This route stays hidden from the museum lobby for now because the source is a public commercial embed rather than a local mirrored open mesh."
-    ),
-    defaults: {
-      zoom: 4.4,
-      lightAngle: 26,
-      lightPower: 1.95,
-      exposure: 0.52,
-      rough: 0.48
-    },
-    controlsHint: "Sandbox preview: this model includes the Cornaro Chapel setting, not just the sculpture group.",
-    view: {
-      primaryLoadingText: "Loading Cornaro Chapel sandbox preview..."
-    },
-    model: {
-      uid: "a2c95c1afe2c494a948c1a08785e1057"
     }
   },
   "michelangelo-battle-of-the-centaurs": {
