@@ -176,6 +176,7 @@ export const museumPieces = {
       fallbackUrl: "./artemision_bronze_source_small.stl"
     },
     scene: {
+      defaultYaw: -Math.PI * 0.5,
       targetHeight: 1.82
     },
     material: {
