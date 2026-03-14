@@ -25,27 +25,52 @@ export const museumSections = [
   {
     id: "antiquity",
     title: "Antiquity",
-    subtitle: "Ancient sculpture, copies, and canonical casts"
+    subtitle: "Ancient sculpture, Roman copies, and canonical casts",
+    dateRange: "c. 2558 BCE - early 1st century CE",
+    region: "Egypt and the Mediterranean",
+    defaultRegion: "Mediterranean",
+    era: "Antiquity",
+    artistGroup: "Ancient workshops"
   },
   {
     id: "early-renaissance",
     title: "Early Renaissance",
-    subtitle: "Donatello and the turn toward naturalism"
+    subtitle: "Donatello and the turn toward naturalism",
+    dateRange: "c. 1415-1417",
+    region: "Italy",
+    defaultRegion: "Italy",
+    era: "Early Renaissance",
+    artistGroup: "Donatello"
   },
   {
     id: "michelangelo",
     title: "Michelangelo",
-    subtitle: "Michelangelo Buonarroti (1475-1564)"
+    subtitle: "Marble reliefs, tomb figures, and devotional studies",
+    dateRange: "c. 1490-1564",
+    region: "Florence and Rome",
+    defaultRegion: "Italy",
+    era: "High Renaissance",
+    artistGroup: "Michelangelo"
   },
   {
     id: "bouchardon",
     title: "Bouchardon",
-    subtitle: "Edme Bouchardon (1698-1762)"
+    subtitle: "French classicism from Cupid to the rue de Grenelle allegories",
+    dateRange: "c. 1745 - mid-18th century",
+    region: "France",
+    defaultRegion: "France",
+    era: "Enlightenment",
+    artistGroup: "Bouchardon"
   },
   {
     id: "rodin",
     title: "Rodin",
-    subtitle: "Auguste Rodin (1840-1917)"
+    subtitle: "Modern bronze sculpture at the threshold of the nineteenth century",
+    dateRange: "1880-1904",
+    region: "France",
+    defaultRegion: "France",
+    era: "Nineteenth Century",
+    artistGroup: "Rodin"
   }
 ];
 
@@ -998,6 +1023,78 @@ export const museumPieces = {
       targetHeight: 1.72
     }
   },
+  "bouchardon-spring": {
+    kind: "external",
+    path: "https://www.metmuseum.org/art/collection/search/197729",
+    sectionId: "bouchardon",
+    sortOrder: 20,
+    viewerTitle: "Spring (one of a set of four) (probably mid-18th century)",
+    lobbyTitle: "Spring",
+    lobbyArtistLine: "After a model by Edme Bouchardon",
+    lobbyDate: "probably mid-18th century",
+    lobbyMeta: "Source: The Metropolitan Museum of Art",
+    lobbyLinkLabel: "View Record",
+    subtitle: "After a model by Edme Bouchardon (1698-1762)",
+    source: source(
+      "The Met's marble copy after Bouchardon's Four Seasons fountain relief.",
+      [link("The Met collection record", "https://www.metmuseum.org/art/collection/search/197729")],
+      "The Met notes that the set copies reliefs from Bouchardon's rue de Grenelle fountain, commissioned in 1735 and finished in 1745."
+    )
+  },
+  "bouchardon-summer": {
+    kind: "external",
+    path: "https://www.metmuseum.org/art/collection/search/197730",
+    sectionId: "bouchardon",
+    sortOrder: 30,
+    viewerTitle: "Summer (one of a set of four) (probably mid-18th century)",
+    lobbyTitle: "Summer",
+    lobbyArtistLine: "After a model by Edme Bouchardon",
+    lobbyDate: "probably mid-18th century",
+    lobbyMeta: "Source: The Metropolitan Museum of Art",
+    lobbyLinkLabel: "View Record",
+    subtitle: "After a model by Edme Bouchardon (1698-1762)",
+    source: source(
+      "The Met's marble copy after Bouchardon's Four Seasons fountain relief.",
+      [link("The Met collection record", "https://www.metmuseum.org/art/collection/search/197730")],
+      "The Met notes that the set copies reliefs from Bouchardon's rue de Grenelle fountain, commissioned in 1735 and finished in 1745."
+    )
+  },
+  "bouchardon-autumn": {
+    kind: "external",
+    path: "https://www.metmuseum.org/art/collection/search/197731",
+    sectionId: "bouchardon",
+    sortOrder: 40,
+    viewerTitle: "Autumn (one of a set of four) (probably mid-18th century)",
+    lobbyTitle: "Autumn",
+    lobbyArtistLine: "After a model by Edme Bouchardon",
+    lobbyDate: "probably mid-18th century",
+    lobbyMeta: "Source: The Metropolitan Museum of Art",
+    lobbyLinkLabel: "View Record",
+    subtitle: "After a model by Edme Bouchardon (1698-1762)",
+    source: source(
+      "The Met's marble copy after Bouchardon's Four Seasons fountain relief.",
+      [link("The Met collection record", "https://www.metmuseum.org/art/collection/search/197731")],
+      "The Met notes that the set copies reliefs from Bouchardon's rue de Grenelle fountain, commissioned in 1735 and finished in 1745."
+    )
+  },
+  "bouchardon-winter": {
+    kind: "external",
+    path: "https://www.metmuseum.org/art/collection/search/197732",
+    sectionId: "bouchardon",
+    sortOrder: 50,
+    viewerTitle: "Winter (one of a set of four) (probably mid-18th century)",
+    lobbyTitle: "Winter",
+    lobbyArtistLine: "After a model by Edme Bouchardon",
+    lobbyDate: "probably mid-18th century",
+    lobbyMeta: "Source: The Metropolitan Museum of Art",
+    lobbyLinkLabel: "View Record",
+    subtitle: "After a model by Edme Bouchardon (1698-1762)",
+    source: source(
+      "The Met's marble copy after Bouchardon's Four Seasons fountain relief.",
+      [link("The Met collection record", "https://www.metmuseum.org/art/collection/search/197732")],
+      "The Met notes that the set copies reliefs from Bouchardon's rue de Grenelle fountain, commissioned in 1735 and finished in 1745."
+    )
+  },
   "rodin-the-thinker": {
     kind: "stl",
     path: "/rodin/the-thinker/",
@@ -1042,7 +1139,53 @@ export const museumPieces = {
   }
 };
 
-function sectionItems(sectionId) {
+const sectionMap = Object.fromEntries(museumSections.map((section) => [section.id, section]));
+
+const pieceLobbyOverrides = {
+  "sphinx": {
+    region: "Egypt"
+  }
+};
+
+const eraOrder = ["Antiquity", "Early Renaissance", "High Renaissance", "Enlightenment", "Nineteenth Century"];
+const regionOrder = ["Egypt", "Mediterranean", "Italy", "France"];
+const artistOrder = ["Ancient workshops", "Donatello", "Michelangelo", "Bouchardon", "Rodin"];
+
+function splitViewerTitle(viewerTitle = "") {
+  const trimmedTitle = viewerTitle.trim();
+  const openIndex = trimmedTitle.lastIndexOf(" (");
+  if (openIndex === -1 || !trimmedTitle.endsWith(")")) {
+    return {
+      title: trimmedTitle,
+      context: "",
+      date: ""
+    };
+  }
+
+  const title = trimmedTitle.slice(0, openIndex).trim();
+  const detail = trimmedTitle.slice(openIndex + 2, -1).trim();
+  const commaIndex = detail.lastIndexOf(",");
+
+  if (commaIndex !== -1 && /\d/.test(detail.slice(commaIndex + 1))) {
+    return {
+      title,
+      context: detail.slice(0, commaIndex).trim(),
+      date: detail.slice(commaIndex + 1).trim()
+    };
+  }
+
+  return {
+    title,
+    context: "",
+    date: detail
+  };
+}
+
+function cleanArtistLine(value = "") {
+  return value.replace(/^Artist:\s*/i, "").trim();
+}
+
+function sortedVisiblePieces(sectionId) {
   return Object.entries(museumPieces)
     .filter(([, piece]) => piece.sectionId === sectionId && !piece.hiddenFromLobby)
     .sort(([, a], [, b]) => {
@@ -1050,21 +1193,114 @@ function sectionItems(sectionId) {
         return a.sortOrder - b.sortOrder;
       }
       return (a.viewerTitle || "").localeCompare(b.viewerTitle || "");
-    })
-    .map(([pieceId]) => pieceId);
+    });
 }
 
-export const museumLobby = {
-  pageTitle: "Museum Lobby",
-  title: "Museum Lobby",
-  subtitle: "Sculpture and 3D works from antiquity through the nineteenth century. Each piece page now carries a shared viewer shell plus source and attribution notes.",
-  sections: museumSections
-    .map((section) => ({
+function presentLobbyPiece(pieceId, piece) {
+  const section = sectionMap[piece.sectionId] || {};
+  const titleParts = splitViewerTitle(piece.lobbyTitle || piece.viewerTitle || "");
+  const override = pieceLobbyOverrides[pieceId] || {};
+
+  return {
+    id: pieceId,
+    href: piece.path,
+    title: titleParts.title || piece.viewerTitle,
+    creator: piece.lobbyArtistLine || cleanArtistLine(piece.subtitle || "") || titleParts.context,
+    date: piece.lobbyDate || titleParts.date,
+    linkLabel: piece.lobbyLinkLabel || "",
+    attribution: piece.heroAttribution || titleParts.context || cleanArtistLine(piece.subtitle || ""),
+    era: override.era || section.era || "",
+    region: override.region || section.defaultRegion || section.region || "",
+    artist: override.artist || section.artistGroup || "",
+    gallery: override.gallery || section.title || ""
+  };
+}
+
+function sectionItems(sectionId) {
+  return sortedVisiblePieces(sectionId).map(([pieceId, piece]) => presentLobbyPiece(pieceId, piece));
+}
+
+function visibleLobbyPieces() {
+  return Object.entries(museumPieces)
+    .filter(([, piece]) => !piece.hiddenFromLobby)
+    .map(([pieceId, piece]) => presentLobbyPiece(pieceId, piece));
+}
+
+function buildBrowseItems(field, order, pieces) {
+  const counts = new Map();
+  for (const piece of pieces) {
+    if (!piece[field]) continue;
+    counts.set(piece[field], (counts.get(piece[field]) || 0) + 1);
+  }
+
+  return order
+    .filter((label) => counts.has(label))
+    .map((label) => ({
+      label,
+      value: label,
+      count: counts.get(label)
+    }));
+}
+
+const visiblePieces = visibleLobbyPieces();
+const visibleSections = museumSections
+  .map((section) => {
+    const items = sectionItems(section.id);
+    if (!items.length) {
+      return null;
+    }
+
+    return {
+      id: section.id,
       title: section.title,
       subtitle: section.subtitle,
-      items: sectionItems(section.id)
-    }))
-    .filter((section) => section.items.length > 0)
+      dateRange: section.dateRange,
+      region: section.region,
+      workCount: items.length,
+      items
+    };
+  })
+  .filter(Boolean);
+
+export const museumLobby = {
+  pageTitle: "Form Gallery - Museum Lobby",
+  brand: "FORM GALLERY",
+  title: "Museum Lobby",
+  subtitle: "Form Gallery is a digital sculpture collection spanning antiquity through the nineteenth century. Browse by era, region, maker, or curatorial gallery.",
+  metadataLine: `${visiblePieces.length} works • ${visibleSections.length} galleries • ${new Set(visiblePieces.map((piece) => piece.region)).size} regions • ${new Set(visiblePieces.map((piece) => piece.artist)).size} makers`,
+  featuredLabel: "Featured Sculpture",
+  featuredCtaLabel: "Explore the Work",
+  featuredPiece: presentLobbyPiece("dying-gaul", museumPieces["dying-gaul"]),
+  browseTitle: "Browse the Collection",
+  browseSubtitle: "Grouped filters keep the collection quiet and legible while making it easy to move by era, region, maker, or room.",
+  browseResetLabel: "Show all works",
+  browseGroups: [
+    {
+      id: "era",
+      title: "By Era",
+      items: buildBrowseItems("era", eraOrder, visiblePieces)
+    },
+    {
+      id: "region",
+      title: "By Region",
+      items: buildBrowseItems("region", regionOrder, visiblePieces)
+    },
+    {
+      id: "artist",
+      title: "By Artist",
+      items: buildBrowseItems("artist", artistOrder, visiblePieces)
+    },
+    {
+      id: "gallery",
+      title: "By Gallery",
+      items: visibleSections.map((section) => ({
+        label: section.title,
+        value: section.title,
+        count: section.workCount
+      }))
+    }
+  ],
+  sections: visibleSections
 };
 
 export const museumRouteMap = Object.fromEntries(

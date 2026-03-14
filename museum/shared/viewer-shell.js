@@ -50,9 +50,15 @@ export function renderViewerShell(config) {
   const statsLoading = config.statsLoading || "Loading high-fidelity STL sculpture...";
   const loadingText = config.loadingText || statsLoading;
   const pageTitle = config.pageTitle || `${config.viewerTitle} - Museum Viewer`;
+  const embedMode = config.embedMode || new URLSearchParams(window.location.search).get("embed") || "";
+  const viewerClasses = ["app", "viewer-app"];
+
+  if (embedMode) {
+    viewerClasses.push(`viewer-app--${embedMode}`);
+  }
 
   document.body.innerHTML = `
-    <div class="app viewer-app">
+    <div class="${viewerClasses.join(" ")}">
       <section class="panel">
         <h1 class="title">${config.viewerTitle}</h1>
         ${titleParagraph("sub", config.subtitle)}
