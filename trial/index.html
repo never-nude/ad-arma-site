@@ -8,53 +8,40 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=20260312-onboarding-funnel-trial-v1" />
+  <link rel="stylesheet" href="style.css?v=20260316-tutorial-reset-trial-v2" />
 </head>
 <body>
   <div id="introOverlay" class="introOverlay open" aria-hidden="false">
     <div class="introCard" role="dialog" aria-modal="true" aria-labelledby="introTitle">
       <h1 id="introTitle" class="introTitle">Ad Arma</h1>
       <p class="introLead">
-        A classical-era tactics game of command, cohesion, and collapse. Start with a guided lesson, a curated opening battle,
-        or the full scenario cabinet once you know what kind of fight you want.
+        A classical-era tactics game of command, cohesion, and collapse. Choose how you want to begin this battle.
       </p>
       <div class="introActions" id="introActions">
-        <div class="introPrimaryGrid">
-          <button id="introPlayNowBtn" class="btn introActionBtn" type="button">
-            <span class="introActionTitle">First Battle</span>
-            <span class="introActionSub">Start with a compact 6v6 line clash, recommended doctrine, and a simple win condition.</span>
-          </button>
-          <button id="introTutorialBtn" class="btn introActionBtn" type="button">
-            <span class="introActionTitle">Tutorial</span>
-            <span class="introActionSub">Launch a guided, animated battle tutorial with narrated steps and highlighted practice tasks.</span>
-          </button>
-        </div>
-        <section class="introRecommendationSection" aria-labelledby="introRecommendationTitle">
-          <div class="introSectionHead">
-            <h2 id="introRecommendationTitle" class="introSectionTitle">Recommended Battles</h2>
-            <p class="introSectionLead">Three stronger next battles once you want a little more texture than the starter clash.</p>
-          </div>
-          <div id="introRecommendedList" class="introRecommendedList"></div>
-        </section>
-        <div class="introSetupRow">
-          <div class="introSetupCopy">
-            <div class="introSetupTitle">Advanced Setup</div>
-            <div class="introSetupSub">Pick any scenario, change victory goals, edit terrain, or prepare an online match.</div>
-          </div>
-          <button id="introSetupBtn" class="btn introSetupBtn" type="button">Open Setup</button>
-        </div>
+        <button id="introPlayNowBtn" class="btn introActionBtn" type="button">
+          <span class="introActionTitle">Play Now!</span>
+          <span class="introActionSub">Launch a default randomized battle immediately.</span>
+        </button>
+        <button id="introSetupBtn" class="btn introActionBtn" type="button">
+          <span class="introActionTitle">Game Setup</span>
+          <span class="introActionSub">Open in setup mode to edit terrain, forces, and doctrine.</span>
+        </button>
+        <button id="introTutorialBtn" class="btn introActionBtn" type="button">
+          <span class="introActionTitle">Tutorial</span>
+          <span class="introActionSub">Launch a guided, animated battle tutorial.</span>
+        </button>
       </div>
       <div id="introTutorialPanel" class="introTutorialPanel" hidden>
         <h2>Guided Tutorial</h2>
         <p>
           This scripted lesson loads a fixed mirrored battlefield and walks through each piece type with narrated text
-          and animated board callouts.
+          and animated board callouts, including how to read War Council previews before you commit a directive.
         </p>
         <ul>
           <li>Infantry, Cavalry, Skirmisher, Archer</li>
           <li>General command radius, Runner relay, Medic support</li>
           <li>Combat flow: hit, retreat, and disarray</li>
-          <li>Short movement and targeting demonstrations</li>
+          <li>Short movement, targeting, and directive-preview demonstrations</li>
         </ul>
         <div class="row">
           <button id="introTutorialStartBtn" class="btn wide btnHero" type="button">Start Guided Tutorial</button>
@@ -134,13 +121,12 @@
       </div>
       <div id="turnOrdersPanel" class="panel">
         <div class="panelTitle">Turn &amp; Orders</div>
-        <div id="turnOrdersSummary" class="note turnOrdersSummary" hidden></div>
         <div class="row">
           <div class="label">Battle</div>
           <button id="modeBtn" class="btn">To Play</button>
         </div>
 
-        <div class="row setupOnlyRow">
+        <div class="row">
           <div class="label">Game</div>
           <select id="gameModeSel" class="select">
             <option value="hvai">Human vs AI</option>
@@ -148,7 +134,7 @@
           </select>
         </div>
 
-        <div id="aiDifficultyRow" class="row setupOnlyRow">
+        <div id="aiDifficultyRow" class="row">
           <div class="label">AI</div>
           <select id="aiDifficultySel" class="select">
             <option value="easy">Easy</option>
@@ -156,7 +142,7 @@
             <option value="hard">Hard</option>
           </select>
         </div>
-        <div id="humanSideRow" class="row setupOnlyRow">
+        <div id="humanSideRow" class="row">
           <div class="label">Side</div>
           <select id="humanSideSel" class="select">
             <option value="blue">Blue</option>
@@ -164,20 +150,20 @@
           </select>
         </div>
 
-        <div class="row setupOnlyRow">
+        <div class="row">
           <div class="label">Victory</div>
           <select id="victorySel" class="select"></select>
         </div>
         <div class="row">
           <button id="endTurnBtn" class="btn wide">End Turn</button>
         </div>
-        <div class="row starterAdvancedRow">
+        <div class="row">
           <button id="lineAdvanceBtn" class="btn wide">Line Advance</button>
         </div>
-        <div class="row starterAdvancedRow">
+        <div class="row">
           <button id="doctrineOpenTurnBtn" class="btn wide btnHero">Open War Council</button>
         </div>
-        <div class="row playOnlyRow starterAdvancedRow">
+        <div class="row playOnlyRow">
           <div class="label">Advance Dir</div>
           <select id="lineAdvanceDirSel" class="select">
             <option value="ur">Up Right</option>
@@ -186,29 +172,29 @@
             <option value="dl">Down Left</option>
           </select>
         </div>
-        <div class="row playOnlyRow starterAdvancedRow">
+        <div class="row playOnlyRow">
           <div class="label">Directive</div>
           <select id="commandSel" class="select"></select>
         </div>
-        <div class="row playOnlyRow starterAdvancedRow">
+        <div id="commandCoachCard" class="commandCoachCard playOnlyRow" aria-live="polite">
+          <div class="commandCoachHead">
+            <div id="commandCoachTitle" class="commandCoachTitle">Directive Preview</div>
+            <div id="commandCoachMeta" class="commandCoachMeta">
+              Select a directive to see its spend, picks, and battlefield effect before you commit.
+            </div>
+          </div>
+          <div id="commandCoachBody" class="commandCoachBody">
+            Open War Council for the animated board preview, or choose a directive to see its plain-language coaching here.
+          </div>
+        </div>
+        <div class="row playOnlyRow">
           <button id="commandUseBtn" class="btn wide">Use Directive</button>
           <button id="commandSkipBtn" class="btn wide">Skip Directive</button>
         </div>
-        <div class="row playOnlyRow starterAdvancedRow">
+        <div class="row playOnlyRow">
           <button id="openOrdersKeyBtn" class="btn wide">Orders Key</button>
         </div>
-        <div id="commandPhaseNote" class="note starterAdvancedNote">Optional: issue one command at any time during your turn.</div>
-      </div>
-
-      <div id="battleFocusPanel" class="panel">
-        <div class="panelTitle">Battle Focus</div>
-        <div id="battleFocusLead" class="battleFocusLead">Select a friendly unit to begin.</div>
-        <ul id="battleFocusList" class="battleFocusList"></ul>
-        <div class="row battleFocusActions">
-          <button id="battleFocusAdvancedBtn" class="btn wide" type="button">Show Advanced</button>
-          <button id="battleFocusRulesBtn" class="btn wide" type="button">Rules Reference</button>
-          <button id="battleFocusOrdersBtn" class="btn wide" type="button">Orders Guide</button>
-        </div>
+        <div id="commandPhaseNote" class="note">Optional: issue one command at any time during your turn.</div>
       </div>
 
       <div id="statusPanel" class="panel">
@@ -227,13 +213,9 @@
 
       <div id="scenarioPanel" class="panel">
         <div class="panelTitle">Scenario</div>
-        <div class="note scenarioQuickLead">Pinned Battles</div>
-        <div id="scenarioQuickPicks" class="scenarioQuickPicks"></div>
-        <div class="note scenarioBrowseLead">All Scenarios</div>
         <div class="row">
           <select id="scenarioSel" class="select"></select>
         </div>
-        <div id="scenarioDetails" class="note scenarioDetails">Starter match loaded: compact line clash with a clear first engagement.</div>
         <div id="scenarioSides" class="note scenarioSides">Blue: Blue Army • Red: Red Army</div>
       </div>
 
@@ -507,7 +489,8 @@
             <button id="closeDoctrineBtn" class="btn" type="button">Minimize</button>
           </div>
           <div class="doctrineIntroNote">
-            Select exactly 3 orders in each cost column. Reusable orders can be used again; Single-Use orders are consumed when played.
+            Select exactly 3 orders in each cost column. Each preview explains action spend, target guidance, board effect,
+            and when the order is strongest. Reusable orders can be used again; Single-Use orders are consumed when played.
           </div>
           <div class="row">
             <div class="label">Editing</div>
@@ -523,12 +506,15 @@
           <div class="doctrineModalBody">
             <div class="doctrineModalAside">
               <div id="doctrineExplain" class="doctrineExplain">
-                Select an order to view its full effect and targeting.
+                Select an order to view its action spend, target guidance, timing, and board preview.
               </div>
               <div id="doctrinePreviewWrap" class="doctrinePreviewWrap" aria-label="Command preview">
                 <div id="doctrinePreviewTitle" class="doctrinePreviewTitle">Previewing: Select an order</div>
                 <canvas id="doctrinePreviewCanvas" width="900" height="360"></canvas>
-                <div id="doctrinePreviewCaption" class="doctrinePreviewCaption">Preview appears here after selecting a directive.</div>
+                <div id="doctrinePreviewCaption" class="doctrinePreviewCaption">
+                  Preview appears here after selecting a directive. Blue paths show movement, red shows attack pressure,
+                  purple shows command links, and green marks hold/brace effects.
+                </div>
               </div>
             </div>
             <div class="doctrineBuilderGrid">
@@ -635,7 +621,7 @@
   </section>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  <script src="build.js?v=20260312-onboarding-funnel-trial-v1"></script>
-  <script src="main.js?v=20260312-onboarding-funnel-trial-v1"></script>
+  <script src="build.js?v=20260316-tutorial-reset-trial-v2"></script>
+  <script src="main.js?v=20260316-tutorial-reset-trial-v2"></script>
 </body>
 </html>

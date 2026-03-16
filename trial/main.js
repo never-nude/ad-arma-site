@@ -106,90 +106,8 @@
     standard: { startMs: 680, stepMs: 980, intentMs: 430, movePauseMs: 520, combatPauseMs: 1360 },
     hard: { startMs: 460, stepMs: 760, intentMs: 320, movePauseMs: 420, combatPauseMs: 1180 },
   };
-  const FIRST_BATTLE_SCENARIO_NAME = 'Demo A — Line Clash';
   const RANDOM_START_SCENARIO_NAME = 'Randomized Opening (Auto)';
   const GUIDED_TUTORIAL_SCENARIO_NAME = 'Tutorial — Piece Walkthrough (Mirrored)';
-  const STARTER_BATTLE_PRESETS = [
-    {
-      id: 'first-battle',
-      scenarioName: FIRST_BATTLE_SCENARIO_NAME,
-      title: 'First Battle',
-      label: 'Starter Match',
-      summary: 'Compact 6v6 line clash with open ground and just enough variety to learn movement, attacks, and tempo.',
-      tags: ['Starter', '6v6', '10 min'],
-      focus: 'Line Basics',
-      victoryMode: 'annihilation',
-      tip: 'Open with infantry or cavalry. You can ignore directives on turn 1 and focus on movement and attacks.',
-    },
-    {
-      id: 'center-push',
-      scenarioName: 'Demo B — Center Push',
-      title: 'Center Push',
-      label: 'Recommended Battle',
-      summary: 'A short center duel about timing an infantry shove, protecting the general, and not overextending first.',
-      tags: ['Small', 'Center', 'Fast'],
-      focus: 'Center Pressure',
-      victoryMode: 'annihilation',
-      tip: 'Claim the middle with infantry, then use cavalry as a threat instead of charging too early.',
-    },
-    {
-      id: 'screen-clash',
-      scenarioName: 'Demo C — Skirmisher Screen',
-      title: 'Skirmisher Screen',
-      label: 'Recommended Battle',
-      summary: 'Learn how screens, ranged harassment, and delayed cavalry charges shape the opening before the lines collide.',
-      tags: ['Skirmishers', 'Ranged', 'Tempo'],
-      focus: 'Screening',
-      victoryMode: 'annihilation',
-      tip: 'Let skirmishers and archers soften the line before committing your cavalry.',
-    },
-    {
-      id: 'marathon',
-      scenarioName: 'Terrain K — Marathon (490 BCE)',
-      title: 'Marathon',
-      label: 'Historical Battle',
-      summary: 'A recognizable open-ground battle with stronger flanks and enough space to feel the full line once basics click.',
-      tags: ['History', 'Open Flanks', 'Longer'],
-      focus: 'Wing Play',
-      victoryMode: 'annihilation',
-      tip: 'Watch the wings and avoid letting the center pin you in place too early.',
-    },
-  ];
-  const INTRO_RECOMMENDED_PRESET_IDS = ['center-push', 'screen-clash', 'marathon'];
-  const SETUP_PINNED_PRESET_IDS = ['first-battle', 'center-push', 'screen-clash', 'marathon'];
-  const SCENARIO_GROUP_LABELS = {
-    tutorial: 'Tutorial',
-    demo: 'Demo',
-    grand: 'Grand Battle',
-    terrain: 'Terrain Pack',
-    berserker: 'Berserker',
-    history: 'Historical Battle',
-    other: 'Scenario',
-  };
-  const SCENARIO_LESSON_LABELS = {
-    lines: 'Line Discipline',
-    center: 'Center Pressure',
-    screen: 'Screening',
-    envelopment: 'Flanking',
-    corridor: 'Corridor Fight',
-    river: 'River Crossing',
-    terrain: 'Terrain Tactics',
-    general: 'General Practice',
-  };
-  const SCENARIO_SIZE_LABELS = {
-    small: 'Small',
-    medium: 'Medium',
-    large: 'Large',
-  };
-  const SCENARIO_TERRAIN_LABELS = {
-    open: 'Open Ground',
-    hills: 'Hills',
-    woods: 'Woods',
-    rough: 'Rough',
-    water: 'Water',
-    mountains: 'Mountains',
-    mixed: 'Mixed Terrain',
-  };
   const TUTORIAL_KEYS = {
     blueGen: '7,2',
     blueRun: '6,2',
@@ -232,6 +150,12 @@
   const ATTACK_FLASH_MS = 920;
   const TUTORIAL_AUTOPLAY_STEP_MS = 16800;
   const TUTORIAL_AUTOPLAY_AFTER_TASK_MS = 5200;
+  const TUTORIAL_DEMO_STEP_START_MS = 420;
+  const TUTORIAL_DEMO_MOVE_PREP_MS = 720;
+  const TUTORIAL_DEMO_MOVE_MS = 720;
+  const TUTORIAL_DEMO_MOVE_SETTLE_MS = 560;
+  const TUTORIAL_DEMO_ATTACK_PREP_MS = 860;
+  const TUTORIAL_DEMO_ATTACK_SETTLE_MS = 980;
   const ENABLE_BATTLE_SFX = true;
   const COMMAND_COSTS = [1, 2, 3];
   const COMMANDS_PER_COST = 3;
@@ -324,9 +248,189 @@
     command_surge: 'One general temporarily projects command farther to re-link nearby units.',
     stand_or_die: 'Infantry near a general hold position, refuse retreats, and harden defense for one turn.',
   };
+  const COMMAND_CATEGORY_LABELS = {
+    formation: 'Formation',
+    command: 'Command',
+    infantry: 'Infantry',
+    cavalry: 'Cavalry',
+    skirmish: 'Skirmish',
+    missile: 'Missile',
+    reserve: 'Reserve',
+    positional: 'Positional',
+  };
+  const COMMAND_CATEGORY_FALLBACKS = {
+    formation: {
+      when: 'Use formation orders when your line shape matters more than raw damage right this second.',
+      watch: 'They are strongest before a line fully locks into melee or immediately after it bends out of shape.',
+    },
+    command: {
+      when: 'Use command orders when the real problem is coordination, reach, or getting key units back under control.',
+      watch: 'They lose value if the general or runner ends too far from the actual fight.',
+    },
+    infantry: {
+      when: 'Use infantry orders where your main line will absorb or deliver the next decisive contact.',
+      watch: 'They are wasted on isolated infantry that cannot support one another.',
+    },
+    cavalry: {
+      when: 'Use cavalry orders when a wing has room to move and a flank angle is about to open.',
+      watch: 'Avoid spending them into cramped terrain or head-on shielded infantry fights.',
+    },
+    skirmish: {
+      when: 'Use skirmish orders to create tempo before the heavy lines fully collide.',
+      watch: 'They do less for you once light troops are trapped in direct melee.',
+    },
+    missile: {
+      when: 'Use missile orders to soften a lane before your infantry or cavalry commit.',
+      watch: 'Their value drops if you no longer have clean firing lanes or legal ranged attacks.',
+    },
+    reserve: {
+      when: 'Use reserve orders when your second line can arrive where the next turn will matter most.',
+      watch: 'Do not spend them just to drift reserves forward without a real follow-up attack or defense.',
+    },
+    positional: {
+      when: 'Use positional orders to escape a bad fight or preserve a fragile unit for a better exchange.',
+      watch: 'If the target is already trapped, a positional order may only delay the collapse.',
+    },
+  };
+  const COMMAND_COACHING = {
+    quick_dress: {
+      when: 'Use it to straighten a crooked infantry section, close a lateral gap, or keep neighboring supports aligned.',
+      watch: 'It is pure repositioning. If you need immediate attacks, save the action for a fighting order instead.',
+    },
+    runner_burst: {
+      when: 'Use it when one flank or reserve packet is about to drift out of command and a runner can reconnect the chain.',
+      watch: 'The burst is wasted if the runner still ends in a place that does not steady meaningful units.',
+    },
+    javelin_volley: {
+      when: 'Use it just before contact or when two light shooters can punish exposed infantry from safe range.',
+      watch: 'Do not spend it on missile units that have no clean targets or are about to be tied up in melee.',
+    },
+    quick_withdraw: {
+      when: 'Use it to pull a fragile shooter out of a trap before the enemy closes the lane.',
+      watch: 'If the retreat hex is only delaying an inevitable surround, keep the action for a higher-value save.',
+    },
+    close_ranks: {
+      when: 'Use it on the infantry hex you expect to absorb the next hard melee hit.',
+      watch: 'It does not help if the important fight is landing somewhere else on the line.',
+    },
+    spur_horses: {
+      when: 'Use it when one cavalry unit can turn extra reach into a new flank angle or objective grab.',
+      watch: 'Do not spend it on cavalry that still ends its move in a clogged or front-facing fight.',
+    },
+    signal_call: {
+      when: 'Use it when good troops are just outside normal command and you need them responsive this turn.',
+      watch: 'It is a bridge order, not a full reposition; if those units still have no productive action, wait.',
+    },
+    loose_screen: {
+      when: 'Use it when your light troops need to slip through the line and reclaim space before contact.',
+      watch: 'If the screen is already exposed on the far side, moving through the line can leave it isolated.',
+    },
+    covering_fire: {
+      when: 'Use it when woods or rough are blunting ranged pressure and two missile attacks can swing a lane.',
+      watch: 'It only matters if you can actually make those attacks this turn.',
+    },
+    hold_fast: {
+      when: 'Use it to keep one critical unit from being pushed off an anchor hex or broken by retreat results.',
+      watch: 'Do not spend it on a unit the enemy can simply ignore while crushing the rest of your formation.',
+    },
+    shield_wall: {
+      when: 'Use it when a connected infantry block is about to absorb a major melee exchange in one place.',
+      watch: 'If the chosen infantry are scattered or half of them will not be attacked, the wall is overbought.',
+    },
+    cavalry_exploit: {
+      when: 'Use it when a cavalry wing has open ground and can punish infantry before the line stabilizes.',
+      watch: 'If rough terrain or bodies choke the lane, the exploit order loses most of its edge.',
+    },
+    refuse_flank: {
+      when: 'Use it when one wing is overextended and you need to deny a wraparound before it starts.',
+      watch: 'Pulling back too early can concede space you actually needed to contest.',
+    },
+    forced_march: {
+      when: 'Use it when tempo matters more than attacks and a group must arrive one turn sooner.',
+      watch: 'Remember those units cannot attack this turn, so do not march them into contact with no payoff.',
+    },
+    strengthen_center: {
+      when: 'Use it when the center is the battle’s hinge and you need it harder to push back.',
+      watch: 'It is weaker if your general is off-center or the important fight is actually on a wing.',
+    },
+    wing_screen: {
+      when: 'Use it when flank missile units can shoot and still slide to safety or a better lane.',
+      watch: 'If the flank is already closed, the reposition half of the order may disappear.',
+    },
+    countercharge: {
+      when: 'Use it when enemy movement is about to enter cavalry reach and you want to punish that step-in.',
+      watch: 'It is poor value if your cavalry are pinned, surrounded, or too far from the threatened lane.',
+    },
+    jaws_inward: {
+      when: 'Use it when veteran or regular infantry on both sides can compress a target pocket from the flanks.',
+      watch: 'If one side of the jaws cannot move, the order becomes a lopsided shuffle instead of a trap.',
+    },
+    local_reserve: {
+      when: 'Use it when rear-line troops can join the fight immediately and change the next exchange.',
+      watch: 'Do not release reserves into a lane where they still arrive piecemeal and unsupported.',
+    },
+    drive_them_back: {
+      when: 'Use it when infantry contact is imminent and you want extra odds of retreat or disarray right now.',
+      watch: 'Spend it where several infantry can attack, not on a single isolated brawl.',
+    },
+    full_line_advance: {
+      when: 'Use it when one major row can step together and gain space without tearing itself apart.',
+      watch: 'Blocked units stay put, so a bad lane can turn a proud advance into a staggered mess.',
+    },
+    grand_shield_wall: {
+      when: 'Use it when you absolutely must hold a large infantry mass in place through extreme pressure.',
+      watch: 'You are buying survival, not mobility. If the fight will shift away, the wall can strand your best units.',
+    },
+    all_out_cavalry_sweep: {
+      when: 'Use it for a decisive wing assault when cavalry can chain shock into a collapsing flank.',
+      watch: 'This is an all-in commitment. If the wing is clogged or the enemy can absorb it, you burn a premium order.',
+    },
+    commit_reserves: {
+      when: 'Use it when deeper reserves can arrive where the line is bending or where your next push will land.',
+      watch: 'If those reserves still have no clean path toward contact, the commitment is mostly cosmetic.',
+    },
+    general_assault: {
+      when: 'Use it when one general is already near the real fight and nearby units can convert coordination into pressure.',
+      watch: 'It loses value if the general is safe but irrelevant or the chosen units have no strong follow-up hexes.',
+    },
+    collapse_center: {
+      when: 'Use it when you want the center to yield deliberately while both wings fold inward into a trap.',
+      watch: 'If the wings cannot close in time, you simply gave ground in the middle for free.',
+    },
+    last_push: {
+      when: 'Use it when a short burst of raw attack dice can decide the turn immediately.',
+      watch: 'Do not spend it unless those attackers are definitely going to fight now.',
+    },
+    reforge_line: {
+      when: 'Use it after the line has warped and you need several connected infantry to rebuild shape fast.',
+      watch: 'It is less valuable when only one or two hexes are wrong and a normal move would fix the problem.',
+    },
+    command_surge: {
+      when: 'Use it when one general can pull a whole local cluster back into command for this turn’s attack or rescue.',
+      watch: 'If the general still sits too far from the actual crisis, the extra radius solves very little.',
+    },
+    stand_or_die: {
+      when: 'Use it when infantry around a general must hold ground and refuse retreat at all costs.',
+      watch: 'It is strongest around a true anchor point; elsewhere it can lock troops into a fight you should abandon.',
+    },
+  };
   function commandLaymanText(cmd) {
     if (!cmd) return '';
     return COMMAND_LAYMAN_TEXT[cmd.id] || commandExplainText(cmd);
+  }
+
+  function commandCategoryLabel(category) {
+    return COMMAND_CATEGORY_LABELS[category] || 'Directive';
+  }
+
+  function commandCoachingFor(cmd) {
+    if (!cmd) return { when: '', watch: '' };
+    const base = COMMAND_CATEGORY_FALLBACKS[cmd.category] || { when: '', watch: '' };
+    const own = COMMAND_COACHING[cmd.id] || {};
+    return {
+      when: own.when || base.when || '',
+      watch: own.watch || base.watch || '',
+    };
   }
 
   function sentenceize(text) {
@@ -610,6 +714,14 @@
       'quick_dress', 'close_ranks', 'hold_fast',
       'shield_wall', 'forced_march', 'cavalry_exploit',
       'full_line_advance', 'general_assault', 'last_push',
+    ];
+  }
+
+  function makeTutorialDoctrineLoadout() {
+    return [
+      'close_ranks', 'signal_call', 'covering_fire',
+      'shield_wall', 'strengthen_center', 'wing_screen',
+      'full_line_advance', 'general_assault', 'command_surge',
     ];
   }
 
@@ -936,7 +1048,6 @@
   const elStatusLast = document.getElementById('statusLast');
 
   const elModeBtn = document.getElementById('modeBtn');
-  const elTurnOrdersSummary = document.getElementById('turnOrdersSummary');
   const elGameModeSel = document.getElementById('gameModeSel');
   const elAiDifficultyRow = document.getElementById('aiDifficultyRow');
   const elAiDifficultySel = document.getElementById('aiDifficultySel');
@@ -959,8 +1070,6 @@
   const elTerrainBtns = document.getElementById('terrainBtns');
 
   const elScenarioSel = document.getElementById('scenarioSel');
-  const elScenarioQuickPicks = document.getElementById('scenarioQuickPicks');
-  const elScenarioDetails = document.getElementById('scenarioDetails');
   const elScenarioSides = document.getElementById('scenarioSides');
   const elScenarioGroupSel = document.getElementById('scenarioGroupSel');
   const elScenarioLessonSel = document.getElementById('scenarioLessonSel');
@@ -983,7 +1092,6 @@
   const elCornerDiceRow = document.getElementById('cornerDiceRow');
   const elDiceTray = document.getElementById('diceTray');
   const elInspectorTitle = document.getElementById('inspectorTitle');
-  const elInspectorGrid = document.querySelector('#selectedUnitPanel .inspectorGrid');
   const elInspectorMeta = document.getElementById('inspectorMeta');
   const elInspectorSide = document.getElementById('inspectorSide');
   const elInspectorType = document.getElementById('inspectorType');
@@ -1001,11 +1109,6 @@
   const elCombatHint = document.getElementById('combatHint');
   const elOpenQuickRulesBtn = document.getElementById('openQuickRulesBtn');
   const elOpenFullRulesBtn = document.getElementById('openFullRulesBtn');
-  const elBattleFocusLead = document.getElementById('battleFocusLead');
-  const elBattleFocusList = document.getElementById('battleFocusList');
-  const elBattleFocusAdvancedBtn = document.getElementById('battleFocusAdvancedBtn');
-  const elBattleFocusRulesBtn = document.getElementById('battleFocusRulesBtn');
-  const elBattleFocusOrdersBtn = document.getElementById('battleFocusOrdersBtn');
   const elDoctrineOpenHeroBtn = document.getElementById('doctrineOpenHeroBtn');
   const elOpenCommandRulesBtn = document.getElementById('openCommandRulesBtn');
   const elDoctrineOpenBtn = document.getElementById('doctrineOpenBtn');
@@ -1029,6 +1132,10 @@
   const elCommandSkipBtn = document.getElementById('commandSkipBtn');
   const elOpenOrdersKeyBtn = document.getElementById('openOrdersKeyBtn');
   const elCommandPhaseNote = document.getElementById('commandPhaseNote');
+  const elCommandCoachCard = document.getElementById('commandCoachCard');
+  const elCommandCoachTitle = document.getElementById('commandCoachTitle');
+  const elCommandCoachMeta = document.getElementById('commandCoachMeta');
+  const elCommandCoachBody = document.getElementById('commandCoachBody');
   const elDoctrineOverlay = document.getElementById('doctrineOverlay');
   const elCloseDoctrineBtn = document.getElementById('closeDoctrineBtn');
   const elDoctrineSideSel = document.getElementById('doctrineSideSel');
@@ -1093,7 +1200,6 @@
   const elOnlineStatus = document.getElementById('onlineStatus');
   const elIntroOverlay = document.getElementById('introOverlay');
   const elIntroActions = document.getElementById('introActions');
-  const elIntroRecommendedList = document.getElementById('introRecommendedList');
   const elIntroPlayNowBtn = document.getElementById('introPlayNowBtn');
   const elIntroSetupBtn = document.getElementById('introSetupBtn');
   const elIntroTutorialBtn = document.getElementById('introTutorialBtn');
@@ -1124,7 +1230,6 @@
   const state = {
     introOpen: true,
     introTutorialOpen: false,
-    starterAdvancedOpen: false,
     tutorial: {
       active: false,
       autoplay: false,
@@ -1147,8 +1252,12 @@
         enemyKeys: [],
         progress: {},
         done: false,
+        auto: false,
+        running: false,
+        statusText: '',
       },
       unitIdByName: {},
+      baselineSnapshot: null,
     },
 
     mode: 'edit', // 'edit' | 'play'
@@ -4671,12 +4780,15 @@ function unitColors(side) {
     });
   }
 
-  function startMoveAnimation(fromKey, toKey, unit) {
+  function startMoveAnimation(fromKey, toKey, unit, opts = null) {
     if (!unit || !fromKey || !toKey || fromKey === toKey) return;
     if (!board.activeSet.has(fromKey) || !board.activeSet.has(toKey)) return;
 
     const aiSideMove = isAiTurnActive() && unit.side === state.side;
-    const durationMs = aiSideMove ? MOVE_ANIM_MS_AI : MOVE_ANIM_MS_HUMAN;
+    const explicitDuration = Number(opts && opts.durationMs);
+    const durationMs = Number.isFinite(explicitDuration) && explicitDuration > 0
+      ? Math.max(120, Math.trunc(explicitDuration))
+      : (aiSideMove ? MOVE_ANIM_MS_AI : MOVE_ANIM_MS_HUMAN);
     const now = Date.now();
     state.moveAnim = {
       unitId: unit.id,
@@ -5702,114 +5814,6 @@ function unitColors(side) {
     elRulesSideOverlay.setAttribute('aria-hidden', 'true');
   }
 
-  function turnOrdersSummaryText() {
-    const scenarioName = compactLabel(state.loadedScenarioName || '', 28);
-    if (state.gameMode === 'online') {
-      return `Online match • ${victoryModeLabel(state.victoryMode)} • ${scenarioName}`;
-    }
-    const playerSide = (state.humanSide === 'red') ? 'Red' : 'Blue';
-    const enemySide = (playerSide === 'Red') ? 'Blue' : 'Red';
-    const aiText = `You are ${playerSide} • ${enemySide} AI (${humanizeQuality(state.aiDifficulty).replace(/^./, c => c.toUpperCase())})`;
-    if (isFirstBattleScenario()) {
-      return `Starter match • ${aiText} • ${victoryModeLabel(state.victoryMode)}.`;
-    }
-    return `${aiText} • ${victoryModeLabel(state.victoryMode)} • ${scenarioName}`;
-  }
-
-  function battleFocusContent() {
-    const selected = state.selectedKey ? unitsByHex.get(state.selectedKey) : null;
-    const actionsLeft = Math.max(0, ACT_LIMIT - state.actsUsed);
-    const firstBattle = isFirstBattleScenario();
-
-    if (state.gameOver) {
-      return {
-        lead: `${String(state.winner || 'Battle').toUpperCase()} wins. Review the line, then rematch or return to setup.`,
-        items: [
-          'Use Back to Setup if you want a different scenario or victory goal.',
-          'Open the action log to see the last combat swing and final board state.',
-        ],
-      };
-    }
-
-    if (firstBattle) {
-      if (!selected) {
-        return {
-          lead: actionsLeft === ACT_LIMIT
-            ? 'Start by selecting a blue infantry or cavalry unit.'
-            : `Pick your next unit. You still have ${actionsLeft} action${actionsLeft === 1 ? '' : 's'} this turn.`,
-          items: [
-            'Most units can act once per turn. You have three actions before the turn passes.',
-            state.starterAdvancedOpen
-              ? 'Advanced orders are visible below. Ignore them if you want to stay focused on movement and attacks.'
-              : 'Use Show Advanced if you want War Council, directives, and line advance right away.',
-            'Annihilation is active: win by destroying the enemy force.',
-          ],
-        };
-      }
-      const def = UNIT_BY_ID.get(selected.type);
-      const unitLabel = def ? def.label : 'Unit';
-      const sameSide = selected.side === state.side;
-      return {
-        lead: sameSide
-          ? `${unitLabel} selected. Choose a highlighted move or attack hex.`
-          : `${unitLabel} selected. Pick one of your own units to act this turn.`,
-        items: [
-          `Actions left: ${actionsLeft}.`,
-          selected.type === 'gen'
-            ? 'Keep the general safe. Its main job is command, not frontline fighting.'
-            : 'If the options look bad, click another friendly unit instead of forcing the activation.',
-          state.starterAdvancedOpen
-            ? 'Advanced orders are visible in Turn & Orders when you want them.'
-            : 'Blocked retreats convert into damage, so crowded fights are more dangerous than they look.',
-        ],
-      };
-    }
-
-    if (!selected) {
-      return {
-        lead: 'Pick a friendly unit and spend your three actions where the line matters most.',
-        items: [
-          'Directives are optional once per turn. Use them when they clearly improve a sector.',
-          'Check objectives and force totals before committing cavalry or generals.',
-        ],
-      };
-    }
-
-    const def = UNIT_BY_ID.get(selected.type);
-    return {
-      lead: `${def ? def.label : 'Unit'} selected. Read the highlighted options before committing.`,
-      items: [
-        `Actions left: ${actionsLeft}.`,
-        'Use the modifiers and log panels to understand why attacks improve or worsen.',
-      ],
-    };
-  }
-
-  function renderBattleFocusPanel() {
-    if (!elBattleFocusLead || !elBattleFocusList) return;
-    const content = battleFocusContent();
-    elBattleFocusLead.textContent = content.lead;
-    elBattleFocusList.innerHTML = '';
-    for (const item of content.items || []) {
-      if (!item) continue;
-      const li = document.createElement('li');
-      li.textContent = item;
-      elBattleFocusList.appendChild(li);
-    }
-  }
-
-  function syncStarterBattleUi() {
-    const starterBattle = state.mode === 'play' && isFirstBattleScenario();
-    document.body.dataset.starterBattle = starterBattle ? 'on' : 'off';
-    document.body.dataset.starterAdvanced = (starterBattle && !state.starterAdvancedOpen) ? 'off' : 'on';
-    if (elBattleFocusAdvancedBtn) {
-      elBattleFocusAdvancedBtn.hidden = !starterBattle;
-      if (starterBattle) {
-        elBattleFocusAdvancedBtn.textContent = state.starterAdvancedOpen ? 'Hide Advanced' : 'Show Advanced';
-      }
-    }
-  }
-
   function resetInspector(message = '') {
     setInspectorValue(elInspectorTitle, 'No unit selected.');
     setInspectorValue(elInspectorMeta, message);
@@ -5821,9 +5825,6 @@ function unitColors(side) {
     setInspectorValue(elInspectorUp, '-');
     setInspectorValue(elInspectorCommand, '');
     setInspectorValue(elInspectorRadius, '');
-    const panel = document.getElementById('selectedUnitPanel');
-    if (panel) panel.classList.add('is-empty');
-    if (elInspectorGrid) elInspectorGrid.style.display = 'none';
   }
 
   function updateInspector() {
@@ -5858,9 +5859,6 @@ function unitColors(side) {
     setInspectorValue(elInspectorUp, up);
     setInspectorValue(elInspectorCommand, '');
     setInspectorValue(elInspectorRadius, '');
-    const panel = document.getElementById('selectedUnitPanel');
-    if (panel) panel.classList.remove('is-empty');
-    if (elInspectorGrid) elInspectorGrid.style.display = '';
     renderLiveModifierPreview();
   }
 
@@ -6616,188 +6614,6 @@ function unitColors(side) {
     };
   }
 
-  function starterBattlePresetById(id) {
-    return STARTER_BATTLE_PRESETS.find((preset) => preset.id === String(id || '')) || null;
-  }
-
-  function starterBattlePresetForScenario(name) {
-    return STARTER_BATTLE_PRESETS.find((preset) => preset.scenarioName === String(name || '')) || null;
-  }
-
-  function starterBattlePresetTags(preset) {
-    if (!preset) return [];
-    if (Array.isArray(preset.tags) && preset.tags.length > 0) return preset.tags.slice(0, 3);
-    const meta = scenarioMeta(preset.scenarioName);
-    const tags = [
-      SCENARIO_SIZE_LABELS[meta.size] || 'Scenario',
-      meta.historical || SCENARIO_TERRAIN_LABELS[meta.terrain] || 'Battlefield',
-      preset.focus || SCENARIO_LESSON_LABELS[meta.lesson] || 'Battle',
-    ];
-    return [...new Set(tags.filter(Boolean))].slice(0, 3);
-  }
-
-  function scenarioPickerSummaryText(name) {
-    const scenarioName = String(name || '').trim();
-    if (!scenarioName) return 'Choose a scenario to load its army labels and battle summary.';
-    const preset = starterBattlePresetForScenario(scenarioName);
-    if (preset) {
-      const presetTags = starterBattlePresetTags(preset);
-      return `${preset.summary} ${presetTags.join(' • ')}. Recommended start: ${victoryModeLabel(preset.victoryMode)}.`;
-    }
-    const meta = scenarioMeta(scenarioName);
-    const bits = [];
-    bits.push(SCENARIO_GROUP_LABELS[meta.group] || 'Scenario');
-    if (meta.historical) bits.push(meta.historical);
-    else bits.push(SCENARIO_SIZE_LABELS[meta.size] || 'Unknown Size');
-    if (meta.lesson && meta.lesson !== 'general') bits.push(SCENARIO_LESSON_LABELS[meta.lesson] || meta.lesson);
-    if (meta.terrain && meta.terrain !== 'open') bits.push(SCENARIO_TERRAIN_LABELS[meta.terrain] || meta.terrain);
-    const summaryLead = bits.filter(Boolean).join(' • ');
-    const summaryBody = meta.description || 'A custom battle from the scenario cabinet.';
-    return summaryLead ? `${summaryLead}. ${summaryBody}` : summaryBody;
-  }
-
-  function renderPresetTags(container, tags) {
-    if (!container) return;
-    container.innerHTML = '';
-    for (const tag of tags || []) {
-      if (!tag) continue;
-      const chip = document.createElement('span');
-      chip.className = 'presetTag';
-      chip.textContent = tag;
-      container.appendChild(chip);
-    }
-  }
-
-  function renderIntroRecommendedList() {
-    if (!elIntroRecommendedList) return;
-    elIntroRecommendedList.innerHTML = '';
-    for (const presetId of INTRO_RECOMMENDED_PRESET_IDS) {
-      const preset = starterBattlePresetById(presetId);
-      if (!preset) continue;
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn introPresetCard';
-      btn.dataset.presetId = preset.id;
-
-      const eyebrow = document.createElement('span');
-      eyebrow.className = 'introPresetEyebrow';
-      eyebrow.textContent = preset.label || 'Recommended Battle';
-      btn.appendChild(eyebrow);
-
-      const title = document.createElement('span');
-      title.className = 'introPresetTitle';
-      title.textContent = preset.title;
-      btn.appendChild(title);
-
-      const summary = document.createElement('span');
-      summary.className = 'introPresetSummary';
-      summary.textContent = preset.summary;
-      btn.appendChild(summary);
-
-      const tags = document.createElement('span');
-      tags.className = 'presetTags';
-      renderPresetTags(tags, starterBattlePresetTags(preset));
-      btn.appendChild(tags);
-
-      const foot = document.createElement('span');
-      foot.className = 'introPresetFoot';
-      foot.textContent = `Launch with recommended doctrine • ${victoryModeLabel(preset.victoryMode)}`;
-      btn.appendChild(foot);
-
-      elIntroRecommendedList.appendChild(btn);
-    }
-  }
-
-  function renderScenarioQuickPicks(activeScenarioName = state.loadedScenarioName || elScenarioSel?.value || '') {
-    if (!elScenarioQuickPicks) return;
-    elScenarioQuickPicks.innerHTML = '';
-    for (const presetId of SETUP_PINNED_PRESET_IDS) {
-      const preset = starterBattlePresetById(presetId);
-      if (!preset) continue;
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn scenarioPresetBtn';
-      btn.dataset.presetId = preset.id;
-      btn.classList.toggle('is-active', preset.scenarioName === activeScenarioName);
-
-      const top = document.createElement('span');
-      top.className = 'scenarioPresetTop';
-
-      const name = document.createElement('span');
-      name.className = 'scenarioPresetName';
-      name.textContent = preset.title;
-      top.appendChild(name);
-
-      const focus = document.createElement('span');
-      focus.className = 'scenarioPresetFocus';
-      focus.textContent = preset.focus || preset.label || 'Preset';
-      top.appendChild(focus);
-
-      btn.appendChild(top);
-
-      const summary = document.createElement('span');
-      summary.className = 'scenarioPresetSummary';
-      summary.textContent = preset.summary;
-      btn.appendChild(summary);
-
-      const tags = document.createElement('span');
-      tags.className = 'presetTags';
-      renderPresetTags(tags, starterBattlePresetTags(preset));
-      btn.appendChild(tags);
-
-      elScenarioQuickPicks.appendChild(btn);
-    }
-  }
-
-  function setVictoryModeSelection(nextMode) {
-    const mode = VICTORY_MODE_IDS.has(nextMode) ? nextMode : 'decapitation';
-    state.victoryMode = mode;
-    if (elVictorySel && [...elVictorySel.options].some((opt) => opt.value === mode)) {
-      elVictorySel.value = mode;
-    }
-  }
-
-  function stageStarterBattlePreset(preset) {
-    if (!preset) return false;
-    populateScenarioSelect();
-    if (elScenarioSel && [...elScenarioSel.options].some((opt) => opt.value === preset.scenarioName)) {
-      elScenarioSel.value = preset.scenarioName;
-    }
-    setVictoryModeSelection(preset.victoryMode || 'annihilation');
-    loadScenario(preset.scenarioName);
-    updateScenarioSidesLegend(preset.scenarioName);
-    return true;
-  }
-
-  function launchStarterBattlePreset(preset, sourceLabel = 'Recommended battle') {
-    state.gameMode = 'hvai';
-    state.humanSide = 'blue';
-    state.aiDifficulty = 'standard';
-    if (!preset || !stageStarterBattlePreset(preset)) return;
-    prepareQuickStartDoctrine();
-    state.starterAdvancedOpen = false;
-    setIntroOverlayOpen(false);
-    enterPlay();
-    log(`${sourceLabel} launched: ${preset.scenarioName} with recommended doctrine and ${victoryModeLabel(preset.victoryMode)} victory.`);
-    if (preset.tip) log(preset.tip);
-    updateHud();
-  }
-
-  function loadStarterBattlePresetIntoSetup(preset) {
-    state.gameMode = 'hvai';
-    state.humanSide = 'blue';
-    state.aiDifficulty = 'standard';
-    if (!preset || !stageStarterBattlePreset(preset)) return;
-    state.starterAdvancedOpen = false;
-    state.doctrine.builder.preBattleReady = false;
-    state.doctrine.builder.confirmed = { blue: false, red: false };
-    enterEdit();
-    log(`Advanced Setup loaded: ${preset.scenarioName}. Review the field, then open War Council when ready.`);
-    updateHud();
-  }
-
   function victoryModeLabel(id) {
     if (id === 'annihilation') return 'Annihilation';
     if (id === 'decapitation') return 'Decapitation';
@@ -6843,15 +6659,9 @@ function unitColors(side) {
   }
 
   function updateScenarioSidesLegend(name) {
-    const scenarioName = String(name || '');
-    if (elScenarioSides) {
-      const sides = scenarioSideLabels(scenarioName);
-      elScenarioSides.textContent = `Blue: ${sides.blue} • Red: ${sides.red}`;
-    }
-    if (elScenarioDetails) {
-      elScenarioDetails.textContent = scenarioPickerSummaryText(scenarioName);
-    }
-    renderScenarioQuickPicks(scenarioName);
+    if (!elScenarioSides) return;
+    const sides = scenarioSideLabels(name);
+    elScenarioSides.textContent = `Blue: ${sides.blue} • Red: ${sides.red}`;
   }
 
   function objectiveHexKeyFromPoint(pt) {
@@ -8116,10 +7926,16 @@ function unitColors(side) {
     }
     for (const cmd of legal.sort((a, b) => (a.cost - b.cost) || a.name.localeCompare(b.name))) {
       const targetCount = legalDoctrineTargets(state.side, cmd.id).length;
+      const coaching = commandCoachingFor(cmd);
       const opt = document.createElement('option');
       opt.value = cmd.id;
       opt.textContent = `[${cmd.cost}] ${cmd.name} (${commandUsageLabel(cmd.persistence)} · targets ${targetCount})`;
-      opt.title = `${commandLaymanText(cmd)} Rules effect: ${commandExplainText(cmd)} Targeting: ${cmd.targeting}. Legal target groups: ${targetCount}.`;
+      opt.title =
+        `${commandLaymanText(cmd)} ` +
+        `${commandSpendSummaryText(cmd)} ` +
+        `Targeting: ${commandTargetGuidanceText(cmd.id, state.side)} ` +
+        `Use it when: ${coaching.when} ` +
+        `Watch for: ${coaching.watch}`;
       elCommandSel.appendChild(opt);
     }
     const targetingCmdId = state.doctrine.targeting.active ? String(state.doctrine.targeting.commandId || '') : '';
@@ -8677,6 +8493,183 @@ function unitColors(side) {
     return s;
   }
 
+  function escapeHtml(text) {
+    return String(text || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function commandPreviewLegendItems(commandId) {
+    const scene = doctrinePreviewScene(commandId);
+    const kinds = new Set();
+    for (const tok of (scene.tokens || [])) {
+      if (!tok) continue;
+      if (
+        (Array.isArray(tok.path) && tok.path.length > 1) ||
+        (Number.isFinite(tok.mc) && Number.isFinite(tok.mr))
+      ) {
+        kinds.add('move');
+      }
+    }
+    for (const fx of (scene.arrows || [])) {
+      if (!fx || !fx.kind) continue;
+      kinds.add(fx.kind);
+    }
+
+    const out = [];
+    if (kinds.has('move')) out.push('Blue paths show repositioning or formation movement.');
+    if (kinds.has('attack')) out.push('Red arrows show melee pressure or strike windows.');
+    if (kinds.has('ranged')) out.push('Gold arcs show ranged pressure.');
+    if (kinds.has('command')) out.push('Purple links show command reach or coordination.');
+    if (kinds.has('hold')) out.push('Green marks show brace, hold-ground, or defensive staying power.');
+    if (!out.length) out.push('The preview shows the board shape this directive tries to create.');
+    return out;
+  }
+
+  function commandTargetRangeLabel(commandId) {
+    const limits = doctrineTargetLimits(commandId);
+    if (limits.min === 0 && limits.max === 0) return 'No manual picks';
+    if (!Number.isFinite(limits.max)) return `Pick ${limits.min}+`;
+    if (limits.min === limits.max) return `Pick ${limits.min}`;
+    return `Pick ${limits.min}-${limits.max}`;
+  }
+
+  function commandTargetGuidanceText(commandId, side = null) {
+    const cmd = COMMAND_BY_ID.get(commandId);
+    if (!cmd) return '';
+    const limits = doctrineTargetLimits(commandId);
+    if (limits.min === 0 && limits.max === 0) {
+      return 'No manual unit picking. Use the directive when the attack window is live and the game applies the effect automatically.';
+    }
+    const rangeLabel = commandTargetRangeLabel(commandId);
+    const eligibleNow = (side === 'blue' || side === 'red') ? legalDoctrineTargets(side, commandId).length : null;
+    const boardNow = Number.isFinite(eligibleNow)
+      ? ` ${eligibleNow} eligible ${eligibleNow === 1 ? 'unit is' : 'units are'} legal on the board right now.`
+      : '';
+    return `${rangeLabel}. Look for ${cmd.targeting || 'matching friendly units'}.${boardNow}`.trim();
+  }
+
+  function commandSpendSummaryText(cmd) {
+    if (!cmd) return '';
+    const spend = commandActionSpend(cmd);
+    if (spend !== cmd.cost) {
+      return `Spend ${spend} action${spend === 1 ? '' : 's'} this turn (${cmd.cost}-cost ${commandUsageLabel(cmd.persistence).toLowerCase()} order with a ${cmd.cost - spend} action rebate).`;
+    }
+    return `Spend ${spend} action${spend === 1 ? '' : 's'} this turn.`;
+  }
+
+  function commandStatusSummaryText(side, cmd) {
+    if (!cmd) return '';
+    const normalizedSide = (side === 'red') ? 'red' : 'blue';
+    const entry = commandEntryForSide(normalizedSide, cmd.id);
+    if (entry?.spent) return 'Status: already spent in this battle.';
+    if (state.mode !== 'play') return 'Status: doctrine builder preview.';
+    if (normalizedSide !== state.side) return 'Status: loaded in this War Council.';
+    if (state.doctrine.commandIssuedThisTurn) {
+      return 'Status: you have already issued a directive this turn.';
+    }
+    const eligibleNow = legalDoctrineTargets(normalizedSide, cmd.id).length;
+    if (!eligibleNow) return 'Status: no legal targets on the current board.';
+    return `Status: ready now with ${eligibleNow} eligible ${eligibleNow === 1 ? 'unit' : 'units'}.`;
+  }
+
+  function buildCommandCoachHtml(commandId, side = null, variant = 'overlay') {
+    const cmd = COMMAND_BY_ID.get(commandId);
+    if (!cmd) return '';
+    const coaching = commandCoachingFor(cmd);
+    const summary = sentenceize(commandLaymanText(cmd));
+    const boardEffect = sentenceize(commandExplainText(cmd));
+    const targetText = sentenceize(commandTargetGuidanceText(commandId, side));
+    const spendText = sentenceize(commandSpendSummaryText(cmd));
+    const useText = sentenceize(coaching.when);
+    const watchText = sentenceize(coaching.watch);
+    const statusText = sentenceize(commandStatusSummaryText(side, cmd));
+    const legendItems = commandPreviewLegendItems(commandId);
+    const pills = [
+      `Cost ${cmd.cost}`,
+      commandUsageLabel(cmd.persistence),
+      commandCategoryLabel(cmd.category),
+      `Spend ${commandActionSpend(cmd)}`,
+    ];
+    const pillsHtml = pills.map((pill) => `<span class="coachPill">${escapeHtml(pill)}</span>`).join('');
+    const legendHtml = legendItems.map((line) => `<li>${escapeHtml(line)}</li>`).join('');
+
+    if (variant === 'compact') {
+      return (
+        `<div class="coachPanel coachPanelCompact">` +
+          `<div class="coachPills">${pillsHtml}</div>` +
+          `<div class="coachSummary">${escapeHtml(summary)}</div>` +
+          `<div class="coachGrid coachGridCompact">` +
+            `<div class="coachBlock"><div class="coachLabel">Pick Targets</div><div class="coachText">${escapeHtml(targetText)}</div></div>` +
+            `<div class="coachBlock"><div class="coachLabel">Board Effect</div><div class="coachText">${escapeHtml(boardEffect)}</div></div>` +
+            `<div class="coachBlock"><div class="coachLabel">Use It When</div><div class="coachText">${escapeHtml(useText)}</div></div>` +
+            `<div class="coachBlock"><div class="coachLabel">Watch For</div><div class="coachText">${escapeHtml(watchText)}</div></div>` +
+          `</div>` +
+          `<div class="coachInlineNote">Animated preview: ${escapeHtml(legendItems.join(' '))}</div>` +
+        `</div>`
+      );
+    }
+
+    return (
+      `<div class="coachPanel">` +
+        `<div class="coachTitleRow">` +
+          `<div class="coachTitle">${escapeHtml(cmd.name)}</div>` +
+          `<div class="coachPills">${pillsHtml}</div>` +
+        `</div>` +
+        `<div class="coachSummary">${escapeHtml(summary)}</div>` +
+        `<div class="coachGrid">` +
+          `<div class="coachBlock"><div class="coachLabel">Board Effect</div><div class="coachText">${escapeHtml(boardEffect)}</div></div>` +
+          `<div class="coachBlock"><div class="coachLabel">Action Spend</div><div class="coachText">${escapeHtml(spendText)}</div></div>` +
+          `<div class="coachBlock"><div class="coachLabel">Pick Targets</div><div class="coachText">${escapeHtml(targetText)}</div></div>` +
+          `<div class="coachBlock"><div class="coachLabel">Use It When</div><div class="coachText">${escapeHtml(useText)}</div></div>` +
+          `<div class="coachBlock"><div class="coachLabel">Watch For</div><div class="coachText">${escapeHtml(watchText)}</div></div>` +
+          `<div class="coachBlock"><div class="coachLabel">Status</div><div class="coachText">${escapeHtml(statusText)}</div></div>` +
+        `</div>` +
+        `<div class="coachBlock coachLegendBlock">` +
+          `<div class="coachLabel">Preview Legend</div>` +
+          `<ul class="coachList">${legendHtml}</ul>` +
+        `</div>` +
+      `</div>`
+    );
+  }
+
+  function renderCommandCoachCard() {
+    if (!elCommandCoachCard || !elCommandCoachTitle || !elCommandCoachMeta || !elCommandCoachBody) return;
+    const selectedCommandId = String(elCommandSel?.value || state.doctrine.selectedCommandId || '');
+    const cmd = COMMAND_BY_ID.get(selectedCommandId);
+    if (state.mode !== 'play' || !cmd) {
+      elCommandCoachTitle.textContent = 'Directive Preview';
+      elCommandCoachMeta.textContent = 'Select a directive to see its spend, picks, and battlefield effect before you commit.';
+      elCommandCoachBody.textContent = 'Open War Council for the animated board preview, or choose a directive to see its plain-language coaching here.';
+      return;
+    }
+
+    const side = (state.side === 'red') ? 'red' : 'blue';
+    const metaParts = [
+      `Cost ${cmd.cost}`,
+      commandUsageLabel(cmd.persistence),
+      commandCategoryLabel(cmd.category),
+      `Spend ${commandActionSpend(cmd)} action${commandActionSpend(cmd) === 1 ? '' : 's'}`,
+    ];
+    if (state.doctrine.targeting.active && state.doctrine.targeting.commandId === cmd.id) {
+      const picked = (state.doctrine.targeting.selectedUnitIds || []).length;
+      const eligible = (state.doctrine.targeting.eligibleUnitIds || []).length;
+      metaParts.push(`Targeting ${picked}/${eligible} · ${commandTargetRangeLabel(cmd.id)}`);
+    } else if (doctrineTargetLimits(cmd.id).min === 0 && doctrineTargetLimits(cmd.id).max === 0) {
+      metaParts.push('No manual picks');
+    } else {
+      const eligibleNow = legalDoctrineTargets(side, cmd.id).length;
+      metaParts.push(`${eligibleNow} eligible now`);
+    }
+
+    elCommandCoachTitle.textContent = `${cmd.name} Preview`;
+    elCommandCoachMeta.textContent = metaParts.join(' · ');
+    elCommandCoachBody.innerHTML = buildCommandCoachHtml(cmd.id, side, 'compact');
+  }
+
 
     function drawDoctrinePreviewCanvas(timeSec = 0) {
     if (!elDoctrinePreviewCanvas) return;
@@ -9187,7 +9180,12 @@ function stopDoctrinePreviewLoop() {
     state.doctrine.builder.focusCommandId = (Array.isArray(seed) && seed.length) ? seed[0] : '';
     if (state.mode === 'play') {
       const legalSeed = (Array.isArray(seed) ? seed : []).filter((id) => !!COMMAND_BY_ID.get(id));
-      if (legalSeed.length) state.doctrine.builder.focusCommandId = legalSeed[0];
+      const selectedId = String(state.doctrine.selectedCommandId || '');
+      if (selectedId && legalSeed.includes(selectedId)) {
+        state.doctrine.builder.focusCommandId = selectedId;
+      } else if (legalSeed.length) {
+        state.doctrine.builder.focusCommandId = legalSeed[0];
+      }
     }
     if (elDoctrineSideSel) elDoctrineSideSel.value = editSide;
     renderDoctrineBuilder();
@@ -9276,6 +9274,7 @@ function stopDoctrinePreviewLoop() {
 
   function renderDoctrineBuilderFocusOnly() {
     const focusId = state.doctrine.builder.focusCommandId || '';
+    const side = (state.doctrine.builder.side === 'red') ? 'red' : 'blue';
     for (const el of [elDoctrineCost1List, elDoctrineCost2List, elDoctrineCost3List]) {
       if (!el) continue;
       for (const node of el.querySelectorAll('[data-doctrine-item][data-doctrine-id]')) {
@@ -9286,16 +9285,11 @@ function stopDoctrinePreviewLoop() {
     if (!elDoctrineExplain) return;
     const cmd = COMMAND_BY_ID.get(focusId);
     if (!cmd) {
-      elDoctrineExplain.textContent = 'Select an order to view its full effect and targeting.';
+      elDoctrineExplain.textContent = 'Select an order to view its action spend, target guidance, timing, and board preview.';
       drawDoctrinePreviewCanvas(doctrinePreviewTime);
       return;
     }
-    const targetTxt = cmd.targeting ? `Targeting: ${cmd.targeting}.` : 'Targeting: See order conditions.';
-    elDoctrineExplain.innerHTML =
-      `<div class="doctrineExplainTitle">${cmd.name} · Cost ${cmd.cost} · ${commandUsageLabel(cmd.persistence)}</div>` +
-      `<div>${commandDictionaryText(cmd)}</div>` +
-      `<div>Rules effect: ${commandExplainText(cmd)}</div>` +
-      `<div class="doctrineExplainTarget">${targetTxt}</div>`;
+    elDoctrineExplain.innerHTML = buildCommandCoachHtml(cmd.id, side, 'overlay');
     drawDoctrinePreviewCanvas(doctrinePreviewTime);
   }
 
@@ -9542,13 +9536,6 @@ function stopDoctrinePreviewLoop() {
     if (elStatusLast) {
       elStatusLast.textContent = state.last || '-';
     }
-    if (elTurnOrdersSummary) {
-      const showSummary = state.mode === 'play';
-      elTurnOrdersSummary.hidden = !showSummary;
-      if (showSummary) elTurnOrdersSummary.textContent = turnOrdersSummaryText();
-    }
-    renderBattleFocusPanel();
-    syncStarterBattleUi();
 
     if (elCombatForces) {
       elCombatForces.textContent = `Forces: Blue ${blue.up} UP / ${blue.hp} HP • Red ${red.up} UP / ${red.hp} HP`;
@@ -9570,7 +9557,7 @@ function stopDoctrinePreviewLoop() {
       !state.draft.active &&
       (state.gameMode !== 'online' || (net.connected && !!net.peer))
     );
-    if (!ordersUnlocked && state.doctrine.builder.open) {
+    if (!ordersUnlocked && state.mode !== 'play' && state.doctrine.builder.open) {
       closeDoctrineBuilder();
     }
     if (elOrdersPanel) {
@@ -9782,6 +9769,7 @@ function stopDoctrinePreviewLoop() {
       const hasDoctrine = (doctrineStateForSide(keySide)?.loadout?.length || 0) > 0;
       elOpenOrdersKeyBtn.disabled = !hasDoctrine;
     }
+    renderCommandCoachCard();
     if (elCommandPhaseNote) {
       if (state.doctrine.targeting.active) {
         const cmd = COMMAND_BY_ID.get(state.doctrine.targeting.commandId);
@@ -9796,13 +9784,17 @@ function stopDoctrinePreviewLoop() {
           `(pick ${rangeTxt}). Rule: ${cmd?.targeting || 'see command text'}. ` +
           'Hover eligible units to preview paths, click to toggle selection, then Confirm Directive.';
       } else {
+        const selectedCommandId = elCommandSel?.value || state.doctrine.selectedCommandId || '';
+        const selectedCmd = COMMAND_BY_ID.get(selectedCommandId);
         elCommandPhaseNote.textContent = state.doctrine.commandIssuedThisTurn
         ? (state.doctrine.activeCommandThisTurn
           ? `Directive committed: ${commandLabel(state.doctrine.activeCommandThisTurn)}`
           : 'Directive skipped for this turn.')
         : (state.actsUsed >= ACT_LIMIT
           ? 'No actions left this turn.'
-          : 'Optional: issue one directive any time this turn, or continue moving units.');
+          : (selectedCmd
+            ? `Previewing ${selectedCmd.name}. Read the directive card, or open War Council for the animated board preview.`
+            : 'Optional: issue one directive any time this turn, or continue moving units.'));
       }
     }
 
@@ -13146,8 +13138,12 @@ function stopDoctrinePreviewLoop() {
         enemyKeys: [],
         progress: {},
         done: false,
+        auto: false,
+        running: false,
+        statusText: '',
       };
       state.tutorial.unitIdByName = {};
+      state.tutorial.baselineSnapshot = null;
       if (state._hoverKey && !state.selectedKey) state._hoverKey = null;
     }
     if (elTutorialGuideOverlay) {
@@ -13186,6 +13182,9 @@ function stopDoctrinePreviewLoop() {
         enemyKeys: [],
         progress: {},
         done: false,
+        auto: false,
+        running: false,
+        statusText: '',
       };
       return;
     }
@@ -13212,6 +13211,9 @@ function stopDoctrinePreviewLoop() {
       enemyKeys,
       progress: {},
       done: false,
+      auto: !!task.auto,
+      running: false,
+      statusText: String(task.statusText || ''),
     };
   }
 
@@ -13319,13 +13321,176 @@ function stopDoctrinePreviewLoop() {
     return true;
   }
 
-  function tutorialTaskNeedsInput() {
+  function captureTutorialBaselineState() {
+    state.tutorial.baselineSnapshot = buildStateSnapshot();
+  }
+
+  function restoreTutorialBaselineState() {
+    if (state.tutorial?.baselineSnapshot) {
+      applyImportedState(state.tutorial.baselineSnapshot, 'tutorial baseline', {
+        silent: true,
+        skipAiKick: true,
+      });
+      cacheTutorialUnitIds();
+      return;
+    }
+
+    // Fallback for safety if a baseline snapshot is unavailable.
+    loadScenario(GUIDED_TUTORIAL_SCENARIO_NAME);
+    cacheTutorialUnitIds();
+    prepareQuickStartDoctrine('tutorial');
+    state.doctrine.builder.preBattleReady = true;
+    enterPlay();
+    captureTutorialBaselineState();
+  }
+
+  function tutorialTaskBlocksContinue() {
     return !!(state.tutorial.active && state.tutorial.task?.active && !state.tutorial.task?.done);
+  }
+
+  function tutorialTaskNeedsInput() {
+    return !!(
+      state.tutorial.active &&
+      state.tutorial.task?.active &&
+      !state.tutorial.task?.done &&
+      !state.tutorial.task?.auto
+    );
+  }
+
+  function tutorialSetTaskStatus(statusText = '') {
+    if (!state.tutorial.task?.active || state.tutorial.task?.done) return;
+    state.tutorial.task.statusText = String(statusText || '');
+    renderTutorialGuide();
+  }
+
+  function tutorialDemoRolls(count, kind = 'melee') {
+    const dice = Math.max(1, Math.trunc(Number(count) || 1));
+    const meleeSeed = [6, 5, 4, 3, 2, 1];
+    const rangedSeed = [5, 4, 3, 2, 6, 1];
+    const seed = kind === 'ranged' ? rangedSeed : meleeSeed;
+    return Array.from({ length: dice }, (_, idx) => seed[idx % seed.length]);
+  }
+
+  function tutorialCombatSampleSpec(attackerKey, defenderKey) {
+    const attacker = unitsByHex.get(attackerKey);
+    const defender = unitsByHex.get(defenderKey);
+    if (!attacker || !defender) return null;
+    const prof = attackDiceFor(attackerKey, defenderKey, attacker);
+    if (!prof) return null;
+    const impactPosition = (prof.kind === 'melee')
+      ? attackApproachPosition(attackerKey, defenderKey, defender.side)
+      : 'none';
+    return {
+      attackerKey,
+      defenderKey,
+      kind: prof.kind,
+      dist: prof.dist,
+      baseDice: prof.baseDice ?? prof.dice,
+      rolls: tutorialDemoRolls(prof.dice, prof.kind),
+      terrainOverride: board.byKey.get(defenderKey)?.terrain || 'clear',
+      impactPosition,
+    };
+  }
+
+  function runTutorialAutoTask(step) {
+    const task = state.tutorial.task;
+    const sequence = Array.isArray(step?.autoSequence) ? step.autoSequence.filter(Boolean) : [];
+    if (!task?.active || task.done || !task.auto) return;
+    if (!sequence.length) {
+      tutorialMarkTaskDone('Demo complete. You can continue.');
+      return;
+    }
+
+    task.running = true;
+    task.progress = { autoIndex: 0 };
+    tutorialSetTaskStatus('Demo starting...');
+
+    const stepId = String(step.id || '');
+    const sameStepActive = () => state.tutorial.active && currentTutorialStep()?.id === stepId;
+
+    const runNext = (index) => {
+      if (!sameStepActive()) return;
+      if (index >= sequence.length) {
+        task.running = false;
+        tutorialMarkTaskDone('Demo complete. You can continue.');
+        return;
+      }
+
+      const action = sequence[index];
+      task.progress.autoIndex = index;
+      if (action.status) tutorialSetTaskStatus(action.status);
+
+      if (action.type === 'pause') {
+        queueTutorialTimer(() => runNext(index + 1), Math.max(0, Number(action.ms) || 0));
+        return;
+      }
+
+      if (action.type === 'move') {
+        const fromKey = action.unitName ? tutorialUnitKeyByName(action.unitName) : String(action.fromKey || '');
+        const toKey = String(action.toKey || '');
+        const movingUnit = fromKey ? unitsByHex.get(fromKey) : null;
+        if (!movingUnit || !toKey || !board.activeSet.has(toKey)) {
+          queueTutorialTimer(() => runNext(index + 1), 0);
+          return;
+        }
+        const prepMs = Math.max(0, Number(action.preDelayMs) || TUTORIAL_DEMO_MOVE_PREP_MS);
+        const durationMs = Math.max(120, Number(action.durationMs) || TUTORIAL_DEMO_MOVE_MS);
+        queueTutorialTimer(() => {
+          if (!sameStepActive()) return;
+          state.selectedKey = fromKey;
+          state._hoverKey = toKey;
+          updateHud();
+          startMoveAnimation(fromKey, toKey, movingUnit, { durationMs });
+          queueTutorialTimer(() => {
+            if (!sameStepActive()) return;
+            if (action.persist !== false && action.unitName) {
+              tutorialTeleportUnit(action.unitName, toKey);
+            }
+            state.selectedKey = action.persist === false ? fromKey : toKey;
+            state._hoverKey = toKey;
+            updateHud();
+            queueTutorialTimer(() => runNext(index + 1), Math.max(0, Number(action.holdMs) || TUTORIAL_DEMO_MOVE_SETTLE_MS));
+          }, durationMs + 120);
+        }, prepMs);
+        return;
+      }
+
+      if (action.type === 'attack') {
+        const attackerKey = action.unitName ? tutorialUnitKeyByName(action.unitName) : String(action.attackerKey || '');
+        const defenderKey = String(action.defenderKey || '');
+        const sample = (attackerKey && defenderKey) ? tutorialCombatSampleSpec(attackerKey, defenderKey) : null;
+        if (!sample) {
+          queueTutorialTimer(() => runNext(index + 1), 0);
+          return;
+        }
+        const prepMs = Math.max(0, Number(action.preDelayMs) || TUTORIAL_DEMO_ATTACK_PREP_MS);
+        queueTutorialTimer(() => {
+          if (!sameStepActive()) return;
+          state.selectedKey = attackerKey;
+          state._hoverKey = defenderKey;
+          updateHud();
+          playTutorialCombatSample(sample);
+          queueTutorialTimer(
+            () => runNext(index + 1),
+            diceAnimationDurationMs(Array.isArray(sample.rolls) ? sample.rolls.length : 0) +
+              Math.max(0, Number(action.holdMs) || TUTORIAL_DEMO_ATTACK_SETTLE_MS)
+          );
+        }, prepMs);
+        return;
+      }
+
+      queueTutorialTimer(() => runNext(index + 1), 0);
+    };
+
+    queueTutorialTimer(() => runNext(0), TUTORIAL_DEMO_STEP_START_MS);
   }
 
   function tutorialMarkTaskDone(statusText = 'Task complete.') {
     if (!state.tutorial.task?.active) return;
+    clearTutorialTimers();
     state.tutorial.task.done = true;
+    state.tutorial.task.running = false;
+    state.tutorial.task.statusText = String(statusText || '');
     if (elTutorialGuideTaskStatus) {
       elTutorialGuideTaskStatus.textContent = statusText;
       elTutorialGuideTaskStatus.classList.add('done');
@@ -13357,6 +13522,10 @@ function stopDoctrinePreviewLoop() {
 
     const clickedUnit = unitsByHex.get(hexKey) || null;
     const task = state.tutorial.task || { active: false, done: false };
+    if (task.active && !task.done && task.auto) {
+      log('This drill plays automatically. Watch the unit movement, then continue when the demo finishes.');
+      return true;
+    }
 
     const isSelectTask = task.active && !task.done && task.type === 'select';
     const isInspectTask = task.active && !task.done && task.type === 'inspect';
@@ -13691,12 +13860,20 @@ function stopDoctrinePreviewLoop() {
         id: 'inf_move',
         title: 'Infantry Movement & Formation',
         text:
-          'Infantry move one hex and work best in connected ranks. In this drill, move the FRONT-LEFT Blue infantry (top line) to the marked destination.',
+          'Infantry move one hex and work best in connected ranks. Watch the FRONT-LEFT Blue infantry step forward so you can read how a line extends without breaking support.',
         focusKeys: [...blueInfBlock],
         destinationKeys: [bInfTo].filter(Boolean),
         paths: [
           { fromKey: k.blueInfFrontL, toKey: bInfTo, kind: 'move' },
         ].filter((p) => p.toKey),
+        autoSequence: bInfTo ? [
+          {
+            type: 'move',
+            unitName: 'blueInfFrontL',
+            toKey: bInfTo,
+            status: 'Watch the FRONT-LEFT Blue infantry step one hex forward.',
+          },
+        ] : [],
         unitProfile: {
           move: 'Move: 1 hex per activation. Entering woods, hills, or rough can slow momentum.',
           role: 'Role: main battle line. Hold space, absorb contact, and push as a formation.',
@@ -13707,7 +13884,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'move',
-          text: 'Click the FRONT-LEFT highlighted Blue infantry, then click the highlighted destination hex.',
+          auto: true,
+          text: 'Watch the highlighted Blue infantry move forward automatically.',
           sourceKeys: [k.blueInfFrontL],
           destinationKeys: [bInfTo].filter(Boolean),
         },
@@ -13741,39 +13919,73 @@ function stopDoctrinePreviewLoop() {
         id: 'line_advance',
         title: 'Trial Line Advance',
         text:
-          'Line Advance moves a selected infantry row together. The highlighted trial shows both front infantry stepping in formation while support remains aligned behind.',
+          'Line Advance moves a selected infantry row together. This trial uses the Blue front rank only, so you can watch the row advance cleanly without the mirror view getting in the way.',
         focusKeys: [...blueInfFront, ...redInfFront, ...blueInfBack, ...redInfBack],
-        destinationKeys: [bLineToL, bLineToR, rLineToL, rLineToR].filter(Boolean),
+        destinationKeys: [bLineToL, bLineToR].filter(Boolean),
         paths: [
           { fromKey: k.blueInfFrontL, toKey: bLineToL, kind: 'move' },
           { fromKey: k.blueInfFrontR, toKey: bLineToR, kind: 'move' },
-          { fromKey: k.redInfFrontL, toKey: rLineToL, kind: 'move' },
-          { fromKey: k.redInfFrontR, toKey: rLineToR, kind: 'move' },
         ].filter((p) => p.toKey),
+        autoSequence: [
+          ...(bLineToL ? [{
+            type: 'move',
+            unitName: 'blueInfFrontL',
+            toKey: bLineToL,
+            status: 'Blue front-left infantry begins the line advance.',
+            holdMs: 640,
+          }] : []),
+          ...(bLineToR ? [{
+            type: 'move',
+            unitName: 'blueInfFrontR',
+            toKey: bLineToR,
+            status: 'Blue front-right infantry follows so the row stays aligned.',
+            holdMs: 900,
+          }] : []),
+        ],
         learn: [
           'Line Advance uses diagonal vectors tied to your current row orientation.',
           'If one unit is blocked, the rest can still advance (partial line move).',
         ],
         task: {
-          type: 'select',
-          text: 'Select either highlighted Blue front infantry to prepare a line advance.',
-          targetKeys: blueInfFront,
+          type: 'move',
+          auto: true,
+          text: 'Watch the highlighted Blue front rank execute a sample line advance automatically.',
+          sourceKeys: [...blueInfFront],
+          destinationKeys: [bLineToL, bLineToR].filter(Boolean),
         },
       },
       {
         id: 'inf_combat',
         title: 'Infantry Combat Demo',
         text:
-          'Infantry melee uses close-range dice pressure. In this drill, move first, then click an adjacent enemy to attack.',
+          'Infantry melee uses close-range dice pressure. This drill automatically steps into contact, then resolves a sample melee attack.',
         focusKeys: [k.blueInfFrontL, k.redInfFrontR],
         paths: [{ fromKey: k.blueInfFrontL, toKey: k.redInfFrontR, kind: 'melee' }],
+        autoSequence: [
+          ...(bInfTo ? [{
+            type: 'move',
+            unitName: 'blueInfFrontL',
+            toKey: bInfTo,
+            status: 'The infantry closes one hex to make contact.',
+            holdMs: 880,
+          }] : []),
+          {
+            type: 'attack',
+            unitName: 'blueInfFrontL',
+            defenderKey: k.redInfFrontR,
+            status: 'Now watch the melee dice resolve from the new front hex.',
+            preDelayMs: 1200,
+            holdMs: 1500,
+          },
+        ],
         learn: [
           'Infantry melee base dice: 2.',
           '6 = hit + disarray, 5 = hit, 4 = retreat, 3 = disarray, 1-2 = miss.',
         ],
         task: {
           type: 'move_attack',
-          text: 'Click Blue infantry -> click highlighted destination -> click highlighted Red infantry to attack.',
+          auto: true,
+          text: 'Watch the infantry move into contact and resolve the attack automatically.',
           sourceKeys: [k.blueInfFrontL],
           destinationKeys: [bInfTo].filter(Boolean),
           enemyKeys: [k.redInfFrontR],
@@ -13783,13 +13995,27 @@ function stopDoctrinePreviewLoop() {
         id: 'cav_move',
         title: 'Cavalry Movement',
         text:
-          'Cavalry are your mobile flank arm. They move farther in open lanes and are strongest when attacking exposed formations.',
+          'Cavalry are your mobile flank arm. Watch both wings move so the extra reach and open-lane tempo are easy to compare.',
         focusKeys: [k.blueCav, k.redCav],
         destinationKeys: [bCavTo, rCavTo].filter(Boolean),
         paths: [
           { fromKey: k.blueCav, toKey: bCavTo, kind: 'move' },
           { fromKey: k.redCav, toKey: rCavTo, kind: 'move' },
         ].filter((p) => p.toKey),
+        autoSequence: [
+          ...(bCavTo ? [{
+            type: 'move',
+            unitName: 'blueCav',
+            toKey: bCavTo,
+            status: 'Blue cavalry demonstrates the longer open-lane move.',
+          }] : []),
+          ...(rCavTo ? [{
+            type: 'move',
+            unitName: 'redCav',
+            toKey: rCavTo,
+            status: 'Red cavalry mirrors the same reach from the opposite flank.',
+          }] : []),
+        ],
         unitProfile: {
           move: 'Move: 2 in open terrain; difficult terrain can reduce effective tempo.',
           role: 'Role: flank shock and exploitation.',
@@ -13800,7 +14026,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'move',
-          text: 'Click the highlighted Blue cavalry, then click a highlighted destination hex.',
+          auto: true,
+          text: 'Watch the highlighted cavalry move automatically.',
           sourceKeys: [k.blueCav],
           destinationKeys: [bCavTo].filter(Boolean),
         },
@@ -13809,9 +14036,18 @@ function stopDoctrinePreviewLoop() {
         id: 'cav_combat',
         title: 'Cavalry Combat Demo',
         text:
-          'Cavalry melee can deliver larger impact than infantry when lanes are open and timing is right. Select cavalry, then strike the highlighted enemy.',
+          'Cavalry melee can deliver larger impact than infantry when lanes are open and timing is right. This sample attack resolves automatically so you can focus on the outcome.',
         focusKeys: [cavDrillAtkKey, cavDrillDefKey],
         paths: [{ fromKey: cavDrillAtkKey, toKey: cavDrillDefKey, kind: 'melee' }],
+        autoSequence: [
+          {
+            type: 'attack',
+            unitName: 'blueCav',
+            defenderKey: cavDrillDefKey,
+            status: 'Watch the cavalry strike the exposed enemy in melee.',
+            holdMs: 1200,
+          },
+        ],
         learn: [
           'Cavalry melee base dice: 3.',
           'Cavalry shine when they can hit before the enemy line stabilizes.',
@@ -13824,7 +14060,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'attack',
-          text: 'Click the highlighted Blue cavalry, then click the highlighted Red cavalry to attack.',
+          auto: true,
+          text: 'Watch the highlighted Blue cavalry attack automatically.',
           sourceKeys: [cavDrillAtkKey],
           enemyKeys: [cavDrillDefKey],
         },
@@ -13833,13 +14070,27 @@ function stopDoctrinePreviewLoop() {
         id: 'skr_move',
         title: 'Skirmisher Movement',
         text:
-          'Skirmishers are flexible disruptors. They screen, probe, and reposition faster than heavy line units in many lanes.',
+          'Skirmishers are flexible disruptors. Watch both of them reposition so you can read how screening units slide faster than heavy line troops.',
         focusKeys: [k.blueSkr, k.redSkr],
         destinationKeys: [bSkrTo, rSkrTo].filter(Boolean),
         paths: [
           { fromKey: k.blueSkr, toKey: bSkrTo, kind: 'move' },
           { fromKey: k.redSkr, toKey: rSkrTo, kind: 'move' },
         ].filter((p) => p.toKey),
+        autoSequence: [
+          ...(bSkrTo ? [{
+            type: 'move',
+            unitName: 'blueSkr',
+            toKey: bSkrTo,
+            status: 'Blue skirmisher repositions to keep the screen flexible.',
+          }] : []),
+          ...(rSkrTo ? [{
+            type: 'move',
+            unitName: 'redSkr',
+            toKey: rSkrTo,
+            status: 'Red skirmisher mirrors the same quick reposition.',
+          }] : []),
+        ],
         unitProfile: {
           move: 'Move: 2. Ranged: 1 die at range 2. Melee: 1 die.',
           role: 'Role: screen and disrupt before main-line contact.',
@@ -13850,7 +14101,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'move',
-          text: 'Click the highlighted Blue skirmisher, then click a highlighted destination hex.',
+          auto: true,
+          text: 'Watch the highlighted skirmishers reposition automatically.',
           sourceKeys: [k.blueSkr],
           destinationKeys: [bSkrTo].filter(Boolean),
         },
@@ -13859,16 +14111,26 @@ function stopDoctrinePreviewLoop() {
         id: 'skr_combat',
         title: 'Skirmisher Combat Demo',
         text:
-          'Skirmishers can sting at range 2 and can still fight in melee, but at lower raw dice than line infantry. Select then fire.',
+          'Skirmishers can sting at range 2 and can still fight in melee, but at lower raw dice than line infantry. This sample shot resolves automatically.',
         focusKeys: [k.blueSkr, k.redInfFrontL],
         paths: [{ fromKey: k.blueSkr, toKey: k.redInfFrontL, kind: 'ranged' }],
+        autoSequence: [
+          {
+            type: 'attack',
+            unitName: 'blueSkr',
+            defenderKey: k.redInfFrontL,
+            status: 'Watch the skirmisher fire a light ranged attack.',
+            holdMs: 1200,
+          },
+        ],
         learn: [
           'Skirmisher ranged profile: 1 die at range 2.',
           'Skirmisher melee profile: 1 die.',
         ],
         task: {
           type: 'attack',
-          text: 'Click the highlighted Blue skirmisher, then click the highlighted Red infantry to attack.',
+          auto: true,
+          text: 'Watch the highlighted Blue skirmisher attack automatically.',
           sourceKeys: [k.blueSkr],
           enemyKeys: [k.redInfFrontL],
         },
@@ -13877,12 +14139,29 @@ function stopDoctrinePreviewLoop() {
         id: 'arc_range2',
         title: 'Archer Range 2 Demo',
         text:
-          'Archers fire stronger at range 2. Move the archer one hex, then attack from range 2.',
+          'Archers fire stronger at range 2. This drill automatically repositions the archer first, then fires from the stronger band.',
         focusKeys: [k.blueArc, k.redSkr, arcR2DrillDest].filter(Boolean),
         paths: [
           { fromKey: k.blueArc, toKey: arcR2DrillDest, kind: 'move' },
           { fromKey: arcR2DrillDest, toKey: k.redSkr, kind: 'ranged' },
         ].filter((p) => p.toKey),
+        autoSequence: [
+          ...(arcR2DrillDest ? [{
+            type: 'move',
+            unitName: 'blueArc',
+            toKey: arcR2DrillDest,
+            status: 'The archer first steps into its stronger range-2 band.',
+            holdMs: 760,
+          }] : []),
+          {
+            type: 'attack',
+            unitName: 'blueArc',
+            defenderKey: k.redSkr,
+            status: 'Now the archer fires from range 2.',
+            preDelayMs: 1120,
+            holdMs: 1400,
+          },
+        ],
         unitProfile: {
           move: 'Move: 1. Ranged: 2 dice at range 2, 1 die at range 3. Melee: 1 die.',
           role: 'Role: ranged pressure and pre-contact disruption.',
@@ -13898,7 +14177,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'move_attack',
-          text: 'Click Blue archer -> move to highlighted hex -> attack highlighted Red skirmisher.',
+          auto: true,
+          text: 'Watch the Blue archer move into range 2 and fire automatically.',
           sourceKeys: [k.blueArc],
           destinationKeys: [arcR2DrillDest],
           enemyKeys: [k.redSkr],
@@ -13908,11 +14188,20 @@ function stopDoctrinePreviewLoop() {
         id: 'arc_range3',
         title: 'Archer Range 3 Demo',
         text:
-          'At range 3, archers fire one die. Select the archer and attack from long range.',
+          'At range 3, archers fire one die. This long-range sample shot resolves automatically so you can compare it to range 2.',
         focusKeys: [k.blueArc, k.redSkr, bArcR3Key, rArcR3Key].filter(Boolean),
         paths: [
           { fromKey: k.blueArc, toKey: k.redSkr, kind: 'ranged' },
         ].filter((p) => p.toKey),
+        autoSequence: [
+          {
+            type: 'attack',
+            unitName: 'blueArc',
+            defenderKey: k.redSkr,
+            status: 'Watch the archer fire a lighter range-3 volley.',
+            holdMs: 1350,
+          },
+        ],
         learn: [
           'Range 3 is lower volume fire, useful for finishing pressure or forcing difficult choices.',
         ],
@@ -13924,7 +14213,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'attack',
-          text: 'Click Blue archer, then click highlighted Red skirmisher (range 3).',
+          auto: true,
+          text: 'Watch the Blue archer fire from long range automatically.',
           sourceKeys: [k.blueArc],
           enemyKeys: [k.redSkr],
         },
@@ -13957,9 +14247,18 @@ function stopDoctrinePreviewLoop() {
         id: 'gen_combat',
         title: 'General Combat Demo',
         text:
-          'Generals can fight in melee, but they are not frontline brawlers. Use this drill to execute a single general attack.',
+          'Generals can fight in melee, but they are not frontline brawlers. This sample attack resolves automatically so the risk stays readable.',
         focusKeys: [genDrillAtkKey, genDrillDefKey],
         paths: [{ fromKey: genDrillAtkKey, toKey: genDrillDefKey, kind: 'melee' }],
+        autoSequence: [
+          {
+            type: 'attack',
+            unitName: 'blueGen',
+            defenderKey: genDrillDefKey,
+            status: 'Watch the general make a single low-volume melee attack.',
+            holdMs: 1200,
+          },
+        ],
         learn: [
           'General melee profile: 1 die.',
           'Losing a general can collapse command and end games in Decapitation mode.',
@@ -13972,7 +14271,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'attack',
-          text: 'Click the highlighted Blue general, then click the highlighted Red unit to attack.',
+          auto: true,
+          text: 'Watch the highlighted Blue general attack automatically.',
           sourceKeys: [genDrillAtkKey],
           enemyKeys: [genDrillDefKey],
         },
@@ -14043,12 +14343,28 @@ function stopDoctrinePreviewLoop() {
         id: 'directives',
         title: 'War Council Directives',
         text:
-          'A directive is a tactical order you can issue during your turn. Reusable directives can return; single-use directives are one-turn spikes.',
+          'Directives are your tactical orders. The preview now answers four questions before you commit: what it spends, what you pick, what changes on the board, and when to use it.',
         focusKeys: [k.blueGen, k.blueInfFrontL, k.blueCav, k.blueArc],
         learn: [
           'Directives spend actions from the same 3-action turn budget.',
-          'Use “Show UI” if you want to inspect the full right-side command panel while learning.',
+          'Blue paths mean repositioning, red means attack pressure, purple means command links, and green means hold/brace effects.',
+          'Open War Council to inspect the highlighted example directive with its full preview and coaching.',
         ],
+        onEnter: () => {
+          state.tutorial.showSidePanel = true;
+          const tutorialCommandId = 'command_surge';
+          state.doctrine.selectedCommandId = tutorialCommandId;
+          if (elCommandSel && [...elCommandSel.options].some((o) => o.value === tutorialCommandId)) {
+            elCommandSel.value = tutorialCommandId;
+          }
+          if (state.doctrine.builder.open) {
+            state.doctrine.builder.focusCommandId = tutorialCommandId;
+          }
+        },
+        task: {
+          type: 'open_builder',
+          text: 'Click Open War Council to inspect the highlighted directive preview.',
+        },
       },
       {
         id: 'combat_results',
@@ -14120,7 +14436,7 @@ function stopDoctrinePreviewLoop() {
         id: 'ready',
         title: 'Tutorial Complete',
         text:
-          'You now have movement, combat, and command basics for each unit type. Exit tutorial to play this position, or return to intro for First Battle, another recommended battle, or Advanced Setup.',
+          'You now have movement, combat, and command basics for each unit type. Exit tutorial to play this position, or return to intro for Play Now or full setup.',
         focusKeys: [k.blueGen, k.redGen, k.blueInfFrontL, k.redInfFrontR],
         learn: [
           'Replay tutorial anytime from the intro screen.',
@@ -14179,6 +14495,10 @@ function stopDoctrinePreviewLoop() {
       let status = '';
       if (task.done) {
         status = 'Complete. You can continue.';
+      } else if (task.statusText) {
+        status = task.statusText;
+      } else if (task.auto) {
+        status = 'Pending: watch the highlighted demonstration play automatically.';
       } else if (task.type === 'move') {
         status = 'Pending: click a highlighted source unit, then a highlighted destination hex.';
       } else if (task.type === 'attack') {
@@ -14199,7 +14519,7 @@ function stopDoctrinePreviewLoop() {
       elTutorialGuideTaskStatus.classList.toggle('done', !!task.done);
     }
     if (elTutorialPrevBtn) elTutorialPrevBtn.disabled = idx <= 0;
-    if (elTutorialNextBtn) elTutorialNextBtn.disabled = idx >= (steps.length - 1) || tutorialTaskNeedsInput();
+    if (elTutorialNextBtn) elTutorialNextBtn.disabled = idx >= (steps.length - 1) || tutorialTaskBlocksContinue();
     if (elTutorialSkipTaskBtn) {
       elTutorialSkipTaskBtn.hidden = !task.active;
       elTutorialSkipTaskBtn.disabled = !task.active || !!task.done;
@@ -14226,6 +14546,19 @@ function stopDoctrinePreviewLoop() {
     clearSelection();
     clearDoctrineTargeting();
     closeCommandPhase();
+    state.moveAnim = null;
+    state.moveAnimUntil = 0;
+    state.attackFlash = null;
+    clearDiceDisplay();
+    if (step?.task?.type !== 'open_builder' && state.doctrine.builder.open) {
+      closeDoctrineBuilder();
+    }
+    restoreTutorialBaselineState();
+    state.turn = 1;
+    state.side = 'blue';
+    state.actsUsed = 0;
+    state.actedUnitIds = new Set();
+    state.doctrine.commandIssuedThisTurn = false;
 
     state.tutorial.visual = {
       focusKeys: Array.isArray(step.focusKeys) ? step.focusKeys.filter((k) => board.activeSet.has(k)) : [],
@@ -14251,7 +14584,11 @@ function stopDoctrinePreviewLoop() {
       step.onEnter();
     }
 
-    if (state.tutorial.autoplay && clamped < (steps.length - 1) && !tutorialTaskNeedsInput()) {
+    if (state.tutorial.task?.auto && !state.tutorial.task.done) {
+      runTutorialAutoTask(step);
+    }
+
+    if (state.tutorial.autoplay && clamped < (steps.length - 1) && !tutorialTaskBlocksContinue()) {
       queueTutorialTimer(() => {
         if (!state.tutorial.active) return;
         applyTutorialStep(clamped + 1);
@@ -14278,6 +14615,10 @@ function stopDoctrinePreviewLoop() {
       renderTutorialGuide();
       return;
     }
+    if (tutorialTaskBlocksContinue()) {
+      renderTutorialGuide();
+      return;
+    }
     applyTutorialStep(state.tutorial.stepIndex, { log: false });
   }
 
@@ -14297,10 +14638,10 @@ function stopDoctrinePreviewLoop() {
     state.forwardAxis = 'vertical';
     loadScenario(GUIDED_TUTORIAL_SCENARIO_NAME);
     cacheTutorialUnitIds();
-    prepareQuickStartDoctrine();
-    state.starterAdvancedOpen = false;
+    prepareQuickStartDoctrine('tutorial');
     setIntroOverlayOpen(false);
     enterPlay();
+    captureTutorialBaselineState();
     setTutorialGuideOpen(true);
     state.tutorial.stepIndex = 0;
     state.tutorial.autoplay = false;
@@ -14321,30 +14662,56 @@ function stopDoctrinePreviewLoop() {
     document.body.classList.toggle('intro-open', show);
   }
 
-  function isFirstBattleScenario(name = state.loadedScenarioName) {
-    return String(name || '') === FIRST_BATTLE_SCENARIO_NAME;
-  }
-
-  function prepareQuickStartDoctrine() {
-    setDoctrineLoadoutForSide('blue', makeRecommendedDoctrineLoadout(), 'recommended');
-    setDoctrineLoadoutForSide('red', makeRecommendedDoctrineLoadout(), 'recommended');
+  function prepareQuickStartDoctrine(mode = 'random') {
+    const kind = String(mode || 'random').toLowerCase();
+    let blueLoadout = null;
+    let redLoadout = null;
+    let source = 'random';
+    if (kind === 'tutorial') {
+      const tutorialLoadout = buildCompleteDoctrineLoadout(makeTutorialDoctrineLoadout());
+      blueLoadout = tutorialLoadout;
+      redLoadout = tutorialLoadout;
+      source = 'tutorial';
+    } else if (kind === 'recommended') {
+      blueLoadout = buildCompleteDoctrineLoadout(makeRecommendedDoctrineLoadout());
+      redLoadout = buildCompleteDoctrineLoadout(makeRecommendedDoctrineLoadout());
+      source = 'recommended';
+    } else {
+      blueLoadout = makeRandomDoctrineLoadout();
+      redLoadout = makeRandomDoctrineLoadout();
+      source = 'random';
+    }
+    setDoctrineLoadoutForSide('blue', blueLoadout, source);
+    setDoctrineLoadoutForSide('red', redLoadout, source);
     state.doctrine.builder.confirmed = { blue: true, red: true };
     state.doctrine.builder.preBattleReady = true;
   }
 
   function startPlayNowFromIntro() {
     if (state.tutorial.active) stopGuidedTutorial();
-    launchStarterBattlePreset(starterBattlePresetById('first-battle'), 'First Battle');
+    const randomScenario = installRandomStartupScenario();
+    populateScenarioSelect();
+    if (elScenarioSel && [...elScenarioSel.options].some((o) => o.value === RANDOM_START_SCENARIO_NAME)) {
+      elScenarioSel.value = RANDOM_START_SCENARIO_NAME;
+    }
+    loadScenario(RANDOM_START_SCENARIO_NAME);
+    prepareQuickStartDoctrine();
+    setIntroOverlayOpen(false);
+    enterPlay();
+    log(
+      `Play Now launched: randomized battlefield loaded ` +
+      `(B:${randomScenario.blueArchetype || 'line'} / R:${randomScenario.redArchetype || 'line'}).`
+    );
+    updateHud();
   }
 
   function startSetupFromIntro() {
     if (state.tutorial.active) stopGuidedTutorial();
-    state.starterAdvancedOpen = false;
     state.doctrine.builder.preBattleReady = false;
     state.doctrine.builder.confirmed = { blue: false, red: false };
     setIntroOverlayOpen(false);
     enterEdit();
-    log('Advanced Setup opened: pick a scenario, then confirm War Council when ready.');
+    log('Game Setup opened: edit the field and confirm War Council when ready.');
     updateHud();
   }
 
@@ -14361,7 +14728,6 @@ function stopDoctrinePreviewLoop() {
     stopAiLoop();
     state.mode = 'edit';
     state.tool = 'units';
-    state.starterAdvancedOpen = false;
     state.doctrine.builder.preBattleReady = false;
     state.doctrine.builder.confirmed = { blue: false, red: false };
     const sideEl = document.getElementById('side');
@@ -16988,16 +17354,6 @@ function stopDoctrinePreviewLoop() {
       startPlayNowFromIntro();
     });
   }
-  if (elIntroRecommendedList) {
-    elIntroRecommendedList.addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-preset-id]');
-      if (!btn) return;
-      launchStarterBattlePreset(
-        starterBattlePresetById(btn.dataset.presetId),
-        'Recommended battle'
-      );
-    });
-  }
   if (elIntroSetupBtn) {
     elIntroSetupBtn.addEventListener('click', () => {
       startSetupFromIntro();
@@ -17153,28 +17509,6 @@ function stopDoctrinePreviewLoop() {
   if (elOpenFullRulesBtn) {
     elOpenFullRulesBtn.addEventListener('click', () => {
       openRulesOverlay('full');
-    });
-  }
-  if (elBattleFocusRulesBtn) {
-    elBattleFocusRulesBtn.addEventListener('click', () => {
-      openRulesOverlay('quick');
-    });
-  }
-  if (elBattleFocusAdvancedBtn) {
-    elBattleFocusAdvancedBtn.addEventListener('click', () => {
-      state.starterAdvancedOpen = !state.starterAdvancedOpen;
-      log(
-        state.starterAdvancedOpen
-          ? 'Advanced starter controls revealed: War Council, directives, and line advance are now visible.'
-          : 'Starter view restored: advanced orders are hidden again.'
-      );
-      updateHud();
-    });
-  }
-  if (elBattleFocusOrdersBtn) {
-    elBattleFocusOrdersBtn.addEventListener('click', () => {
-      const side = (state.side === 'red') ? 'red' : 'blue';
-      openRulesOverlay('commands', { mode: 'selected', side });
     });
   }
   if (elDoctrineOpenHeroBtn) {
@@ -17689,14 +18023,6 @@ function stopDoctrinePreviewLoop() {
     });
   }
 
-  if (elScenarioQuickPicks) {
-    elScenarioQuickPicks.addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-preset-id]');
-      if (!btn) return;
-      loadStarterBattlePresetIntoSetup(starterBattlePresetById(btn.dataset.presetId));
-    });
-  }
-
   if (elLoadScenarioBtn) {
     elLoadScenarioBtn.addEventListener('click', () => { loadScenario(elScenarioSel.value); });
   }
@@ -17972,17 +18298,16 @@ function stopDoctrinePreviewLoop() {
     populateVictorySelect();
     renderRulesCommandsGuide();
     pruneLegacyUiSurface();
-    installRandomStartupScenario();
+    const randomScenario = installRandomStartupScenario();
     populateScenarioSelect();
-    renderIntroRecommendedList();
     if (elDraftModeSel) elDraftModeSel.value = 'off';
     if (elDraftBudgetInput) elDraftBudgetInput.value = String(state.draft.budget);
 
-    if ([...elScenarioSel.options].some(o => o.value === FIRST_BATTLE_SCENARIO_NAME)) {
-      elScenarioSel.value = FIRST_BATTLE_SCENARIO_NAME;
+    if ([...elScenarioSel.options].some(o => o.value === RANDOM_START_SCENARIO_NAME)) {
+      elScenarioSel.value = RANDOM_START_SCENARIO_NAME;
     }
 
-    loadScenario(FIRST_BATTLE_SCENARIO_NAME);
+    loadScenario(RANDOM_START_SCENARIO_NAME);
     enterEdit();
     setIntroTutorialOpen(false);
 
@@ -17993,12 +18318,18 @@ function stopDoctrinePreviewLoop() {
       setIntroOverlayOpen(true);
     }
 
+    const biasLabel = (randomScenario.advantageSide === 'none')
+      ? 'balanced'
+      : `${randomScenario.advantageSide} flank bias`;
     const bootModeLabel = ORDER_ATLAS_MODE
       ? 'Orders Atlas mode ready: War Council opens directly for directive preview review.'
-      : 'Intro menu ready: choose First Battle, Tutorial, a recommended battle, or Advanced Setup.';
+      : 'Intro menu ready: choose Play Now, Game Setup, or Tutorial.';
 
     log(
-      `Booted ${GAME_NAME}. Starter scenario loaded (${FIRST_BATTLE_SCENARIO_NAME}). ` +
+      `Booted ${GAME_NAME}. Randomized startup loaded ` +
+      `(units=${randomScenario.units.length}, perSide=${randomScenario.unitsPerSide || Math.floor(randomScenario.units.length / 2)}, terrain=${randomScenario.terrain.length}, ` +
+      `axis=${forwardAxisLabel(randomScenario.axis)}, ${biasLabel}, ` +
+      `formations=B:${randomScenario.blueArchetype || 'line'} / R:${randomScenario.redArchetype || 'line'}). ` +
       bootModeLabel
     );
     updateHud();
