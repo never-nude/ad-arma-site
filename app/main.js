@@ -6,7 +6,18 @@
   // tightening the mechanics to the rules spec you provided.
 
   const GAME_NAME = 'Ad Arma';
-  const BUILD_ID = (window.POLEMO_BUILD_ID || window.POLEMO_BUILD || 'DEV');
+  const BUILD_ID = (window.AD_ARMA_BUILD_ID || window.POLEMO_BUILD_ID || window.POLEMO_BUILD || 'DEV');
+  const BUILD_CHANNEL = String(window.AD_ARMA_BUILD?.channel || 'root');
+  const scenarioMetaApi = window.AdArmaScenarioMeta || {};
+  const doctrineEffectsApi = window.AdArmaDoctrineEffects || {};
+  const doctrineUtilsApi = window.AdArmaDoctrineUtils || {};
+  const objectivesApi = window.AdArmaObjectives || {};
+  const iconKit = (window.AdArmaIconHelper && typeof window.AdArmaIconHelper.createUnitIconHelper === 'function')
+    ? window.AdArmaIconHelper.createUnitIconHelper({
+      buildId: BUILD_ID,
+      assetBase: window.AD_ARMA_BUILD?.assetBase || '/assets/',
+    })
+    : null;
   const URL_PARAMS = new URLSearchParams(window.location.search || '');
   const ORDER_ATLAS_MODE = (() => {
     const modeParam = String(URL_PARAMS.get('mode') || '').toLowerCase();
@@ -19,6 +30,63 @@
   if (ORDER_ATLAS_MODE) {
     document.documentElement.classList.add('mode-order-atlas');
   }
+
+  const createDoctrineEffectState = doctrineEffectsApi.createDoctrineEffectState
+    || (() => ({
+      bonusMove: {},
+      bonusAttackDice: {},
+      rangedBonusDice: {},
+      meleeDefenseBonus: {},
+      ignoreRetreatCount: {},
+      ignoreAllRetreat: {},
+      cannotMove: {},
+      cannotAttack: {},
+      commandOverrideUnitIds: {},
+      counterchargeUnitIds: {},
+      coverFireIgnoreTerrain: {},
+      wingScreenUnitIds: {},
+      driveThemBackUnitIds: {},
+      commandRadiusBonusByGeneralId: {},
+      reserveReleaseUnitIds: {},
+    }));
+  const ensureDoctrineEffectMapsShared = doctrineEffectsApi.ensureDoctrineEffectMaps
+    || ((effects) => effects || createDoctrineEffectState());
+  const clearDoctrineTurnEffectsShared = doctrineEffectsApi.clearDoctrineTurnEffects
+    || ((effects) => {
+      const ensured = ensureDoctrineEffectMapsShared(effects);
+      for (const key of Object.keys(ensured)) ensured[key] = {};
+      return ensured;
+    });
+  const activeDoctrineEffectsForUnitShared = doctrineEffectsApi.activeDoctrineEffectsForUnit
+    || (() => ({ turnKeys: [], longKeys: [], hasAny: false, hasPersistent: false, reserveReleased: false, labels: [] }));
+  const resolveScenarioMetadata = scenarioMetaApi.resolveScenarioMetadata
+    || ((name, explicitMeta) => ({ ...(explicitMeta || {}), group: explicitMeta?.group || 'other', objectives: explicitMeta?.objectives || [] }));
+  const normalizeScenarioObjectivesShared = objectivesApi.normalizeScenarioObjectives
+    || ((rawObjectives) => Array.isArray(rawObjectives) ? rawObjectives.slice() : []);
+  const evaluateObjectiveControlStateShared = objectivesApi.evaluateObjectiveControlState
+    || (() => ({ zones: 0, blueValue: 0, redValue: 0, contested: 0, neutral: 0, details: [] }));
+  const objectiveSummaryTextShared = objectivesApi.objectiveSummaryText
+    || ((objState) => (!objState || !objState.zones)
+      ? 'No key-ground objectives in this scenario.'
+      : `Objectives: Blue ${objState.blueValue} · Red ${objState.redValue} · contested ${objState.contested}/${objState.zones}.`);
+  const commandActionSpendShared = doctrineUtilsApi.commandActionSpend
+    || ((cmd) => Math.max(1, Number(cmd?.cost || 0)));
+  const validateDoctrineLoadoutShared = doctrineUtilsApi.validateDoctrineLoadout
+    || ((ids, options = {}) => {
+      if (!Array.isArray(ids)) return false;
+      const costs = Array.isArray(options.commandCosts) ? options.commandCosts : [1, 2, 3];
+      const perCost = Number.isFinite(Number(options.commandsPerCost))
+        ? Math.max(1, Math.trunc(Number(options.commandsPerCost)))
+        : 3;
+      if (ids.length !== (perCost * costs.length)) return false;
+      const uniq = new Set(ids);
+      if (uniq.size !== ids.length) return false;
+      for (const cost of costs) {
+        const count = ids.filter((id) => Number(options.commandById?.get(id)?.cost || 0) === cost).length;
+        if (count !== perCost) return false;
+      }
+      return true;
+    });
 
   // --- Board shape (157-hex "island")
   // Rows are r=0..10, each row is a contiguous run of q.
@@ -150,6 +218,12 @@
   const ATTACK_FLASH_MS = 920;
   const TUTORIAL_AUTOPLAY_STEP_MS = 16800;
   const TUTORIAL_AUTOPLAY_AFTER_TASK_MS = 5200;
+  const TUTORIAL_DEMO_STEP_START_MS = 420;
+  const TUTORIAL_DEMO_MOVE_PREP_MS = 720;
+  const TUTORIAL_DEMO_MOVE_MS = 720;
+  const TUTORIAL_DEMO_MOVE_SETTLE_MS = 560;
+  const TUTORIAL_DEMO_ATTACK_PREP_MS = 860;
+  const TUTORIAL_DEMO_ATTACK_SETTLE_MS = 980;
   const ENABLE_BATTLE_SFX = true;
   const COMMAND_COSTS = [1, 2, 3];
   const COMMANDS_PER_COST = 3;
@@ -198,8 +272,7 @@
   }
   function commandActionSpend(cmd) {
     if (!cmd) return 0;
-    const rebate = (cmd.persistence === 'spent' && cmd.cost >= 2) ? 1 : 0;
-    return Math.max(1, Number(cmd.cost || 0) - rebate);
+    return commandActionSpendShared(cmd);
   }
   function commandUsageBadge(persistence) {
     return persistence === 'spent' ? '1x' : 'R';
@@ -242,9 +315,189 @@
     command_surge: 'One general temporarily projects command farther to re-link nearby units.',
     stand_or_die: 'Infantry near a general hold position, refuse retreats, and harden defense for one turn.',
   };
+  const COMMAND_CATEGORY_LABELS = {
+    formation: 'Formation',
+    command: 'Command',
+    infantry: 'Infantry',
+    cavalry: 'Cavalry',
+    skirmish: 'Skirmish',
+    missile: 'Missile',
+    reserve: 'Reserve',
+    positional: 'Positional',
+  };
+  const COMMAND_CATEGORY_FALLBACKS = {
+    formation: {
+      when: 'Use formation orders when your line shape matters more than raw damage right this second.',
+      watch: 'They are strongest before a line fully locks into melee or immediately after it bends out of shape.',
+    },
+    command: {
+      when: 'Use command orders when the real problem is coordination, reach, or getting key units back under control.',
+      watch: 'They lose value if the general or runner ends too far from the actual fight.',
+    },
+    infantry: {
+      when: 'Use infantry orders where your main line will absorb or deliver the next decisive contact.',
+      watch: 'They are wasted on isolated infantry that cannot support one another.',
+    },
+    cavalry: {
+      when: 'Use cavalry orders when a wing has room to move and a flank angle is about to open.',
+      watch: 'Avoid spending them into cramped terrain or head-on shielded infantry fights.',
+    },
+    skirmish: {
+      when: 'Use skirmish orders to create tempo before the heavy lines fully collide.',
+      watch: 'They do less for you once light troops are trapped in direct melee.',
+    },
+    missile: {
+      when: 'Use missile orders to soften a lane before your infantry or cavalry commit.',
+      watch: 'Their value drops if you no longer have clean firing lanes or legal ranged attacks.',
+    },
+    reserve: {
+      when: 'Use reserve orders when your second line can arrive where the next turn will matter most.',
+      watch: 'Do not spend them just to drift reserves forward without a real follow-up attack or defense.',
+    },
+    positional: {
+      when: 'Use positional orders to escape a bad fight or preserve a fragile unit for a better exchange.',
+      watch: 'If the target is already trapped, a positional order may only delay the collapse.',
+    },
+  };
+  const COMMAND_COACHING = {
+    quick_dress: {
+      when: 'Use it to straighten a crooked infantry section, close a lateral gap, or keep neighboring supports aligned.',
+      watch: 'It is pure repositioning. If you need immediate attacks, save the action for a fighting order instead.',
+    },
+    runner_burst: {
+      when: 'Use it when one flank or reserve packet is about to drift out of command and a runner can reconnect the chain.',
+      watch: 'The burst is wasted if the runner still ends in a place that does not steady meaningful units.',
+    },
+    javelin_volley: {
+      when: 'Use it just before contact or when two light shooters can punish exposed infantry from safe range.',
+      watch: 'Do not spend it on missile units that have no clean targets or are about to be tied up in melee.',
+    },
+    quick_withdraw: {
+      when: 'Use it to pull a fragile shooter out of a trap before the enemy closes the lane.',
+      watch: 'If the retreat hex is only delaying an inevitable surround, keep the action for a higher-value save.',
+    },
+    close_ranks: {
+      when: 'Use it on the infantry hex you expect to absorb the next hard melee hit.',
+      watch: 'It does not help if the important fight is landing somewhere else on the line.',
+    },
+    spur_horses: {
+      when: 'Use it when one cavalry unit can turn extra reach into a new flank angle or objective grab.',
+      watch: 'Do not spend it on cavalry that still ends its move in a clogged or front-facing fight.',
+    },
+    signal_call: {
+      when: 'Use it when good troops are just outside normal command and you need them responsive this turn.',
+      watch: 'It is a bridge order, not a full reposition; if those units still have no productive action, wait.',
+    },
+    loose_screen: {
+      when: 'Use it when your light troops need to slip through the line and reclaim space before contact.',
+      watch: 'If the screen is already exposed on the far side, moving through the line can leave it isolated.',
+    },
+    covering_fire: {
+      when: 'Use it when woods or rough are blunting ranged pressure and two missile attacks can swing a lane.',
+      watch: 'It only matters if you can actually make those attacks this turn.',
+    },
+    hold_fast: {
+      when: 'Use it to keep one critical unit from being pushed off an anchor hex or broken by retreat results.',
+      watch: 'Do not spend it on a unit the enemy can simply ignore while crushing the rest of your formation.',
+    },
+    shield_wall: {
+      when: 'Use it when a connected infantry block is about to absorb a major melee exchange in one place.',
+      watch: 'If the chosen infantry are scattered or half of them will not be attacked, the wall is overbought.',
+    },
+    cavalry_exploit: {
+      when: 'Use it when a cavalry wing has open ground and can punish infantry before the line stabilizes.',
+      watch: 'If rough terrain or bodies choke the lane, the exploit order loses most of its edge.',
+    },
+    refuse_flank: {
+      when: 'Use it when one wing is overextended and you need to deny a wraparound before it starts.',
+      watch: 'Pulling back too early can concede space you actually needed to contest.',
+    },
+    forced_march: {
+      when: 'Use it when tempo matters more than attacks and a group must arrive one turn sooner.',
+      watch: 'Remember those units cannot attack this turn, so do not march them into contact with no payoff.',
+    },
+    strengthen_center: {
+      when: 'Use it when the center is the battle’s hinge and you need it harder to push back.',
+      watch: 'It is weaker if your general is off-center or the important fight is actually on a wing.',
+    },
+    wing_screen: {
+      when: 'Use it when flank missile units can shoot and still slide to safety or a better lane.',
+      watch: 'If the flank is already closed, the reposition half of the order may disappear.',
+    },
+    countercharge: {
+      when: 'Use it when enemy movement is about to enter cavalry reach and you want to punish that step-in.',
+      watch: 'It is poor value if your cavalry are pinned, surrounded, or too far from the threatened lane.',
+    },
+    jaws_inward: {
+      when: 'Use it when veteran or regular infantry on both sides can compress a target pocket from the flanks.',
+      watch: 'If one side of the jaws cannot move, the order becomes a lopsided shuffle instead of a trap.',
+    },
+    local_reserve: {
+      when: 'Use it when rear-line troops can join the fight immediately and change the next exchange.',
+      watch: 'Do not release reserves into a lane where they still arrive piecemeal and unsupported.',
+    },
+    drive_them_back: {
+      when: 'Use it when infantry contact is imminent and you want extra odds of retreat or disarray right now.',
+      watch: 'Spend it where several infantry can attack, not on a single isolated brawl.',
+    },
+    full_line_advance: {
+      when: 'Use it when one major row can step together and gain space without tearing itself apart.',
+      watch: 'Blocked units stay put, so a bad lane can turn a proud advance into a staggered mess.',
+    },
+    grand_shield_wall: {
+      when: 'Use it when you absolutely must hold a large infantry mass in place through extreme pressure.',
+      watch: 'You are buying survival, not mobility. If the fight will shift away, the wall can strand your best units.',
+    },
+    all_out_cavalry_sweep: {
+      when: 'Use it for a decisive wing assault when cavalry can chain shock into a collapsing flank.',
+      watch: 'This is an all-in commitment. If the wing is clogged or the enemy can absorb it, you burn a premium order.',
+    },
+    commit_reserves: {
+      when: 'Use it when deeper reserves can arrive where the line is bending or where your next push will land.',
+      watch: 'If those reserves still have no clean path toward contact, the commitment is mostly cosmetic.',
+    },
+    general_assault: {
+      when: 'Use it when one general is already near the real fight and nearby units can convert coordination into pressure.',
+      watch: 'It loses value if the general is safe but irrelevant or the chosen units have no strong follow-up hexes.',
+    },
+    collapse_center: {
+      when: 'Use it when you want the center to yield deliberately while both wings fold inward into a trap.',
+      watch: 'If the wings cannot close in time, you simply gave ground in the middle for free.',
+    },
+    last_push: {
+      when: 'Use it when a short burst of raw attack dice can decide the turn immediately.',
+      watch: 'Do not spend it unless those attackers are definitely going to fight now.',
+    },
+    reforge_line: {
+      when: 'Use it after the line has warped and you need several connected infantry to rebuild shape fast.',
+      watch: 'It is less valuable when only one or two hexes are wrong and a normal move would fix the problem.',
+    },
+    command_surge: {
+      when: 'Use it when one general can pull a whole local cluster back into command for this turn’s attack or rescue.',
+      watch: 'If the general still sits too far from the actual crisis, the extra radius solves very little.',
+    },
+    stand_or_die: {
+      when: 'Use it when infantry around a general must hold ground and refuse retreat at all costs.',
+      watch: 'It is strongest around a true anchor point; elsewhere it can lock troops into a fight you should abandon.',
+    },
+  };
   function commandLaymanText(cmd) {
     if (!cmd) return '';
     return COMMAND_LAYMAN_TEXT[cmd.id] || commandExplainText(cmd);
+  }
+
+  function commandCategoryLabel(category) {
+    return COMMAND_CATEGORY_LABELS[category] || 'Directive';
+  }
+
+  function commandCoachingFor(cmd) {
+    if (!cmd) return { when: '', watch: '' };
+    const base = COMMAND_CATEGORY_FALLBACKS[cmd.category] || { when: '', watch: '' };
+    const own = COMMAND_COACHING[cmd.id] || {};
+    return {
+      when: own.when || base.when || '',
+      watch: own.watch || base.watch || '',
+    };
   }
 
   function sentenceize(text) {
@@ -408,7 +661,7 @@
     }, 900);
   }
 
-  // --- Units (Bannerfall quality-aware stats)
+  // --- Units (quality-aware Ad Arma stats)
   // HP and UP vary by quality (green / regular / veteran).
   const UNIT_DEFS = [
     // id, label, abbrev, symbol, MP, quality stats, combat profile
@@ -503,15 +756,11 @@
   }
 
   function validateDoctrineLoadout(ids) {
-    if (!Array.isArray(ids)) return false;
-    if (ids.length !== (COMMANDS_PER_COST * COMMAND_COSTS.length)) return false;
-    const uniq = new Set(ids);
-    if (uniq.size !== ids.length) return false;
-    for (const cost of COMMAND_COSTS) {
-      const count = ids.filter(id => COMMAND_BY_ID.get(id)?.cost === cost).length;
-      if (count !== COMMANDS_PER_COST) return false;
-    }
-    return true;
+    return validateDoctrineLoadoutShared(ids, {
+      commandById: COMMAND_BY_ID,
+      commandCosts: COMMAND_COSTS,
+      commandsPerCost: COMMANDS_PER_COST,
+    });
   }
 
   function makeRandomDoctrineLoadout() {
@@ -528,6 +777,14 @@
       'quick_dress', 'close_ranks', 'hold_fast',
       'shield_wall', 'forced_march', 'cavalry_exploit',
       'full_line_advance', 'general_assault', 'last_push',
+    ];
+  }
+
+  function makeTutorialDoctrineLoadout() {
+    return [
+      'close_ranks', 'signal_call', 'covering_fire',
+      'shield_wall', 'strengthen_center', 'wing_screen',
+      'full_line_advance', 'general_assault', 'command_surge',
     ];
   }
 
@@ -770,61 +1027,27 @@
     return !!unit && (unit.type === 'gen' || unit.type === 'run');
   }
 
-  // === UNIT ICONS (Berserker) ===
-  // White-on-transparent PNGs rendered over blue/red token fills.
-  // Cache-busted with BUILD_ID so Safari/GitHub Pages doesn’t haunt you.
-  const UNIT_ICON_SOURCES = {
-    arc: '/assets/icon_arc.png', // Archer  -> arrow
-    inf: '/assets/icon_inf.png', // Infantry -> sword
-    skr: '/assets/icon_skr.png', // Skirmisher -> sling
-    cav: '/assets/icon_cav.png', // Cavalry -> horse
+  const loadUnitIcons = () => {
+    if (!iconKit || typeof iconKit.loadUnitIcons !== 'function') return;
+    iconKit.loadUnitIcons(() => {
+      try { draw(); } catch (_) {}
+    });
   };
 
-  const UNIT_ICONS = {};
-  let UNIT_ICONS_READY = false;
+  const unitIconReady = (type) => !!(iconKit && iconKit.unitIconReady(type));
 
-  function loadUnitIcons() {
-    const entries = Object.entries(UNIT_ICON_SOURCES);
-    let remaining = entries.length;
-    UNIT_ICONS_READY = false;
-
-    for (const [type, src] of entries) {
-      const img = new Image();
-      img.onload = () => {
-        remaining -= 1;
-        if (remaining <= 0) {
-          UNIT_ICONS_READY = true;
-          // Force a redraw once icons are in memory.
-          try { draw(); } catch (_) {}
-        }
-      };
-      img.onerror = () => {
-        remaining -= 1;
-        if (remaining <= 0) {
-          // Even if some fail, we can still draw (fallback to text).
-          try { draw(); } catch (_) {}
-        }
-      };
-      img.src = `${src}?v=${encodeURIComponent(BUILD_ID)}`;
-      UNIT_ICONS[type] = img;
+  function drawUnitTypeGlyph(ctx2, type, cx, cy, radius, options = {}) {
+    if (iconKit && typeof iconKit.drawUnitGlyph === 'function') {
+      return iconKit.drawUnitGlyph(ctx2, type, cx, cy, radius, options);
     }
+    if (typeof options.drawFallbackText === 'function') {
+      options.drawFallbackText(ctx2, cx, cy, radius);
+      return false;
+    }
+    return false;
   }
-
-  function unitIconReady(type) {
-    const img = UNIT_ICONS[type];
-    return !!(img && img.complete && img.naturalWidth > 0);
-  }
-
-  // Per-type tuning so icons feel proportional inside the token disc.
-  const UNIT_ICON_TUNE = {
-    arc: { scale: 1.12, y: -0.08 }, // a touch bigger + slightly up
-    inf: { scale: 0.95, y:  0.00, rot: -0.616 },
-    skr: { scale: 0.95, y:  0.00 },
-    cav: { scale: 0.95, y:  0.00 },
-  };
 
   loadUnitIcons();
-  // === END UNIT ICONS ===
 
 
   const QUALITY_ORDER = ['green', 'regular', 'veteran'];
@@ -938,6 +1161,10 @@
   const elCommandSkipBtn = document.getElementById('commandSkipBtn');
   const elOpenOrdersKeyBtn = document.getElementById('openOrdersKeyBtn');
   const elCommandPhaseNote = document.getElementById('commandPhaseNote');
+  const elCommandCoachCard = document.getElementById('commandCoachCard');
+  const elCommandCoachTitle = document.getElementById('commandCoachTitle');
+  const elCommandCoachMeta = document.getElementById('commandCoachMeta');
+  const elCommandCoachBody = document.getElementById('commandCoachBody');
   const elDoctrineOverlay = document.getElementById('doctrineOverlay');
   const elCloseDoctrineBtn = document.getElementById('closeDoctrineBtn');
   const elDoctrineSideSel = document.getElementById('doctrineSideSel');
@@ -979,7 +1206,10 @@
   let rulesCommandsViewSide = 'blue';
   let doctrinePreviewRaf = 0;
   let doctrinePreviewTime = 0;
-  const PANEL_COLLAPSE_PREF_KEY = 'bannerfall-panel-collapse-v1';
+  const AD_ARMA_STATE_FORMAT = 'ad-arma-state-v2';
+  const LEGACY_STATE_FORMAT = 'bannerfall-state-v1';
+  const PANEL_COLLAPSE_PREF_KEY = 'ad-arma-panel-collapse-v2';
+  const LEGACY_PANEL_COLLAPSE_PREF_KEY = 'bannerfall-panel-collapse-v1';
   const PANEL_COLLAPSE_DEFAULTS_TOUCH = {
     turnOrdersPanel: false,
     statusPanel: false,
@@ -1054,8 +1284,12 @@
         enemyKeys: [],
         progress: {},
         done: false,
+        auto: false,
+        running: false,
+        statusText: '',
       },
       unitIdByName: {},
+      baselineSnapshot: null,
     },
 
     mode: 'edit', // 'edit' | 'play'
@@ -1163,24 +1397,7 @@
       },
       history: [],
       longEffects: [],
-      // temporary effect maps keyed by unitId or side
-      effects: {
-        bonusMove: {},
-        bonusAttackDice: {},
-        rangedBonusDice: {},
-        meleeDefenseBonus: {},
-        ignoreRetreatCount: {},
-        ignoreAllRetreat: {},
-        cannotMove: {},
-        cannotAttack: {},
-        commandOverrideUnitIds: {},
-        counterchargeUnitIds: {},
-        coverFireIgnoreTerrain: {},
-        wingScreenUnitIds: {},
-        driveThemBackUnitIds: {},
-        commandRadiusBonusByGeneralId: {},
-        reserveReleaseUnitIds: {},
-      },
+      effects: createDoctrineEffectState(),
       builder: {
         open: false,
         side: 'blue',
@@ -1217,50 +1434,11 @@
   const ONLINE_PEER_PREFIX = 'cyb-';
 
   function ensureDoctrineEffectMaps() {
-    if (!state.doctrine.effects || typeof state.doctrine.effects !== 'object') {
-      state.doctrine.effects = {};
-    }
-    const maps = [
-      'bonusMove',
-      'bonusAttackDice',
-      'rangedBonusDice',
-      'meleeDefenseBonus',
-      'ignoreRetreatCount',
-      'ignoreAllRetreat',
-      'cannotMove',
-      'cannotAttack',
-      'commandOverrideUnitIds',
-      'counterchargeUnitIds',
-      'coverFireIgnoreTerrain',
-      'wingScreenUnitIds',
-      'driveThemBackUnitIds',
-      'commandRadiusBonusByGeneralId',
-      'reserveReleaseUnitIds',
-    ];
-    for (const k of maps) {
-      if (!state.doctrine.effects[k] || typeof state.doctrine.effects[k] !== 'object') {
-        state.doctrine.effects[k] = {};
-      }
-    }
+    state.doctrine.effects = ensureDoctrineEffectMapsShared(state.doctrine.effects);
   }
 
   function clearDoctrineTurnEffects() {
-    ensureDoctrineEffectMaps();
-    state.doctrine.effects.bonusMove = {};
-    state.doctrine.effects.bonusAttackDice = {};
-    state.doctrine.effects.rangedBonusDice = {};
-    state.doctrine.effects.meleeDefenseBonus = {};
-    state.doctrine.effects.ignoreRetreatCount = {};
-    state.doctrine.effects.ignoreAllRetreat = {};
-    state.doctrine.effects.cannotMove = {};
-    state.doctrine.effects.cannotAttack = {};
-    state.doctrine.effects.commandOverrideUnitIds = {};
-    state.doctrine.effects.counterchargeUnitIds = {};
-    state.doctrine.effects.coverFireIgnoreTerrain = {};
-    state.doctrine.effects.wingScreenUnitIds = {};
-    state.doctrine.effects.driveThemBackUnitIds = {};
-    state.doctrine.effects.commandRadiusBonusByGeneralId = {};
-    state.doctrine.effects.reserveReleaseUnitIds = {};
+    state.doctrine.effects = clearDoctrineTurnEffectsShared(state.doctrine.effects);
   }
 
   function ensureDoctrineStateInitialized(force = false) {
@@ -1306,6 +1484,7 @@
     const entry = commandEntryForSide(side, commandId);
     if (!entry) return false;
     if (entry.spent) return false;
+    if (!state.doctrine.commandPhaseOpen) return false;
     if (state.doctrine.commandIssuedThisTurn) return false;
     if (cmd.cost > (ACT_LIMIT - state.actsUsed)) return false;
     return true;
@@ -1347,7 +1526,7 @@
 
   function openCommandPhaseForCurrentTurn() {
     pruneExpiredDoctrineLongEffects();
-    state.doctrine.commandPhaseOpen = false;
+    state.doctrine.commandPhaseOpen = true;
     state.doctrine.commandIssuedThisTurn = false;
     state.doctrine.selectedCommandId = '';
     state.doctrine.activeCommandThisTurn = null;
@@ -1356,6 +1535,7 @@
   }
 
   function closeCommandPhase() {
+    state.doctrine.commandPhaseOpen = false;
     state.doctrine.selectedCommandId = '';
   }
 
@@ -4578,12 +4758,15 @@ function unitColors(side) {
     });
   }
 
-  function startMoveAnimation(fromKey, toKey, unit) {
+  function startMoveAnimation(fromKey, toKey, unit, opts = null) {
     if (!unit || !fromKey || !toKey || fromKey === toKey) return;
     if (!board.activeSet.has(fromKey) || !board.activeSet.has(toKey)) return;
 
     const aiSideMove = isAiTurnActive() && unit.side === state.side;
-    const durationMs = aiSideMove ? MOVE_ANIM_MS_AI : MOVE_ANIM_MS_HUMAN;
+    const explicitDuration = Number(opts && opts.durationMs);
+    const durationMs = Number.isFinite(explicitDuration) && explicitDuration > 0
+      ? Math.max(120, Math.trunc(explicitDuration))
+      : (aiSideMove ? MOVE_ANIM_MS_AI : MOVE_ANIM_MS_HUMAN);
     const now = Date.now();
     state.moveAnim = {
       unitId: unit.id,
@@ -4696,36 +4879,24 @@ function unitColors(side) {
     drawQualityRing(cx, cy, u.quality);
 
     const def = UNIT_BY_ID.get(u.type);
-    const canIcon = (u.type !== 'gen') && unitIconReady && unitIconReady(u.type);
-    if (u.type === 'run') {
-      drawRunnerFootGlyph(cx, cy, R * 0.82);
-    } else if (canIcon) {
-      const img = UNIT_ICONS && UNIT_ICONS[u.type];
-      if (img) {
-        const base = R * 0.95;
-        const tune = (UNIT_ICON_TUNE && UNIT_ICON_TUNE[u.type]) ? UNIT_ICON_TUNE[u.type] : { scale: 0.95, y: 0 };
-        const s = Math.floor(base * (tune.scale || 0.95));
-        const yOff = Math.floor(R * (tune.y || 0));
-        const rot = (typeof tune.rot === 'number') ? tune.rot : 0;
-        if (rot) {
-          ctx.save();
-          ctx.translate(Math.floor(cx), Math.floor(cy + yOff));
-          ctx.rotate(rot);
-          ctx.drawImage(img, Math.floor(-s / 2), Math.floor(-s / 2), s, s);
-          ctx.restore();
-        } else {
-          ctx.drawImage(img, Math.floor(cx - s / 2), Math.floor(cy - s / 2 + yOff), s, s);
-        }
-      }
-    } else {
-      const textScale = (u.type === 'inf' || u.type === 'cav' || u.type === 'skr') ? 0.83 : 1.0;
-      const fontPx = Math.floor(R * 0.55 * textScale);
-      ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = c.text;
-      ctx.fillText(def ? def.symbol : '?', cx, cy + 1);
-    }
+    drawUnitTypeGlyph(ctx, u.type, cx, cy, R, {
+      drawRunnerGlyph: drawRunnerFootGlyph,
+      runnerSize: R * 0.82,
+      fallbackSymbol: def ? def.symbol : '?',
+      fillStyle: c.text,
+      textScale: (u.type === 'inf' || u.type === 'cav' || u.type === 'skr') ? 0.83 : 1,
+      fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+      textYOffset: 1,
+      drawFallbackText(drawCtx, glyphCx, glyphCy, glyphRadius) {
+        const textScale = (u.type === 'inf' || u.type === 'cav' || u.type === 'skr') ? 0.83 : 1;
+        const fontPx = Math.floor(glyphRadius * 0.55 * textScale);
+        drawCtx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+        drawCtx.textAlign = 'center';
+        drawCtx.textBaseline = 'middle';
+        drawCtx.fillStyle = c.text;
+        drawCtx.fillText(def ? def.symbol : '?', glyphCx, glyphCy + 1);
+      },
+    });
 
     const maxHp = unitMaxHp(u.type, u.quality);
     const pipR = Math.max(2, Math.floor(R * 0.07));
@@ -5129,8 +5300,12 @@ function unitColors(side) {
         const lw = (isSel ? 3 : (isTurnSide ? 2.25 : 1.75)) * 2;
 
         ctx.save();
-        const strokeRgb = (u.type === 'run') ? '65, 169, 255' : '210, 118, 0';
-        ctx.strokeStyle = `rgba(${strokeRgb}, ${alpha})`;
+        if (u.type === 'run') {
+          ctx.strokeStyle = `rgba(65, 169, 255, ${alpha})`;
+        } else {
+          ctx.strokeStyle = qualityRingColor(u.quality);
+          ctx.globalAlpha = alpha;
+        }
         ctx.lineWidth = lw;
         ctx.setLineDash(u.type === 'run' ? [2, 6] : [4, 6]);
         ctx.lineCap = 'round';
@@ -5149,8 +5324,16 @@ function unitColors(side) {
       const isPlay = (state.mode === 'play') && !state.gameOver;
       const isTurnSide = isPlay && (u.side === state.side);
       const isSpent = isTurnSide && state.actedUnitIds.has(u.id);
+      const inCmdNow = unitIgnoresCommand(u) ? true : inCommandAt(hk, u.side);
+      const outOfCommand = !unitIgnoresCommand(u) && !inCmdNow;
       const isCmdLocked = isTurnSide && !isSpent && (state.actsUsed < ACT_LIMIT) &&
-        (!unitIgnoresCommand(u)) && (u.quality === 'green') && (!inCommandAt(hk, u.side));
+        (u.quality === 'green') && outOfCommand;
+      const doctrineStatus = activeDoctrineEffectsForUnitShared(
+        state.doctrine.effects,
+        state.doctrine.longEffects,
+        u.id,
+        u.side
+      );
 
       // Visual friction: spent units and unorderable greens read as "not available".
       // - spent: dim
@@ -5200,6 +5383,21 @@ function unitColors(side) {
         ctx.strokeStyle = '#fff';
         ctx.stroke();
       }
+      if (doctrineStatus.hasPersistent) {
+        ctx.beginPath();
+        ctx.arc(h.cx, h.cy, R * 0.77, 0, Math.PI * 2);
+        ctx.lineWidth = Math.max(2.4, Math.round(R * 0.10));
+        ctx.strokeStyle = 'rgba(126, 219, 214, 0.96)';
+        ctx.shadowColor = 'rgba(126, 219, 214, 0.48)';
+        ctx.shadowBlur = Math.max(4, Math.round(R * 0.26));
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      } else if (doctrineStatus.hasAny) {
+        ctx.beginPath();
+        ctx.arc(h.cx + (R * 0.34), h.cy - (R * 0.34), Math.max(3, Math.round(R * 0.10)), 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(126, 219, 214, 0.94)';
+        ctx.fill();
+      }
       if (unitIsDisarrayed(u)) {
         ctx.beginPath();
         ctx.arc(h.cx, h.cy, R * 0.43, 0, Math.PI * 2);
@@ -5209,42 +5407,37 @@ function unitColors(side) {
         ctx.stroke();
         ctx.setLineDash([]);
       }
-      // Unit mark (ICON preferred, text fallback)
-      const def = UNIT_BY_ID.get(u.type);
-
-      const img = UNIT_ICONS && UNIT_ICONS[u.type];
-      const canIcon = (u.type !== 'gen') && unitIconReady && unitIconReady(u.type);
-
-      if (u.type === 'run') {
-        drawRunnerFootGlyph(h.cx, h.cy, R * 0.82);
-      } else if (canIcon) {
-        const base = R * 0.95;
-        const tune = (UNIT_ICON_TUNE && UNIT_ICON_TUNE[u.type]) ? UNIT_ICON_TUNE[u.type] : { scale: 0.95, y: 0 };
-        const s = Math.floor(base * (tune.scale || 0.95));
-        const yOff = Math.floor(R * (tune.y || 0));
-
-        const rot = (typeof tune.rot === 'number') ? tune.rot : 0;
-
-        ctx.imageSmoothingEnabled = true;
-        if (rot) {
-          ctx.save();
-          ctx.translate(Math.floor(h.cx), Math.floor(h.cy + yOff));
-          ctx.rotate(rot);
-          ctx.drawImage(img, Math.floor(-s / 2), Math.floor(-s / 2), s, s);
-          ctx.restore();
-        } else {
-          ctx.drawImage(img, Math.floor(h.cx - s / 2), Math.floor(h.cy - s / 2 + yOff), s, s);
-        }
-} else {
-        // Original text symbols (kept as a fallback)
-        const textScale = (u.type === 'inf' || u.type === 'cav' || u.type === 'skr') ? 0.83 : 1.0;
-        const fontPx = Math.floor(R * 0.55 * textScale);
-        ctx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = c.text;
-        ctx.fillText(def.symbol, h.cx, h.cy + 1);
+      if (outOfCommand) {
+        ctx.beginPath();
+        ctx.arc(h.cx, h.cy, R * 0.64, 0, Math.PI * 2);
+        ctx.lineWidth = Math.max(2, Math.round(R * 0.08));
+        ctx.strokeStyle = isCmdLocked
+          ? 'rgba(255, 157, 0, 0.94)'
+          : 'rgba(255, 184, 92, 0.88)';
+        ctx.setLineDash(isCmdLocked ? [3, 4] : [2, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
+      // Unit mark (shared PNG glyph helper with text fallback)
+      const def = UNIT_BY_ID.get(u.type);
+      drawUnitTypeGlyph(ctx, u.type, h.cx, h.cy, R, {
+        drawRunnerGlyph: drawRunnerFootGlyph,
+        runnerSize: R * 0.82,
+        fallbackSymbol: def ? def.symbol : '?',
+        fillStyle: c.text,
+        textScale: (u.type === 'inf' || u.type === 'cav' || u.type === 'skr') ? 0.83 : 1,
+        fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+        textYOffset: 1,
+        drawFallbackText(drawCtx, glyphCx, glyphCy, glyphRadius) {
+          const textScale = (u.type === 'inf' || u.type === 'cav' || u.type === 'skr') ? 0.83 : 1;
+          const fontPx = Math.floor(glyphRadius * 0.55 * textScale);
+          drawCtx.font = `700 ${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+          drawCtx.textAlign = 'center';
+          drawCtx.textBaseline = 'middle';
+          drawCtx.fillStyle = c.text;
+          drawCtx.fillText(def ? def.symbol : '?', glyphCx, glyphCy + 1);
+        },
+      });
       // HP pips (tiny)
       const maxHp = unitMaxHp(u.type, u.quality);
       const pipR = Math.max(2, Math.floor(R * 0.07));
@@ -5256,19 +5449,17 @@ function unitColors(side) {
         ctx.fillStyle = (i < u.hp) ? '#fff' : '#ffffff33';
         ctx.fill();
       }
+      if (doctrineStatus.reserveReleased) {
+        ctx.beginPath();
+        ctx.moveTo(h.cx, h.cy - (R * 0.84));
+        ctx.lineTo(h.cx + (R * 0.13), h.cy - (R * 0.58));
+        ctx.lineTo(h.cx - (R * 0.13), h.cy - (R * 0.58));
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(246, 214, 142, 0.96)';
+        ctx.fill();
+      }
 
       ctx.restore();
-
-      // Extra indicator: green out-of-command can't be activated (dashed orange ring).
-      if (isCmdLocked) {
-        ctx.beginPath();
-        ctx.arc(h.cx, h.cy, R * 0.64, 0, Math.PI * 2);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = 'rgba(255, 157, 0, 0.9)';
-        ctx.setLineDash([3, 4]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
     }
 
     if (state.moveAnim) {
@@ -5423,7 +5614,8 @@ function unitColors(side) {
 
   function loadPanelCollapsePrefs() {
     try {
-      const raw = localStorage.getItem(PANEL_COLLAPSE_PREF_KEY);
+      const raw = localStorage.getItem(PANEL_COLLAPSE_PREF_KEY)
+        || localStorage.getItem(LEGACY_PANEL_COLLAPSE_PREF_KEY);
       if (!raw) return {};
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object') return {};
@@ -6263,8 +6455,7 @@ function unitColors(side) {
   }
 
   function scenarioStaticMetaFromName(name) {
-    const n = String(name || '').toLowerCase();
-    const out = {
+    return (scenarioMetaApi.legacyFallbackScenarioMeta || (() => ({
       group: 'other',
       description: '',
       historical: '',
@@ -6273,139 +6464,22 @@ function unitColors(side) {
       checkpointTurn: 8,
       pointTarget: null,
       notes: '',
-    };
-
-    if (n.startsWith('demo ')) out.group = 'tutorial';
-    else if (n.startsWith('grand ')) out.group = 'grand';
-    else if (n.startsWith('terrain ')) out.group = 'terrain';
-    else if (n.startsWith('berserker ')) out.group = 'berserker';
-
-    if (n.includes('marathon')) {
-      out.group = 'history';
-      out.sideLabels = { blue: 'Greek', red: 'Persian', named: true };
-      out.description = 'Fast closing battle over open ground with strong flanks.';
-      out.historical = '490 BCE';
-      out.checkpointTurn = 7;
-      out.objectives = [
-        { id: 'center-plain', name: 'Center Plain', value: 2, contestAdjacent: true, hexes: [{ q: 6, r: 5 }, { q: 7, r: 5 }, { q: 8, r: 5 }] },
-        { id: 'left-wing', name: 'West Wing Ground', value: 1, contestAdjacent: false, hexes: [{ q: 3, r: 5 }, { q: 3, r: 6 }] },
-        { id: 'right-wing', name: 'East Wing Ground', value: 1, contestAdjacent: false, hexes: [{ q: 11, r: 5 }, { q: 11, r: 6 }] },
-      ];
-      out.pointTarget = 22;
-    } else if (n.includes('granicus')) {
-      out.group = 'history';
-      out.sideLabels = { blue: 'Macedonian', red: 'Persian', named: true };
-      out.description = 'River crossing pressure and a decisive cavalry breach.';
-      out.historical = '334 BCE';
-      out.checkpointTurn = 8;
-      out.objectives = [
-        { id: 'ford', name: 'River Ford', value: 2, contestAdjacent: true, hexes: [{ q: 7, r: 4 }, { q: 7, r: 5 }, { q: 8, r: 5 }] },
-        { id: 'north-bank', name: 'North Bank', value: 1, contestAdjacent: false, hexes: [{ q: 7, r: 2 }, { q: 8, r: 2 }] },
-      ];
-    } else if (n.includes('cannae')) {
-      out.group = 'history';
-      out.sideLabels = { blue: 'Roman', red: 'Carthaginian', named: true };
-      out.description = 'Deep center push under risk of double envelopment.';
-      out.historical = '216 BCE';
-      out.checkpointTurn = 7;
-      out.objectives = [
-        { id: 'kill-zone', name: 'Center Kill Zone', value: 2, contestAdjacent: true, hexes: [{ q: 7, r: 5 }, { q: 8, r: 5 }, { q: 7, r: 6 }, { q: 8, r: 6 }] },
-        { id: 'left-horn', name: 'Western Horn', value: 1, contestAdjacent: false, hexes: [{ q: 3, r: 5 }, { q: 2, r: 5 }] },
-        { id: 'right-horn', name: 'Eastern Horn', value: 1, contestAdjacent: false, hexes: [{ q: 12, r: 5 }, { q: 13, r: 5 }] },
-      ];
-      out.pointTarget = 24;
-    } else if (n.includes('pharsalus')) {
-      out.group = 'history';
-      out.sideLabels = { blue: 'Caesarian', red: 'Pompeian', named: true };
-      out.description = 'Reserve timing and cavalry wing stability decide the line.';
-      out.historical = '48 BCE';
-      out.checkpointTurn = 8;
-      out.objectives = [
-        { id: 'center-line', name: 'Center Line', value: 2, contestAdjacent: true, hexes: [{ q: 6, r: 5 }, { q: 7, r: 5 }, { q: 8, r: 5 }, { q: 9, r: 5 }] },
-        { id: 'reserve-wing', name: 'Reserve Wing', value: 1, contestAdjacent: false, hexes: [{ q: 11, r: 4 }, { q: 11, r: 5 }] },
-      ];
-    } else if (n.includes('zama')) {
-      out.group = 'history';
-      out.sideLabels = { blue: 'Roman', red: 'Carthaginian', named: true };
-      out.historical = '202 BCE';
-      out.description = 'Open lanes for maneuver and late cavalry decision.';
-      out.objectives = [
-        { id: 'main-lanes', name: 'Battle Lanes', value: 2, contestAdjacent: true, hexes: [{ q: 6, r: 5 }, { q: 7, r: 5 }, { q: 8, r: 5 }] },
-      ];
-    } else if (n.includes('ilipa')) {
-      out.group = 'history';
-      out.sideLabels = { blue: 'Roman', red: 'Carthaginian', named: true };
-      out.historical = '206 BCE';
-      out.description = 'Reverse deployment and wing timing over broken approach terrain.';
-      out.objectives = [
-        { id: 'center-open', name: 'Open Center', value: 2, contestAdjacent: true, hexes: [{ q: 7, r: 5 }, { q: 8, r: 5 }] },
-      ];
-    } else if (n.includes('carhae') || n.includes('carrhae')) {
-      out.group = 'history';
-      out.sideLabels = { blue: 'Roman', red: 'Parthian', named: true };
-      out.historical = '53 BCE';
-      out.description = 'Missile pressure and mobility over exposed terrain.';
-      out.objectives = [
-        { id: 'exposed-center', name: 'Exposed Center', value: 2, contestAdjacent: true, hexes: [{ q: 7, r: 5 }, { q: 8, r: 5 }] },
-      ];
-    } else if (n.includes('thapsus')) {
-      out.group = 'history';
-      out.sideLabels = { blue: 'Caesarian', red: 'Optimates', named: true };
-      out.historical = '46 BCE';
-      out.description = 'Coastal pressure and rough-ground friction on the center push.';
-      out.objectives = [
-        { id: 'coast-road', name: 'Coastal Road', value: 1, contestAdjacent: true, hexes: [{ q: 12, r: 5 }, { q: 13, r: 5 }] },
-        { id: 'center-rough', name: 'Rough Center', value: 2, contestAdjacent: false, hexes: [{ q: 7, r: 5 }, { q: 8, r: 5 }] },
-      ];
-    } else if (n.includes('philippi')) {
-      out.group = 'history';
-      out.sideLabels = { blue: 'Triumvir', red: 'Liberator', named: true };
-      out.historical = '42 BCE';
-      out.description = 'Twin camps and contested approaches split the battle line.';
-      out.objectives = [
-        { id: 'west-camp', name: 'West Camp', value: 1, contestAdjacent: false, hexes: [{ q: 3, r: 8 }, { q: 3, r: 9 }] },
-        { id: 'east-camp', name: 'East Camp', value: 1, contestAdjacent: false, hexes: [{ q: 12, r: 3 }, { q: 12, r: 2 }] },
-        { id: 'marsh-line', name: 'Marsh Crossing', value: 2, contestAdjacent: true, hexes: [{ q: 7, r: 5 }, { q: 8, r: 5 }] },
-      ];
-    } else if (n.includes('tuderberg') || n.includes('teutoburg')) {
-      out.group = 'history';
-      out.sideLabels = { blue: 'Roman', red: 'Germanic', named: true };
-      out.historical = '9 CE';
-      out.description = 'Column under ambush pressure in restricted movement terrain.';
-      out.objectives = [
-        { id: 'ambush-corridor', name: 'Ambush Corridor', value: 2, contestAdjacent: true, hexes: [{ q: 7, r: 5 }, { q: 8, r: 5 }] },
-      ];
-    } else if (n.includes('thermopylae') || n.includes('hot gates')) {
-      out.group = 'history';
-      out.sideLabels = { blue: 'Greek', red: 'Persian', named: true };
-      out.historical = '480 BCE';
-      out.description = 'Narrow pass defense between sea edge and impassable heights.';
-      out.checkpointTurn = 6;
-      out.objectives = [
-        { id: 'hot-gate-pass', name: 'Hot Gates Pass', value: 3, contestAdjacent: true, hexes: [{ q: 7, r: 5 }, { q: 8, r: 5 }] },
-      ];
-    }
-
-    return out;
+    })))(name);
   }
 
   function scenarioMetadata(name) {
     const sc = scenarioRecord(name) || {};
-    const inferred = scenarioStaticMetaFromName(name);
     const explicit = (sc.meta && typeof sc.meta === 'object') ? sc.meta : {};
-    const sideLabels = (explicit.sideLabels && typeof explicit.sideLabels === 'object')
-      ? { ...inferred.sideLabels, ...explicit.sideLabels }
-      : inferred.sideLabels;
-
+    const resolved = resolveScenarioMetadata(name, explicit);
     return {
-      group: explicit.group || inferred.group || 'other',
-      description: explicit.description || inferred.description || '',
-      historical: explicit.historical || inferred.historical || '',
-      sideLabels: sideLabels || null,
-      objectives: Array.isArray(explicit.objectives) ? explicit.objectives : (Array.isArray(inferred.objectives) ? inferred.objectives : []),
-      checkpointTurn: clampInt(explicit.checkpointTurn, 1, 99, inferred.checkpointTurn || 8),
-      pointTarget: Number.isFinite(Number(explicit.pointTarget)) ? Math.max(1, Math.trunc(Number(explicit.pointTarget))) : inferred.pointTarget,
-      notes: explicit.notes || inferred.notes || '',
+      group: resolved.group || 'other',
+      description: resolved.description || '',
+      historical: resolved.historical || '',
+      sideLabels: resolved.sideLabels || null,
+      objectives: Array.isArray(resolved.objectives) ? resolved.objectives : [],
+      checkpointTurn: clampInt(resolved.checkpointTurn, 1, 99, 8),
+      pointTarget: Number.isFinite(Number(resolved.pointTarget)) ? Math.max(1, Math.trunc(Number(resolved.pointTarget))) : null,
+      notes: resolved.notes || '',
     };
   }
 
@@ -6470,30 +6544,9 @@ function unitColors(side) {
   }
 
   function normalizeScenarioObjectives(rawObjectives) {
-    const out = [];
-    if (!Array.isArray(rawObjectives)) return out;
-
-    for (let i = 0; i < rawObjectives.length; i++) {
-      const raw = rawObjectives[i];
-      if (!raw || typeof raw !== 'object') continue;
-      const hexesRaw = Array.isArray(raw.hexes) ? raw.hexes : [];
-      const hexSet = new Set();
-      for (const pt of hexesRaw) {
-        const hk = objectiveHexKeyFromPoint(pt);
-        if (hk) hexSet.add(hk);
-      }
-      if (hexSet.size === 0) continue;
-      const valueNum = Number(raw.value);
-      const value = Number.isFinite(valueNum) ? Math.max(1, Math.trunc(valueNum)) : 1;
-      out.push({
-        id: String(raw.id || `obj-${i + 1}`),
-        name: String(raw.name || `Objective ${i + 1}`),
-        value,
-        contestAdjacent: !!raw.contestAdjacent,
-        hexes: [...hexSet],
-      });
-    }
-    return out;
+    return normalizeScenarioObjectivesShared(rawObjectives, {
+      pointToHexKey: objectiveHexKeyFromPoint,
+    });
   }
 
   function loadScenarioObjectives(name) {
@@ -6544,53 +6597,14 @@ function unitColors(side) {
   }
 
   function evaluateObjectiveControl() {
-    const zones = Array.isArray(state.scenarioObjectives) ? state.scenarioObjectives : [];
-    const details = [];
-    let blueValue = 0;
-    let redValue = 0;
-    let contested = 0;
-    let neutral = 0;
-
-    for (const zone of zones) {
-      const occ = objectiveOccupants(zone);
-      const adj = objectiveAdjacentPressure(zone);
-      let owner = null;
-
-      if (occ.blueOnHex > 0 && occ.redOnHex === 0) owner = 'blue';
-      else if (occ.redOnHex > 0 && occ.blueOnHex === 0) owner = 'red';
-
-      if (zone.contestAdjacent) {
-        if (owner === 'blue' && adj.redAdj > 0) owner = null;
-        if (owner === 'red' && adj.blueAdj > 0) owner = null;
-      }
-
-      if (owner === 'blue') blueValue += zone.value;
-      else if (owner === 'red') redValue += zone.value;
-      else if (occ.blueOnHex > 0 || occ.redOnHex > 0 || adj.blueAdj > 0 || adj.redAdj > 0) contested += 1;
-      else neutral += 1;
-
-      details.push({
-        id: zone.id,
-        name: zone.name,
-        value: zone.value,
-        owner,
-        contested: owner === null && (occ.blueOnHex > 0 || occ.redOnHex > 0 || adj.blueAdj > 0 || adj.redAdj > 0),
-      });
-    }
-
-    return {
-      zones: zones.length,
-      blueValue,
-      redValue,
-      contested,
-      neutral,
-      details,
-    };
+    return evaluateObjectiveControlStateShared(state.scenarioObjectives, {
+      unitAtHex: (hk) => unitsByHex.get(hk) || null,
+      neighborHexesForKey: (hk) => board.byKey.get(hk)?.neigh || [],
+    });
   }
 
   function objectiveSummaryText(objState) {
-    if (!objState || !objState.zones) return 'No key-ground objectives in this scenario.';
-    return `Objectives: Blue ${objState.blueValue} · Red ${objState.redValue} · contested ${objState.contested}/${objState.zones}.`;
+    return objectiveSummaryTextShared(objState);
   }
 
   function logObjectiveStateIfChanged(force = false) {
@@ -7721,10 +7735,16 @@ function unitColors(side) {
     }
     for (const cmd of legal.sort((a, b) => (a.cost - b.cost) || a.name.localeCompare(b.name))) {
       const targetCount = legalDoctrineTargets(state.side, cmd.id).length;
+      const coaching = commandCoachingFor(cmd);
       const opt = document.createElement('option');
       opt.value = cmd.id;
       opt.textContent = `[${cmd.cost}] ${cmd.name} (${commandUsageLabel(cmd.persistence)} · targets ${targetCount})`;
-      opt.title = `${commandLaymanText(cmd)} Rules effect: ${commandExplainText(cmd)} Targeting: ${cmd.targeting}. Legal target groups: ${targetCount}.`;
+      opt.title =
+        `${commandLaymanText(cmd)} ` +
+        `${commandSpendSummaryText(cmd)} ` +
+        `Targeting: ${commandTargetGuidanceText(cmd.id, state.side)} ` +
+        `Use it when: ${coaching.when} ` +
+        `Watch for: ${coaching.watch}`;
       elCommandSel.appendChild(opt);
     }
     const targetingCmdId = state.doctrine.targeting.active ? String(state.doctrine.targeting.commandId || '') : '';
@@ -7754,6 +7774,11 @@ function unitColors(side) {
       updateHud();
       return;
     }
+    if (!state.doctrine.commandPhaseOpen) {
+      log('Doctrine declaration has already been resolved for this turn.');
+      updateHud();
+      return;
+    }
     if (state.doctrine.commandIssuedThisTurn) {
       log('Command already committed this turn.');
       updateHud();
@@ -7763,7 +7788,7 @@ function unitColors(side) {
     state.doctrine.activeCommandThisTurn = null;
     closeCommandPhase();
     clearDoctrineTargeting();
-    log(`${state.side.toUpperCase()} chose not to issue a command this turn.`);
+    log(`${state.side.toUpperCase()} skipped the doctrine step and moved into the action phase.`);
     pushEventTrace('command.skip', { side: state.side });
     updateHud();
   }
@@ -8282,6 +8307,181 @@ function unitColors(side) {
     return s;
   }
 
+  function escapeHtml(text) {
+    return String(text || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function commandPreviewLegendItems(commandId) {
+    const scene = doctrinePreviewScene(commandId);
+    const kinds = new Set();
+    for (const tok of (scene.tokens || [])) {
+      if (!tok) continue;
+      if (
+        (Array.isArray(tok.path) && tok.path.length > 1) ||
+        (Number.isFinite(tok.mc) && Number.isFinite(tok.mr))
+      ) {
+        kinds.add('move');
+      }
+    }
+    for (const fx of (scene.arrows || [])) {
+      if (!fx || !fx.kind) continue;
+      kinds.add(fx.kind);
+    }
+
+    const out = [];
+    if (kinds.has('move')) out.push('Blue paths show repositioning or formation movement.');
+    if (kinds.has('attack')) out.push('Red arrows show melee pressure or strike windows.');
+    if (kinds.has('ranged')) out.push('Gold arcs show ranged pressure.');
+    if (kinds.has('command')) out.push('Purple links show command reach or coordination.');
+    if (kinds.has('hold')) out.push('Green marks show brace, hold-ground, or defensive staying power.');
+    if (!out.length) out.push('The preview shows the board shape this directive tries to create.');
+    return out;
+  }
+
+  function commandTargetRangeLabel(commandId) {
+    const limits = doctrineTargetLimits(commandId);
+    if (limits.min === 0 && limits.max === 0) return 'No manual picks';
+    if (!Number.isFinite(limits.max)) return `Pick ${limits.min}+`;
+    if (limits.min === limits.max) return `Pick ${limits.min}`;
+    return `Pick ${limits.min}-${limits.max}`;
+  }
+
+  function commandTargetGuidanceText(commandId, side = null) {
+    const cmd = COMMAND_BY_ID.get(commandId);
+    if (!cmd) return '';
+    const limits = doctrineTargetLimits(commandId);
+    if (limits.min === 0 && limits.max === 0) {
+      return 'No manual unit picking. Use the directive when the attack window is live and the game applies the effect automatically.';
+    }
+    const rangeLabel = commandTargetRangeLabel(commandId);
+    const eligibleNow = (side === 'blue' || side === 'red') ? legalDoctrineTargets(side, commandId).length : null;
+    const boardNow = Number.isFinite(eligibleNow)
+      ? ` ${eligibleNow} eligible ${eligibleNow === 1 ? 'unit is' : 'units are'} legal on the board right now.`
+      : '';
+    return `${rangeLabel}. Look for ${cmd.targeting || 'matching friendly units'}.${boardNow}`.trim();
+  }
+
+  function commandSpendSummaryText(cmd) {
+    if (!cmd) return '';
+    const spend = commandActionSpend(cmd);
+    return `Spend ${spend} action${spend === 1 ? '' : 's'} this turn.`;
+  }
+
+  function commandStatusSummaryText(side, cmd) {
+    if (!cmd) return '';
+    const normalizedSide = (side === 'red') ? 'red' : 'blue';
+    const entry = commandEntryForSide(normalizedSide, cmd.id);
+    if (entry?.spent) return 'Status: already spent in this battle.';
+    if (state.mode !== 'play') return 'Status: doctrine builder preview.';
+    if (normalizedSide !== state.side) return 'Status: loaded in this War Council.';
+    if (!state.doctrine.commandPhaseOpen) return 'Status: doctrine step has closed for this turn.';
+    if (state.doctrine.commandIssuedThisTurn) {
+      return 'Status: you have already issued a directive this turn.';
+    }
+    const eligibleNow = legalDoctrineTargets(normalizedSide, cmd.id).length;
+    if (!eligibleNow) return 'Status: no legal targets on the current board.';
+    return `Status: ready now with ${eligibleNow} eligible ${eligibleNow === 1 ? 'unit' : 'units'}.`;
+  }
+
+  function buildCommandCoachHtml(commandId, side = null, variant = 'overlay') {
+    const cmd = COMMAND_BY_ID.get(commandId);
+    if (!cmd) return '';
+    const coaching = commandCoachingFor(cmd);
+    const summary = sentenceize(commandLaymanText(cmd));
+    const boardEffect = sentenceize(commandExplainText(cmd));
+    const targetText = sentenceize(commandTargetGuidanceText(commandId, side));
+    const spendText = sentenceize(commandSpendSummaryText(cmd));
+    const useText = sentenceize(coaching.when);
+    const watchText = sentenceize(coaching.watch);
+    const statusText = sentenceize(commandStatusSummaryText(side, cmd));
+    const legendItems = commandPreviewLegendItems(commandId);
+    const pills = [
+      `Cost ${cmd.cost}`,
+      commandUsageLabel(cmd.persistence),
+      commandCategoryLabel(cmd.category),
+      `Spend ${commandActionSpend(cmd)}`,
+    ];
+    const pillsHtml = pills.map((pill) => `<span class="coachPill">${escapeHtml(pill)}</span>`).join('');
+    const legendHtml = legendItems.map((line) => `<li>${escapeHtml(line)}</li>`).join('');
+
+    if (variant === 'compact') {
+      return (
+        `<div class="coachPanel coachPanelCompact">` +
+          `<div class="coachPills">${pillsHtml}</div>` +
+          `<div class="coachSummary">${escapeHtml(summary)}</div>` +
+          `<div class="coachGrid coachGridCompact">` +
+            `<div class="coachBlock"><div class="coachLabel">Pick Targets</div><div class="coachText">${escapeHtml(targetText)}</div></div>` +
+            `<div class="coachBlock"><div class="coachLabel">Board Effect</div><div class="coachText">${escapeHtml(boardEffect)}</div></div>` +
+            `<div class="coachBlock"><div class="coachLabel">Use It When</div><div class="coachText">${escapeHtml(useText)}</div></div>` +
+            `<div class="coachBlock"><div class="coachLabel">Watch For</div><div class="coachText">${escapeHtml(watchText)}</div></div>` +
+          `</div>` +
+          `<div class="coachInlineNote">Animated preview: ${escapeHtml(legendItems.join(' '))}</div>` +
+        `</div>`
+      );
+    }
+
+    return (
+      `<div class="coachPanel">` +
+        `<div class="coachTitleRow">` +
+          `<div class="coachTitle">${escapeHtml(cmd.name)}</div>` +
+          `<div class="coachPills">${pillsHtml}</div>` +
+        `</div>` +
+        `<div class="coachSummary">${escapeHtml(summary)}</div>` +
+        `<div class="coachGrid">` +
+          `<div class="coachBlock"><div class="coachLabel">Board Effect</div><div class="coachText">${escapeHtml(boardEffect)}</div></div>` +
+          `<div class="coachBlock"><div class="coachLabel">Action Spend</div><div class="coachText">${escapeHtml(spendText)}</div></div>` +
+          `<div class="coachBlock"><div class="coachLabel">Pick Targets</div><div class="coachText">${escapeHtml(targetText)}</div></div>` +
+          `<div class="coachBlock"><div class="coachLabel">Use It When</div><div class="coachText">${escapeHtml(useText)}</div></div>` +
+          `<div class="coachBlock"><div class="coachLabel">Watch For</div><div class="coachText">${escapeHtml(watchText)}</div></div>` +
+          `<div class="coachBlock"><div class="coachLabel">Status</div><div class="coachText">${escapeHtml(statusText)}</div></div>` +
+        `</div>` +
+        `<div class="coachBlock coachLegendBlock">` +
+          `<div class="coachLabel">Preview Legend</div>` +
+          `<ul class="coachList">${legendHtml}</ul>` +
+        `</div>` +
+      `</div>`
+    );
+  }
+
+  function renderCommandCoachCard() {
+    if (!elCommandCoachCard || !elCommandCoachTitle || !elCommandCoachMeta || !elCommandCoachBody) return;
+    const selectedCommandId = String(elCommandSel?.value || state.doctrine.selectedCommandId || '');
+    const cmd = COMMAND_BY_ID.get(selectedCommandId);
+    if (state.mode !== 'play' || !cmd) {
+      elCommandCoachTitle.textContent = 'Directive Preview';
+      elCommandCoachMeta.textContent = 'Select a directive to see its spend, picks, and battlefield effect before you commit.';
+      elCommandCoachBody.textContent = 'Open War Council for the animated board preview, or choose a directive to see its plain-language coaching here.';
+      return;
+    }
+
+    const side = (state.side === 'red') ? 'red' : 'blue';
+    const metaParts = [
+      `Cost ${cmd.cost}`,
+      commandUsageLabel(cmd.persistence),
+      commandCategoryLabel(cmd.category),
+      `Spend ${commandActionSpend(cmd)} action${commandActionSpend(cmd) === 1 ? '' : 's'}`,
+    ];
+    if (state.doctrine.targeting.active && state.doctrine.targeting.commandId === cmd.id) {
+      const picked = (state.doctrine.targeting.selectedUnitIds || []).length;
+      const eligible = (state.doctrine.targeting.eligibleUnitIds || []).length;
+      metaParts.push(`Targeting ${picked}/${eligible} · ${commandTargetRangeLabel(cmd.id)}`);
+    } else if (doctrineTargetLimits(cmd.id).min === 0 && doctrineTargetLimits(cmd.id).max === 0) {
+      metaParts.push('No manual picks');
+    } else {
+      const eligibleNow = legalDoctrineTargets(side, cmd.id).length;
+      metaParts.push(`${eligibleNow} eligible now`);
+    }
+
+    elCommandCoachTitle.textContent = `${cmd.name} Preview`;
+    elCommandCoachMeta.textContent = metaParts.join(' · ');
+    elCommandCoachBody.innerHTML = buildCommandCoachHtml(cmd.id, side, 'compact');
+  }
+
 
     function drawDoctrinePreviewCanvas(timeSec = 0) {
     if (!elDoctrinePreviewCanvas) return;
@@ -8495,35 +8695,24 @@ function unitColors(side) {
 
       drawQualityRingPreview(pt.x, pt.y, tokenR, quality);
 
-      const canIcon = (tok.type !== 'gen') && unitIconReady && unitIconReady(tok.type);
-      if (tok.type === 'run') {
-        drawRunnerGlyphPreview(pt.x, pt.y, hexR * 0.86);
-      } else if (canIcon) {
-        const img = UNIT_ICONS && UNIT_ICONS[tok.type];
-        if (img) {
-          const tune = (UNIT_ICON_TUNE && UNIT_ICON_TUNE[tok.type]) ? UNIT_ICON_TUNE[tok.type] : { scale: 0.95, y: 0 };
-          const s = Math.floor((hexR * 0.98) * (tune.scale || 0.95));
-          const yOff = Math.floor(hexR * (tune.y || 0));
-          const rot = (typeof tune.rot === 'number') ? tune.rot : 0;
-          if (rot) {
-            pctx.save();
-            pctx.translate(Math.floor(pt.x), Math.floor(pt.y + yOff));
-            pctx.rotate(rot);
-            pctx.drawImage(img, Math.floor(-s / 2), Math.floor(-s / 2), s, s);
-            pctx.restore();
-          } else {
-            pctx.drawImage(img, Math.floor(pt.x - s / 2), Math.floor(pt.y - s / 2 + yOff), s, s);
-          }
-        }
-      } else {
-        const def = UNIT_BY_ID.get(tok.type);
-        const symbol = def ? def.symbol : String(tok.type || '?').toUpperCase();
-        pctx.font = '700 ' + Math.max(10, Math.floor(hexR * 0.58)) + 'px "Source Sans 3", sans-serif';
-        pctx.textAlign = 'center';
-        pctx.textBaseline = 'middle';
-        pctx.fillStyle = c.text;
-        pctx.fillText(symbol, pt.x, pt.y + 1);
-      }
+      const def = UNIT_BY_ID.get(tok.type);
+      drawUnitTypeGlyph(pctx, tok.type, pt.x, pt.y, hexR, {
+        drawRunnerGlyph: drawRunnerGlyphPreview,
+        runnerSize: hexR * 0.86,
+        baseScale: 0.98,
+        fallbackSymbol: def ? def.symbol : String(tok.type || '?').toUpperCase(),
+        fillStyle: c.text,
+        fontFamily: '"Source Sans 3", sans-serif',
+        textYOffset: 1,
+        drawFallbackText(drawCtx, glyphCx, glyphCy, glyphRadius) {
+          const symbol = def ? def.symbol : String(tok.type || '?').toUpperCase();
+          drawCtx.font = `700 ${Math.max(10, Math.floor(glyphRadius * 0.58))}px "Source Sans 3", sans-serif`;
+          drawCtx.textAlign = 'center';
+          drawCtx.textBaseline = 'middle';
+          drawCtx.fillStyle = c.text;
+          drawCtx.fillText(symbol, glyphCx, glyphCy + 1);
+        },
+      });
 
       const pipR = Math.max(1.8, Math.floor(hexR * 0.09));
       const startX = pt.x - (pipR * 2) * (hpMax - 1) * 0.5;
@@ -8792,7 +8981,12 @@ function stopDoctrinePreviewLoop() {
     state.doctrine.builder.focusCommandId = (Array.isArray(seed) && seed.length) ? seed[0] : '';
     if (state.mode === 'play') {
       const legalSeed = (Array.isArray(seed) ? seed : []).filter((id) => !!COMMAND_BY_ID.get(id));
-      if (legalSeed.length) state.doctrine.builder.focusCommandId = legalSeed[0];
+      const selectedId = String(state.doctrine.selectedCommandId || '');
+      if (selectedId && legalSeed.includes(selectedId)) {
+        state.doctrine.builder.focusCommandId = selectedId;
+      } else if (legalSeed.length) {
+        state.doctrine.builder.focusCommandId = legalSeed[0];
+      }
     }
     if (elDoctrineSideSel) elDoctrineSideSel.value = editSide;
     renderDoctrineBuilder();
@@ -8881,6 +9075,7 @@ function stopDoctrinePreviewLoop() {
 
   function renderDoctrineBuilderFocusOnly() {
     const focusId = state.doctrine.builder.focusCommandId || '';
+    const side = (state.doctrine.builder.side === 'red') ? 'red' : 'blue';
     for (const el of [elDoctrineCost1List, elDoctrineCost2List, elDoctrineCost3List]) {
       if (!el) continue;
       for (const node of el.querySelectorAll('[data-doctrine-item][data-doctrine-id]')) {
@@ -8891,16 +9086,11 @@ function stopDoctrinePreviewLoop() {
     if (!elDoctrineExplain) return;
     const cmd = COMMAND_BY_ID.get(focusId);
     if (!cmd) {
-      elDoctrineExplain.textContent = 'Select an order to view its full effect and targeting.';
+      elDoctrineExplain.textContent = 'Select an order to view its action spend, target guidance, timing, and board preview.';
       drawDoctrinePreviewCanvas(doctrinePreviewTime);
       return;
     }
-    const targetTxt = cmd.targeting ? `Targeting: ${cmd.targeting}.` : 'Targeting: See order conditions.';
-    elDoctrineExplain.innerHTML =
-      `<div class="doctrineExplainTitle">${cmd.name} · Cost ${cmd.cost} · ${commandUsageLabel(cmd.persistence)}</div>` +
-      `<div>${commandDictionaryText(cmd)}</div>` +
-      `<div>Rules effect: ${commandExplainText(cmd)}</div>` +
-      `<div class="doctrineExplainTarget">${targetTxt}</div>`;
+    elDoctrineExplain.innerHTML = buildCommandCoachHtml(cmd.id, side, 'overlay');
     drawDoctrinePreviewCanvas(doctrinePreviewTime);
   }
 
@@ -9168,7 +9358,7 @@ function stopDoctrinePreviewLoop() {
       !state.draft.active &&
       (state.gameMode !== 'online' || (net.connected && !!net.peer))
     );
-    if (!ordersUnlocked && state.doctrine.builder.open) {
+    if (!ordersUnlocked && state.mode !== 'play' && state.doctrine.builder.open) {
       closeDoctrineBuilder();
     }
     if (elOrdersPanel) {
@@ -9350,6 +9540,7 @@ function stopDoctrinePreviewLoop() {
       (state.mode === 'play') &&
       !state.gameOver &&
       !isAiTurnActive() &&
+      state.doctrine.commandPhaseOpen &&
       !state.doctrine.commandIssuedThisTurn &&
       state.actsUsed < ACT_LIMIT;
 
@@ -9380,6 +9571,7 @@ function stopDoctrinePreviewLoop() {
       const hasDoctrine = (doctrineStateForSide(keySide)?.loadout?.length || 0) > 0;
       elOpenOrdersKeyBtn.disabled = !hasDoctrine;
     }
+    renderCommandCoachCard();
     if (elCommandPhaseNote) {
       if (state.doctrine.targeting.active) {
         const cmd = COMMAND_BY_ID.get(state.doctrine.targeting.commandId);
@@ -9394,13 +9586,17 @@ function stopDoctrinePreviewLoop() {
           `(pick ${rangeTxt}). Rule: ${cmd?.targeting || 'see command text'}. ` +
           'Hover eligible units to preview paths, click to toggle selection, then Confirm Directive.';
       } else {
+        const selectedCommandId = elCommandSel?.value || state.doctrine.selectedCommandId || '';
+        const selectedCmd = COMMAND_BY_ID.get(selectedCommandId);
         elCommandPhaseNote.textContent = state.doctrine.commandIssuedThisTurn
         ? (state.doctrine.activeCommandThisTurn
           ? `Directive committed: ${commandLabel(state.doctrine.activeCommandThisTurn)}`
           : 'Directive skipped for this turn.')
         : (state.actsUsed >= ACT_LIMIT
           ? 'No actions left this turn.'
-          : 'Optional: issue one directive any time this turn, or continue moving units.');
+          : (selectedCmd
+            ? `Start-of-turn doctrine step: preview ${selectedCmd.name}, commit it now, or skip into the action phase.`
+            : 'Start-of-turn doctrine step: declare one directive now or skip into the action phase.'));
       }
     }
 
@@ -9911,32 +10107,42 @@ function stopDoctrinePreviewLoop() {
     }
 
     const remainingActions = Math.max(0, ACT_LIMIT - state.actsUsed);
-    // Keep AI turns legible:
-    // - only consider directives at action 0
-    // - only allow low-cost directives automatically
-    // - always preserve room for at least two unit activations afterward
-    if (!state.doctrine.commandIssuedThisTurn && state.actsUsed === 0 && remainingActions > 2) {
-      const commandId = chooseAiDoctrineCommandId({
-        maxCost: 1,
-        actionsUsed: state.actsUsed,
-      });
-      const cmd = commandId ? COMMAND_BY_ID.get(commandId) : null;
-      if (cmd && shouldAiIssueDirectiveNow(cmd, state.actsUsed) && issueDoctrineCommand(commandId)) {
-        const spend = commandActionSpend(cmd);
-        log(`AI directive committed: ${cmd.name} (spent ${spend} action${spend === 1 ? '' : 's'}).`);
-        if (!isAiTurnActive()) {
-          stopAiLoop();
-          updateHud();
+    if (state.doctrine.commandPhaseOpen) {
+      // Keep AI turns legible:
+      // - only consider directives at action 0
+      // - only allow low-cost directives automatically
+      // - always preserve room for at least two unit activations afterward
+      if (!state.doctrine.commandIssuedThisTurn && state.actsUsed === 0 && remainingActions > 2) {
+        const commandId = chooseAiDoctrineCommandId({
+          maxCost: 1,
+          actionsUsed: state.actsUsed,
+        });
+        const cmd = commandId ? COMMAND_BY_ID.get(commandId) : null;
+        if (cmd && shouldAiIssueDirectiveNow(cmd, state.actsUsed) && issueDoctrineCommand(commandId)) {
+          const spend = commandActionSpend(cmd);
+          log(`AI directive committed: ${cmd.name} (spent ${spend} action${spend === 1 ? '' : 's'}).`);
+          if (!isAiTurnActive()) {
+            stopAiLoop();
+            updateHud();
+            return;
+          }
+          if (state.actsUsed >= ACT_LIMIT) {
+            stopAiLoop();
+            endTurn();
+            return;
+          }
+          scheduleAiStep(Math.max(160, aiTimingForDifficulty(state.aiDifficulty).intentMs || 240));
           return;
         }
-        if (state.actsUsed >= ACT_LIMIT) {
-          stopAiLoop();
-          endTurn();
-          return;
-        }
-        scheduleAiStep(Math.max(160, aiTimingForDifficulty(state.aiDifficulty).intentMs || 240));
+      }
+      skipDoctrineCommandPhase();
+      if (!isAiTurnActive()) {
+        stopAiLoop();
+        updateHud();
         return;
       }
+      scheduleAiStep(Math.max(140, Math.floor((aiTimingForDifficulty(state.aiDifficulty).intentMs || 240) * 0.7)));
+      return;
     }
 
     if (state.actsUsed >= ACT_LIMIT) {
@@ -10761,6 +10967,11 @@ function stopDoctrinePreviewLoop() {
     if (state.mode !== 'play') return;
     if (state.gameOver) return;
     if (isAiTurnActive()) return;
+    if (state.doctrine.commandPhaseOpen) {
+      log('Resolve the doctrine step first: Line Advance happens after you commit or skip directives.');
+      updateHud();
+      return;
+    }
     if (state.actsUsed >= ACT_LIMIT) {
       log('No activations left — End Turn.');
       updateHud();
@@ -11762,6 +11973,10 @@ function stopDoctrinePreviewLoop() {
       log('Commands can only be issued during live play.');
       return false;
     }
+    if (!state.doctrine.commandPhaseOpen) {
+      log('Directives can only be declared at the start of the turn, before unit actions.');
+      return false;
+    }
     if (state.doctrine.commandIssuedThisTurn) {
       log('Only one command can be issued each turn.');
       return false;
@@ -11820,9 +12035,6 @@ function stopDoctrinePreviewLoop() {
       return false;
     }
 
-    // Single-use orders get a built-in tempo edge:
-    // cost 2/3 spent orders effectively rebate 1 action after successful execution.
-    const singleUseRebate = (cmd.persistence === 'spent' && cmd.cost >= 2) ? 1 : 0;
     const actionSpend = commandActionSpend(cmd);
     state.actsUsed = Math.min(ACT_LIMIT, state.actsUsed + actionSpend);
     state.doctrine.commandIssuedThisTurn = true;
@@ -11834,11 +12046,7 @@ function stopDoctrinePreviewLoop() {
       for (const id of affectedUnitIds) state.actedUnitIds.add(id);
     }
 
-    if (singleUseRebate > 0) {
-      log(`${side.toUpperCase()} used ${cmd.name} (${commandUsageLabel(cmd.persistence)}, ${cmd.cost} actions, rebate ${singleUseRebate}).`);
-    } else {
-      log(`${side.toUpperCase()} used ${cmd.name} (${commandUsageLabel(cmd.persistence)}, ${cmd.cost} actions).`);
-    }
+    log(`${side.toUpperCase()} used ${cmd.name} (${commandUsageLabel(cmd.persistence)}, ${actionSpend} action${actionSpend === 1 ? '' : 's'}).`);
     if (result.message) log(result.message);
     notifyEnemyDirectiveUsed(side, cmd, actionSpend);
     pushEventTrace('command.resolve', {
@@ -12744,8 +12952,12 @@ function stopDoctrinePreviewLoop() {
         enemyKeys: [],
         progress: {},
         done: false,
+        auto: false,
+        running: false,
+        statusText: '',
       };
       state.tutorial.unitIdByName = {};
+      state.tutorial.baselineSnapshot = null;
       if (state._hoverKey && !state.selectedKey) state._hoverKey = null;
     }
     if (elTutorialGuideOverlay) {
@@ -12784,6 +12996,9 @@ function stopDoctrinePreviewLoop() {
         enemyKeys: [],
         progress: {},
         done: false,
+        auto: false,
+        running: false,
+        statusText: '',
       };
       return;
     }
@@ -12810,6 +13025,9 @@ function stopDoctrinePreviewLoop() {
       enemyKeys,
       progress: {},
       done: false,
+      auto: !!task.auto,
+      running: false,
+      statusText: String(task.statusText || ''),
     };
   }
 
@@ -12917,13 +13135,176 @@ function stopDoctrinePreviewLoop() {
     return true;
   }
 
-  function tutorialTaskNeedsInput() {
+  function captureTutorialBaselineState() {
+    state.tutorial.baselineSnapshot = buildStateSnapshot();
+  }
+
+  function restoreTutorialBaselineState() {
+    if (state.tutorial?.baselineSnapshot) {
+      applyImportedState(state.tutorial.baselineSnapshot, 'tutorial baseline', {
+        silent: true,
+        skipAiKick: true,
+      });
+      cacheTutorialUnitIds();
+      return;
+    }
+
+    // Fallback for safety if a baseline snapshot is unavailable.
+    loadScenario(GUIDED_TUTORIAL_SCENARIO_NAME);
+    cacheTutorialUnitIds();
+    prepareQuickStartDoctrine('tutorial');
+    state.doctrine.builder.preBattleReady = true;
+    enterPlay();
+    captureTutorialBaselineState();
+  }
+
+  function tutorialTaskBlocksContinue() {
     return !!(state.tutorial.active && state.tutorial.task?.active && !state.tutorial.task?.done);
+  }
+
+  function tutorialTaskNeedsInput() {
+    return !!(
+      state.tutorial.active &&
+      state.tutorial.task?.active &&
+      !state.tutorial.task?.done &&
+      !state.tutorial.task?.auto
+    );
+  }
+
+  function tutorialSetTaskStatus(statusText = '') {
+    if (!state.tutorial.task?.active || state.tutorial.task?.done) return;
+    state.tutorial.task.statusText = String(statusText || '');
+    renderTutorialGuide();
+  }
+
+  function tutorialDemoRolls(count, kind = 'melee') {
+    const dice = Math.max(1, Math.trunc(Number(count) || 1));
+    const meleeSeed = [6, 5, 4, 3, 2, 1];
+    const rangedSeed = [5, 4, 3, 2, 6, 1];
+    const seed = kind === 'ranged' ? rangedSeed : meleeSeed;
+    return Array.from({ length: dice }, (_, idx) => seed[idx % seed.length]);
+  }
+
+  function tutorialCombatSampleSpec(attackerKey, defenderKey) {
+    const attacker = unitsByHex.get(attackerKey);
+    const defender = unitsByHex.get(defenderKey);
+    if (!attacker || !defender) return null;
+    const prof = attackDiceFor(attackerKey, defenderKey, attacker);
+    if (!prof) return null;
+    const impactPosition = (prof.kind === 'melee')
+      ? attackApproachPosition(attackerKey, defenderKey, defender.side)
+      : 'none';
+    return {
+      attackerKey,
+      defenderKey,
+      kind: prof.kind,
+      dist: prof.dist,
+      baseDice: prof.baseDice ?? prof.dice,
+      rolls: tutorialDemoRolls(prof.dice, prof.kind),
+      terrainOverride: board.byKey.get(defenderKey)?.terrain || 'clear',
+      impactPosition,
+    };
+  }
+
+  function runTutorialAutoTask(step) {
+    const task = state.tutorial.task;
+    const sequence = Array.isArray(step?.autoSequence) ? step.autoSequence.filter(Boolean) : [];
+    if (!task?.active || task.done || !task.auto) return;
+    if (!sequence.length) {
+      tutorialMarkTaskDone('Demo complete. You can continue.');
+      return;
+    }
+
+    task.running = true;
+    task.progress = { autoIndex: 0 };
+    tutorialSetTaskStatus('Demo starting...');
+
+    const stepId = String(step.id || '');
+    const sameStepActive = () => state.tutorial.active && currentTutorialStep()?.id === stepId;
+
+    const runNext = (index) => {
+      if (!sameStepActive()) return;
+      if (index >= sequence.length) {
+        task.running = false;
+        tutorialMarkTaskDone('Demo complete. You can continue.');
+        return;
+      }
+
+      const action = sequence[index];
+      task.progress.autoIndex = index;
+      if (action.status) tutorialSetTaskStatus(action.status);
+
+      if (action.type === 'pause') {
+        queueTutorialTimer(() => runNext(index + 1), Math.max(0, Number(action.ms) || 0));
+        return;
+      }
+
+      if (action.type === 'move') {
+        const fromKey = action.unitName ? tutorialUnitKeyByName(action.unitName) : String(action.fromKey || '');
+        const toKey = String(action.toKey || '');
+        const movingUnit = fromKey ? unitsByHex.get(fromKey) : null;
+        if (!movingUnit || !toKey || !board.activeSet.has(toKey)) {
+          queueTutorialTimer(() => runNext(index + 1), 0);
+          return;
+        }
+        const prepMs = Math.max(0, Number(action.preDelayMs) || TUTORIAL_DEMO_MOVE_PREP_MS);
+        const durationMs = Math.max(120, Number(action.durationMs) || TUTORIAL_DEMO_MOVE_MS);
+        queueTutorialTimer(() => {
+          if (!sameStepActive()) return;
+          state.selectedKey = fromKey;
+          state._hoverKey = toKey;
+          updateHud();
+          startMoveAnimation(fromKey, toKey, movingUnit, { durationMs });
+          queueTutorialTimer(() => {
+            if (!sameStepActive()) return;
+            if (action.persist !== false && action.unitName) {
+              tutorialTeleportUnit(action.unitName, toKey);
+            }
+            state.selectedKey = action.persist === false ? fromKey : toKey;
+            state._hoverKey = toKey;
+            updateHud();
+            queueTutorialTimer(() => runNext(index + 1), Math.max(0, Number(action.holdMs) || TUTORIAL_DEMO_MOVE_SETTLE_MS));
+          }, durationMs + 120);
+        }, prepMs);
+        return;
+      }
+
+      if (action.type === 'attack') {
+        const attackerKey = action.unitName ? tutorialUnitKeyByName(action.unitName) : String(action.attackerKey || '');
+        const defenderKey = String(action.defenderKey || '');
+        const sample = (attackerKey && defenderKey) ? tutorialCombatSampleSpec(attackerKey, defenderKey) : null;
+        if (!sample) {
+          queueTutorialTimer(() => runNext(index + 1), 0);
+          return;
+        }
+        const prepMs = Math.max(0, Number(action.preDelayMs) || TUTORIAL_DEMO_ATTACK_PREP_MS);
+        queueTutorialTimer(() => {
+          if (!sameStepActive()) return;
+          state.selectedKey = attackerKey;
+          state._hoverKey = defenderKey;
+          updateHud();
+          playTutorialCombatSample(sample);
+          queueTutorialTimer(
+            () => runNext(index + 1),
+            diceAnimationDurationMs(Array.isArray(sample.rolls) ? sample.rolls.length : 0) +
+              Math.max(0, Number(action.holdMs) || TUTORIAL_DEMO_ATTACK_SETTLE_MS)
+          );
+        }, prepMs);
+        return;
+      }
+
+      queueTutorialTimer(() => runNext(index + 1), 0);
+    };
+
+    queueTutorialTimer(() => runNext(0), TUTORIAL_DEMO_STEP_START_MS);
   }
 
   function tutorialMarkTaskDone(statusText = 'Task complete.') {
     if (!state.tutorial.task?.active) return;
+    clearTutorialTimers();
     state.tutorial.task.done = true;
+    state.tutorial.task.running = false;
+    state.tutorial.task.statusText = String(statusText || '');
     if (elTutorialGuideTaskStatus) {
       elTutorialGuideTaskStatus.textContent = statusText;
       elTutorialGuideTaskStatus.classList.add('done');
@@ -12955,6 +13336,10 @@ function stopDoctrinePreviewLoop() {
 
     const clickedUnit = unitsByHex.get(hexKey) || null;
     const task = state.tutorial.task || { active: false, done: false };
+    if (task.active && !task.done && task.auto) {
+      log('This drill plays automatically. Watch the unit movement, then continue when the demo finishes.');
+      return true;
+    }
 
     const isSelectTask = task.active && !task.done && task.type === 'select';
     const isInspectTask = task.active && !task.done && task.type === 'inspect';
@@ -13289,12 +13674,20 @@ function stopDoctrinePreviewLoop() {
         id: 'inf_move',
         title: 'Infantry Movement & Formation',
         text:
-          'Infantry move one hex and work best in connected ranks. In this drill, move the FRONT-LEFT Blue infantry (top line) to the marked destination.',
+          'Infantry move one hex and work best in connected ranks. Watch the FRONT-LEFT Blue infantry step forward so you can read how a line extends without breaking support.',
         focusKeys: [...blueInfBlock],
         destinationKeys: [bInfTo].filter(Boolean),
         paths: [
           { fromKey: k.blueInfFrontL, toKey: bInfTo, kind: 'move' },
         ].filter((p) => p.toKey),
+        autoSequence: bInfTo ? [
+          {
+            type: 'move',
+            unitName: 'blueInfFrontL',
+            toKey: bInfTo,
+            status: 'Watch the FRONT-LEFT Blue infantry step one hex forward.',
+          },
+        ] : [],
         unitProfile: {
           move: 'Move: 1 hex per activation. Entering woods, hills, or rough can slow momentum.',
           role: 'Role: main battle line. Hold space, absorb contact, and push as a formation.',
@@ -13305,7 +13698,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'move',
-          text: 'Click the FRONT-LEFT highlighted Blue infantry, then click the highlighted destination hex.',
+          auto: true,
+          text: 'Watch the highlighted Blue infantry move forward automatically.',
           sourceKeys: [k.blueInfFrontL],
           destinationKeys: [bInfTo].filter(Boolean),
         },
@@ -13339,39 +13733,73 @@ function stopDoctrinePreviewLoop() {
         id: 'line_advance',
         title: 'Trial Line Advance',
         text:
-          'Line Advance moves a selected infantry row together. The highlighted trial shows both front infantry stepping in formation while support remains aligned behind.',
+          'Line Advance moves a selected infantry row together. This trial uses the Blue front rank only, so you can watch the row advance cleanly without the mirror view getting in the way.',
         focusKeys: [...blueInfFront, ...redInfFront, ...blueInfBack, ...redInfBack],
-        destinationKeys: [bLineToL, bLineToR, rLineToL, rLineToR].filter(Boolean),
+        destinationKeys: [bLineToL, bLineToR].filter(Boolean),
         paths: [
           { fromKey: k.blueInfFrontL, toKey: bLineToL, kind: 'move' },
           { fromKey: k.blueInfFrontR, toKey: bLineToR, kind: 'move' },
-          { fromKey: k.redInfFrontL, toKey: rLineToL, kind: 'move' },
-          { fromKey: k.redInfFrontR, toKey: rLineToR, kind: 'move' },
         ].filter((p) => p.toKey),
+        autoSequence: [
+          ...(bLineToL ? [{
+            type: 'move',
+            unitName: 'blueInfFrontL',
+            toKey: bLineToL,
+            status: 'Blue front-left infantry begins the line advance.',
+            holdMs: 640,
+          }] : []),
+          ...(bLineToR ? [{
+            type: 'move',
+            unitName: 'blueInfFrontR',
+            toKey: bLineToR,
+            status: 'Blue front-right infantry follows so the row stays aligned.',
+            holdMs: 900,
+          }] : []),
+        ],
         learn: [
           'Line Advance uses diagonal vectors tied to your current row orientation.',
           'If one unit is blocked, the rest can still advance (partial line move).',
         ],
         task: {
-          type: 'select',
-          text: 'Select either highlighted Blue front infantry to prepare a line advance.',
-          targetKeys: blueInfFront,
+          type: 'move',
+          auto: true,
+          text: 'Watch the highlighted Blue front rank execute a sample line advance automatically.',
+          sourceKeys: [...blueInfFront],
+          destinationKeys: [bLineToL, bLineToR].filter(Boolean),
         },
       },
       {
         id: 'inf_combat',
         title: 'Infantry Combat Demo',
         text:
-          'Infantry melee uses close-range dice pressure. In this drill, move first, then click an adjacent enemy to attack.',
+          'Infantry melee uses close-range dice pressure. This drill automatically steps into contact, then resolves a sample melee attack.',
         focusKeys: [k.blueInfFrontL, k.redInfFrontR],
         paths: [{ fromKey: k.blueInfFrontL, toKey: k.redInfFrontR, kind: 'melee' }],
+        autoSequence: [
+          ...(bInfTo ? [{
+            type: 'move',
+            unitName: 'blueInfFrontL',
+            toKey: bInfTo,
+            status: 'The infantry closes one hex to make contact.',
+            holdMs: 880,
+          }] : []),
+          {
+            type: 'attack',
+            unitName: 'blueInfFrontL',
+            defenderKey: k.redInfFrontR,
+            status: 'Now watch the melee dice resolve from the new front hex.',
+            preDelayMs: 1200,
+            holdMs: 1500,
+          },
+        ],
         learn: [
           'Infantry melee base dice: 2.',
           '6 = hit + disarray, 5 = hit, 4 = retreat, 3 = disarray, 1-2 = miss.',
         ],
         task: {
           type: 'move_attack',
-          text: 'Click Blue infantry -> click highlighted destination -> click highlighted Red infantry to attack.',
+          auto: true,
+          text: 'Watch the infantry move into contact and resolve the attack automatically.',
           sourceKeys: [k.blueInfFrontL],
           destinationKeys: [bInfTo].filter(Boolean),
           enemyKeys: [k.redInfFrontR],
@@ -13381,13 +13809,27 @@ function stopDoctrinePreviewLoop() {
         id: 'cav_move',
         title: 'Cavalry Movement',
         text:
-          'Cavalry are your mobile flank arm. They move farther in open lanes and are strongest when attacking exposed formations.',
+          'Cavalry are your mobile flank arm. Watch both wings move so the extra reach and open-lane tempo are easy to compare.',
         focusKeys: [k.blueCav, k.redCav],
         destinationKeys: [bCavTo, rCavTo].filter(Boolean),
         paths: [
           { fromKey: k.blueCav, toKey: bCavTo, kind: 'move' },
           { fromKey: k.redCav, toKey: rCavTo, kind: 'move' },
         ].filter((p) => p.toKey),
+        autoSequence: [
+          ...(bCavTo ? [{
+            type: 'move',
+            unitName: 'blueCav',
+            toKey: bCavTo,
+            status: 'Blue cavalry demonstrates the longer open-lane move.',
+          }] : []),
+          ...(rCavTo ? [{
+            type: 'move',
+            unitName: 'redCav',
+            toKey: rCavTo,
+            status: 'Red cavalry mirrors the same reach from the opposite flank.',
+          }] : []),
+        ],
         unitProfile: {
           move: 'Move: 2 in open terrain; difficult terrain can reduce effective tempo.',
           role: 'Role: flank shock and exploitation.',
@@ -13398,7 +13840,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'move',
-          text: 'Click the highlighted Blue cavalry, then click a highlighted destination hex.',
+          auto: true,
+          text: 'Watch the highlighted cavalry move automatically.',
           sourceKeys: [k.blueCav],
           destinationKeys: [bCavTo].filter(Boolean),
         },
@@ -13407,9 +13850,18 @@ function stopDoctrinePreviewLoop() {
         id: 'cav_combat',
         title: 'Cavalry Combat Demo',
         text:
-          'Cavalry melee can deliver larger impact than infantry when lanes are open and timing is right. Select cavalry, then strike the highlighted enemy.',
+          'Cavalry melee can deliver larger impact than infantry when lanes are open and timing is right. This sample attack resolves automatically so you can focus on the outcome.',
         focusKeys: [cavDrillAtkKey, cavDrillDefKey],
         paths: [{ fromKey: cavDrillAtkKey, toKey: cavDrillDefKey, kind: 'melee' }],
+        autoSequence: [
+          {
+            type: 'attack',
+            unitName: 'blueCav',
+            defenderKey: cavDrillDefKey,
+            status: 'Watch the cavalry strike the exposed enemy in melee.',
+            holdMs: 1200,
+          },
+        ],
         learn: [
           'Cavalry melee base dice: 3.',
           'Cavalry shine when they can hit before the enemy line stabilizes.',
@@ -13422,7 +13874,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'attack',
-          text: 'Click the highlighted Blue cavalry, then click the highlighted Red cavalry to attack.',
+          auto: true,
+          text: 'Watch the highlighted Blue cavalry attack automatically.',
           sourceKeys: [cavDrillAtkKey],
           enemyKeys: [cavDrillDefKey],
         },
@@ -13431,13 +13884,27 @@ function stopDoctrinePreviewLoop() {
         id: 'skr_move',
         title: 'Skirmisher Movement',
         text:
-          'Skirmishers are flexible disruptors. They screen, probe, and reposition faster than heavy line units in many lanes.',
+          'Skirmishers are flexible disruptors. Watch both of them reposition so you can read how screening units slide faster than heavy line troops.',
         focusKeys: [k.blueSkr, k.redSkr],
         destinationKeys: [bSkrTo, rSkrTo].filter(Boolean),
         paths: [
           { fromKey: k.blueSkr, toKey: bSkrTo, kind: 'move' },
           { fromKey: k.redSkr, toKey: rSkrTo, kind: 'move' },
         ].filter((p) => p.toKey),
+        autoSequence: [
+          ...(bSkrTo ? [{
+            type: 'move',
+            unitName: 'blueSkr',
+            toKey: bSkrTo,
+            status: 'Blue skirmisher repositions to keep the screen flexible.',
+          }] : []),
+          ...(rSkrTo ? [{
+            type: 'move',
+            unitName: 'redSkr',
+            toKey: rSkrTo,
+            status: 'Red skirmisher mirrors the same quick reposition.',
+          }] : []),
+        ],
         unitProfile: {
           move: 'Move: 2. Ranged: 1 die at range 2. Melee: 1 die.',
           role: 'Role: screen and disrupt before main-line contact.',
@@ -13448,7 +13915,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'move',
-          text: 'Click the highlighted Blue skirmisher, then click a highlighted destination hex.',
+          auto: true,
+          text: 'Watch the highlighted skirmishers reposition automatically.',
           sourceKeys: [k.blueSkr],
           destinationKeys: [bSkrTo].filter(Boolean),
         },
@@ -13457,16 +13925,26 @@ function stopDoctrinePreviewLoop() {
         id: 'skr_combat',
         title: 'Skirmisher Combat Demo',
         text:
-          'Skirmishers can sting at range 2 and can still fight in melee, but at lower raw dice than line infantry. Select then fire.',
+          'Skirmishers can sting at range 2 and can still fight in melee, but at lower raw dice than line infantry. This sample shot resolves automatically.',
         focusKeys: [k.blueSkr, k.redInfFrontL],
         paths: [{ fromKey: k.blueSkr, toKey: k.redInfFrontL, kind: 'ranged' }],
+        autoSequence: [
+          {
+            type: 'attack',
+            unitName: 'blueSkr',
+            defenderKey: k.redInfFrontL,
+            status: 'Watch the skirmisher fire a light ranged attack.',
+            holdMs: 1200,
+          },
+        ],
         learn: [
           'Skirmisher ranged profile: 1 die at range 2.',
           'Skirmisher melee profile: 1 die.',
         ],
         task: {
           type: 'attack',
-          text: 'Click the highlighted Blue skirmisher, then click the highlighted Red infantry to attack.',
+          auto: true,
+          text: 'Watch the highlighted Blue skirmisher attack automatically.',
           sourceKeys: [k.blueSkr],
           enemyKeys: [k.redInfFrontL],
         },
@@ -13475,12 +13953,29 @@ function stopDoctrinePreviewLoop() {
         id: 'arc_range2',
         title: 'Archer Range 2 Demo',
         text:
-          'Archers fire stronger at range 2. Move the archer one hex, then attack from range 2.',
+          'Archers fire stronger at range 2. This drill automatically repositions the archer first, then fires from the stronger band.',
         focusKeys: [k.blueArc, k.redSkr, arcR2DrillDest].filter(Boolean),
         paths: [
           { fromKey: k.blueArc, toKey: arcR2DrillDest, kind: 'move' },
           { fromKey: arcR2DrillDest, toKey: k.redSkr, kind: 'ranged' },
         ].filter((p) => p.toKey),
+        autoSequence: [
+          ...(arcR2DrillDest ? [{
+            type: 'move',
+            unitName: 'blueArc',
+            toKey: arcR2DrillDest,
+            status: 'The archer first steps into its stronger range-2 band.',
+            holdMs: 760,
+          }] : []),
+          {
+            type: 'attack',
+            unitName: 'blueArc',
+            defenderKey: k.redSkr,
+            status: 'Now the archer fires from range 2.',
+            preDelayMs: 1120,
+            holdMs: 1400,
+          },
+        ],
         unitProfile: {
           move: 'Move: 1. Ranged: 2 dice at range 2, 1 die at range 3. Melee: 1 die.',
           role: 'Role: ranged pressure and pre-contact disruption.',
@@ -13496,7 +13991,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'move_attack',
-          text: 'Click Blue archer -> move to highlighted hex -> attack highlighted Red skirmisher.',
+          auto: true,
+          text: 'Watch the Blue archer move into range 2 and fire automatically.',
           sourceKeys: [k.blueArc],
           destinationKeys: [arcR2DrillDest],
           enemyKeys: [k.redSkr],
@@ -13506,11 +14002,20 @@ function stopDoctrinePreviewLoop() {
         id: 'arc_range3',
         title: 'Archer Range 3 Demo',
         text:
-          'At range 3, archers fire one die. Select the archer and attack from long range.',
+          'At range 3, archers fire one die. This long-range sample shot resolves automatically so you can compare it to range 2.',
         focusKeys: [k.blueArc, k.redSkr, bArcR3Key, rArcR3Key].filter(Boolean),
         paths: [
           { fromKey: k.blueArc, toKey: k.redSkr, kind: 'ranged' },
         ].filter((p) => p.toKey),
+        autoSequence: [
+          {
+            type: 'attack',
+            unitName: 'blueArc',
+            defenderKey: k.redSkr,
+            status: 'Watch the archer fire a lighter range-3 volley.',
+            holdMs: 1350,
+          },
+        ],
         learn: [
           'Range 3 is lower volume fire, useful for finishing pressure or forcing difficult choices.',
         ],
@@ -13522,7 +14027,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'attack',
-          text: 'Click Blue archer, then click highlighted Red skirmisher (range 3).',
+          auto: true,
+          text: 'Watch the Blue archer fire from long range automatically.',
           sourceKeys: [k.blueArc],
           enemyKeys: [k.redSkr],
         },
@@ -13555,9 +14061,18 @@ function stopDoctrinePreviewLoop() {
         id: 'gen_combat',
         title: 'General Combat Demo',
         text:
-          'Generals can fight in melee, but they are not frontline brawlers. Use this drill to execute a single general attack.',
+          'Generals can fight in melee, but they are not frontline brawlers. This sample attack resolves automatically so the risk stays readable.',
         focusKeys: [genDrillAtkKey, genDrillDefKey],
         paths: [{ fromKey: genDrillAtkKey, toKey: genDrillDefKey, kind: 'melee' }],
+        autoSequence: [
+          {
+            type: 'attack',
+            unitName: 'blueGen',
+            defenderKey: genDrillDefKey,
+            status: 'Watch the general make a single low-volume melee attack.',
+            holdMs: 1200,
+          },
+        ],
         learn: [
           'General melee profile: 1 die.',
           'Losing a general can collapse command and end games in Decapitation mode.',
@@ -13570,7 +14085,8 @@ function stopDoctrinePreviewLoop() {
         },
         task: {
           type: 'attack',
-          text: 'Click the highlighted Blue general, then click the highlighted Red unit to attack.',
+          auto: true,
+          text: 'Watch the highlighted Blue general attack automatically.',
           sourceKeys: [genDrillAtkKey],
           enemyKeys: [genDrillDefKey],
         },
@@ -13641,12 +14157,28 @@ function stopDoctrinePreviewLoop() {
         id: 'directives',
         title: 'War Council Directives',
         text:
-          'A directive is a tactical order you can issue during your turn. Reusable directives can return; single-use directives are one-turn spikes.',
+          'Directives are your tactical orders. The preview now answers four questions before you commit: what it spends, what you pick, what changes on the board, and when to use it.',
         focusKeys: [k.blueGen, k.blueInfFrontL, k.blueCav, k.blueArc],
         learn: [
           'Directives spend actions from the same 3-action turn budget.',
-          'Use “Show UI” if you want to inspect the full right-side command panel while learning.',
+          'Blue paths mean repositioning, red means attack pressure, purple means command links, and green means hold/brace effects.',
+          'Open War Council to inspect the highlighted example directive with its full preview and coaching.',
         ],
+        onEnter: () => {
+          state.tutorial.showSidePanel = true;
+          const tutorialCommandId = 'command_surge';
+          state.doctrine.selectedCommandId = tutorialCommandId;
+          if (elCommandSel && [...elCommandSel.options].some((o) => o.value === tutorialCommandId)) {
+            elCommandSel.value = tutorialCommandId;
+          }
+          if (state.doctrine.builder.open) {
+            state.doctrine.builder.focusCommandId = tutorialCommandId;
+          }
+        },
+        task: {
+          type: 'open_builder',
+          text: 'Click Open War Council to inspect the highlighted directive preview.',
+        },
       },
       {
         id: 'combat_results',
@@ -13777,6 +14309,10 @@ function stopDoctrinePreviewLoop() {
       let status = '';
       if (task.done) {
         status = 'Complete. You can continue.';
+      } else if (task.statusText) {
+        status = task.statusText;
+      } else if (task.auto) {
+        status = 'Pending: watch the highlighted demonstration play automatically.';
       } else if (task.type === 'move') {
         status = 'Pending: click a highlighted source unit, then a highlighted destination hex.';
       } else if (task.type === 'attack') {
@@ -13797,7 +14333,7 @@ function stopDoctrinePreviewLoop() {
       elTutorialGuideTaskStatus.classList.toggle('done', !!task.done);
     }
     if (elTutorialPrevBtn) elTutorialPrevBtn.disabled = idx <= 0;
-    if (elTutorialNextBtn) elTutorialNextBtn.disabled = idx >= (steps.length - 1) || tutorialTaskNeedsInput();
+    if (elTutorialNextBtn) elTutorialNextBtn.disabled = idx >= (steps.length - 1) || tutorialTaskBlocksContinue();
     if (elTutorialSkipTaskBtn) {
       elTutorialSkipTaskBtn.hidden = !task.active;
       elTutorialSkipTaskBtn.disabled = !task.active || !!task.done;
@@ -13824,6 +14360,19 @@ function stopDoctrinePreviewLoop() {
     clearSelection();
     clearDoctrineTargeting();
     closeCommandPhase();
+    state.moveAnim = null;
+    state.moveAnimUntil = 0;
+    state.attackFlash = null;
+    clearDiceDisplay();
+    if (step?.task?.type !== 'open_builder' && state.doctrine.builder.open) {
+      closeDoctrineBuilder();
+    }
+    restoreTutorialBaselineState();
+    state.turn = 1;
+    state.side = 'blue';
+    state.actsUsed = 0;
+    state.actedUnitIds = new Set();
+    state.doctrine.commandIssuedThisTurn = false;
 
     state.tutorial.visual = {
       focusKeys: Array.isArray(step.focusKeys) ? step.focusKeys.filter((k) => board.activeSet.has(k)) : [],
@@ -13849,7 +14398,11 @@ function stopDoctrinePreviewLoop() {
       step.onEnter();
     }
 
-    if (state.tutorial.autoplay && clamped < (steps.length - 1) && !tutorialTaskNeedsInput()) {
+    if (state.tutorial.task?.auto && !state.tutorial.task.done) {
+      runTutorialAutoTask(step);
+    }
+
+    if (state.tutorial.autoplay && clamped < (steps.length - 1) && !tutorialTaskBlocksContinue()) {
       queueTutorialTimer(() => {
         if (!state.tutorial.active) return;
         applyTutorialStep(clamped + 1);
@@ -13876,6 +14429,10 @@ function stopDoctrinePreviewLoop() {
       renderTutorialGuide();
       return;
     }
+    if (tutorialTaskBlocksContinue()) {
+      renderTutorialGuide();
+      return;
+    }
     applyTutorialStep(state.tutorial.stepIndex, { log: false });
   }
 
@@ -13895,9 +14452,10 @@ function stopDoctrinePreviewLoop() {
     state.forwardAxis = 'vertical';
     loadScenario(GUIDED_TUTORIAL_SCENARIO_NAME);
     cacheTutorialUnitIds();
-    prepareQuickStartDoctrine();
+    prepareQuickStartDoctrine('tutorial');
     setIntroOverlayOpen(false);
     enterPlay();
+    captureTutorialBaselineState();
     setTutorialGuideOpen(true);
     state.tutorial.stepIndex = 0;
     state.tutorial.autoplay = false;
@@ -13918,11 +14476,27 @@ function stopDoctrinePreviewLoop() {
     document.body.classList.toggle('intro-open', show);
   }
 
-  function prepareQuickStartDoctrine() {
-    const blueRandom = makeRandomDoctrineLoadout();
-    const redRandom = makeRandomDoctrineLoadout();
-    setDoctrineLoadoutForSide('blue', blueRandom, 'random');
-    setDoctrineLoadoutForSide('red', redRandom, 'random');
+  function prepareQuickStartDoctrine(mode = 'random') {
+    const kind = String(mode || 'random').toLowerCase();
+    let blueLoadout = null;
+    let redLoadout = null;
+    let source = 'random';
+    if (kind === 'tutorial') {
+      const tutorialLoadout = buildCompleteDoctrineLoadout(makeTutorialDoctrineLoadout());
+      blueLoadout = tutorialLoadout;
+      redLoadout = tutorialLoadout;
+      source = 'tutorial';
+    } else if (kind === 'recommended') {
+      blueLoadout = buildCompleteDoctrineLoadout(makeRecommendedDoctrineLoadout());
+      redLoadout = buildCompleteDoctrineLoadout(makeRecommendedDoctrineLoadout());
+      source = 'recommended';
+    } else {
+      blueLoadout = makeRandomDoctrineLoadout();
+      redLoadout = makeRandomDoctrineLoadout();
+      source = 'random';
+    }
+    setDoctrineLoadoutForSide('blue', blueLoadout, source);
+    setDoctrineLoadoutForSide('red', redLoadout, source);
     state.doctrine.builder.confirmed = { blue: true, red: true };
     state.doctrine.builder.preBattleReady = true;
   }
@@ -14079,7 +14653,7 @@ function stopDoctrinePreviewLoop() {
     openCommandPhaseForCurrentTurn();
 
     if (state.gameMode !== 'online') {
-      log('Play: click a friendly unit. Blue goes first.');
+      log(`Play: ${openingSide.toUpperCase()} begins with the doctrine step. Commit or skip a directive, then activate units.`);
     }
     updateHud();
     maybeStartAiTurn();
@@ -15541,7 +16115,7 @@ function stopDoctrinePreviewLoop() {
     units.sort((a, b) => (a.r - b.r) || (a.q - b.q) || (a.id - b.id));
 
     return {
-      format: 'bannerfall-state-v1',
+      format: AD_ARMA_STATE_FORMAT,
       game: GAME_NAME,
       build: BUILD_ID,
       exportedAt: new Date().toISOString(),
@@ -15611,7 +16185,7 @@ function stopDoctrinePreviewLoop() {
       const snap = buildStateSnapshot();
       const text = JSON.stringify(snap, null, 2);
       const stamp = new Date().toISOString().replace(/[:]/g, '-').replace(/\..+$/, '');
-      const fileName = `bannerfall-state-${stamp}.json`;
+      const fileName = `ad-arma-state-${stamp}.json`;
 
       const blob = new Blob([text], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -15637,11 +16211,11 @@ function stopDoctrinePreviewLoop() {
     }
 
     if (Object.prototype.hasOwnProperty.call(raw, 'format')) {
-      if (raw.format !== 'bannerfall-state-v1') {
+      if (raw.format !== AD_ARMA_STATE_FORMAT && raw.format !== LEGACY_STATE_FORMAT) {
         return { ok: false, error: `Import failed: unsupported format "${String(raw.format)}".` };
       }
       if (!raw.state || typeof raw.state !== 'object' || Array.isArray(raw.state)) {
-        return { ok: false, error: 'Import failed: bannerfall-state-v1 requires a "state" object.' };
+        return { ok: false, error: `Import failed: ${String(raw.format)} requires a "state" object.` };
       }
       return { ok: true, payload: raw.state };
     }
@@ -15662,7 +16236,7 @@ function stopDoctrinePreviewLoop() {
       Object.prototype.hasOwnProperty.call(raw, 'victoryMode');
 
     if (!looksLikeState) {
-      return { ok: false, error: 'Import failed: this JSON does not look like a Bannerfall state file.' };
+      return { ok: false, error: 'Import failed: this JSON does not look like an Ad Arma state file.' };
     }
 
     return { ok: true, payload: raw };
@@ -16051,6 +16625,11 @@ function stopDoctrinePreviewLoop() {
   function endTurn() {
     if (state.mode !== 'play') return;
     if (state.gameOver) return;
+    if (state.doctrine.commandPhaseOpen) {
+      log('Resolve the doctrine step first: commit a directive or press Skip Directive.');
+      updateHud();
+      return;
+    }
 
     stopAiLoop();
 
@@ -16444,6 +17023,11 @@ function stopDoctrinePreviewLoop() {
           updateHud();
         }
       }
+      return;
+    }
+    if (state.doctrine.commandPhaseOpen) {
+      log('Start-of-turn doctrine step: use or skip a directive before activating units.');
+      updateHud();
       return;
     }
 

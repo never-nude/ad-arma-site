@@ -4,11 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="description" content="Ad Arma is a classical-era tactics game of command, cohesion, and collapse." />
   <title>Ad Arma</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=20260316-tutorial-reset-trial-v2" />
+  <link rel="stylesheet" href="/app/style.css?v=20260317-augustus-cleanup-v1" />
 </head>
 <body>
   <div id="introOverlay" class="introOverlay open" aria-hidden="false">
@@ -194,7 +195,7 @@
         <div class="row playOnlyRow">
           <button id="openOrdersKeyBtn" class="btn wide">Orders Key</button>
         </div>
-        <div id="commandPhaseNote" class="note">Optional: issue one command at any time during your turn.</div>
+        <div id="commandPhaseNote" class="note">Start-of-turn doctrine step: declare one directive now or skip into the action phase.</div>
       </div>
 
       <div id="statusPanel" class="panel">
@@ -621,7 +622,12 @@
   </section>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  <script src="build.js?v=20260316-tutorial-reset-trial-v2"></script>
-  <script src="main.js?v=20260316-tutorial-reset-trial-v2"></script>
+  <script src="/app/ui/icons.js?v=20260317-augustus-cleanup-v1"></script>
+  <script src="/app/data/scenario-meta.js?v=20260317-augustus-cleanup-v1"></script>
+  <script src="/app/rules/doctrine-effects.js?v=20260317-augustus-cleanup-v1"></script>
+  <script src="/app/rules/doctrine-utils.js?v=20260317-augustus-cleanup-v1"></script>
+  <script src="/app/rules/objectives.js?v=20260317-augustus-cleanup-v1"></script>
+  <script src="build.js?v=20260317-augustus-cleanup-v1"></script>
+  <script src="/app/main.js?v=20260317-augustus-cleanup-v1"></script>
 </body>
 </html>
