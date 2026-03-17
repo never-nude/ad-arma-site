@@ -7766,7 +7766,7 @@ function unitColors(side) {
     }
   }
 
-  function skipDoctrineCommandPhase() {
+  function skipDoctrineCommandPhase(options = {}) {
     if (state.mode !== 'play' || state.gameOver) return;
     if (state.doctrine.targeting.active) {
       clearDoctrineTargeting();
@@ -7788,9 +7788,11 @@ function unitColors(side) {
     state.doctrine.activeCommandThisTurn = null;
     closeCommandPhase();
     clearDoctrineTargeting();
-    log(`${state.side.toUpperCase()} skipped the doctrine step and moved into the action phase.`);
+    if (options.logMessage !== false) {
+      log(options.message || `${state.side.toUpperCase()} skipped the doctrine step and moved into the action phase.`);
+    }
     pushEventTrace('command.skip', { side: state.side });
-    updateHud();
+    if (options.updateHud !== false) updateHud();
   }
 
   function ensureDoctrineConfirmState() {
@@ -9595,8 +9597,8 @@ function stopDoctrinePreviewLoop() {
         : (state.actsUsed >= ACT_LIMIT
           ? 'No actions left this turn.'
           : (selectedCmd
-            ? `Start-of-turn doctrine step: preview ${selectedCmd.name}, commit it now, or skip into the action phase.`
-            : 'Start-of-turn doctrine step: declare one directive now or skip into the action phase.'));
+            ? `Start-of-turn doctrine step: preview ${selectedCmd.name}, commit it now, press Skip Directive, or click a friendly unit to begin without one.`
+            : 'Start-of-turn doctrine step: declare one directive now, press Skip Directive, or click a friendly unit to begin without one.'));
       }
     }
 
@@ -14653,7 +14655,7 @@ function stopDoctrinePreviewLoop() {
     openCommandPhaseForCurrentTurn();
 
     if (state.gameMode !== 'online') {
-      log(`Play: ${openingSide.toUpperCase()} begins with the doctrine step. Commit or skip a directive, then activate units.`);
+      log(`Play: ${openingSide.toUpperCase()} begins with the doctrine step. Commit a directive, press Skip Directive, or click a friendly unit to begin without one.`);
     }
     updateHud();
     maybeStartAiTurn();
@@ -17025,13 +17027,19 @@ function stopDoctrinePreviewLoop() {
       }
       return;
     }
-    if (state.doctrine.commandPhaseOpen) {
-      log('Start-of-turn doctrine step: use or skip a directive before activating units.');
-      updateHud();
-      return;
-    }
-
     const clickedUnit = unitsByHex.get(hexKey);
+    if (state.doctrine.commandPhaseOpen) {
+      if (clickedUnit && clickedUnit.side === state.side) {
+        skipDoctrineCommandPhase({
+          message: `${state.side.toUpperCase()} skipped the doctrine step and began the action phase.`,
+          updateHud: false,
+        });
+      } else {
+        log('Start-of-turn doctrine step: choose a directive, press Skip Directive, or click a friendly unit to begin without one.');
+        updateHud();
+        return;
+      }
+    }
 
     // If nothing selected: try to select.
     if (!state.selectedKey) {
