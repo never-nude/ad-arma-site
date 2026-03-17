@@ -774,10 +774,10 @@
   // White-on-transparent PNGs rendered over blue/red token fills.
   // Cache-busted with BUILD_ID so Safari/GitHub Pages doesn’t haunt you.
   const UNIT_ICON_SOURCES = {
-    arc: 'assets/icon_arc.png', // Archer  -> arrow
-    inf: 'assets/icon_inf.png', // Infantry -> sword
-    skr: 'assets/icon_skr.png', // Skirmisher -> sling
-    cav: 'assets/icon_cav.png', // Cavalry -> horse
+    arc: '/assets/icon_arc.png', // Archer  -> arrow
+    inf: '/assets/icon_inf.png', // Infantry -> sword
+    skr: '/assets/icon_skr.png', // Skirmisher -> sling
+    cav: '/assets/icon_cav.png', // Cavalry -> horse
   };
 
   const UNIT_ICONS = {};
