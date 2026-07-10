@@ -1,0 +1,30 @@
+# Syncs /v2 from the Ad-Arma_v2 repo's public/ directory.
+# Run manually:  gh workflow run sync-v2 -R never-nude/ad-arma-site
+name: sync-v2
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *'   # daily pickup of any Ad-Arma_v2 pushes
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull latest Ad-Arma_v2 client
+        run: |
+          curl -sL https://github.com/never-nude/Ad-Arma_v2/archive/refs/heads/main.tar.gz | tar xz
+          rm -rf v2
+          mv Ad-Arma_v2-main/public v2
+          rm -rf Ad-Arma_v2-main
+      - name: Commit if changed
+        run: |
+          git config user.name "sync-v2"
+          git config user.email "actions@github.com"
+          git add -A v2
+          git diff --cached --quiet && echo "v2 already current" && exit 0
+          git commit -m "Sync /v2 from Ad-Arma_v2"
+          git push
